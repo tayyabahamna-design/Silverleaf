@@ -356,9 +356,14 @@
   }
 }
 
-/* Uppy File Uploader Customization */
+/* Uppy File Uploader Base Styles & Customization */
 .uppy-Root {
   font-family: var(--font-sans) !important;
+  position: relative !important;
+}
+
+.uppy-Dashboard {
+  position: relative !important;
 }
 
 .uppy-Dashboard-inner {
@@ -472,4 +477,57 @@
 .uppy-DashboardContent-back,
 .uppy-DashboardContent-addMore {
   color: hsl(var(--primary)) !important;
+}
+
+/* Additional Uppy Core Styles for Visibility */
+.uppy-Dashboard-files {
+  background-color: hsl(var(--card)) !important;
+  padding: 1rem !important;
+}
+
+.uppy-Dashboard-dropFilesHereHint {
+  color: hsl(var(--foreground)) !important;
+  font-size: 1.125rem !important;
+  font-weight: 500 !important;
+}
+
+.uppy-size--md .uppy-Dashboard-AddFiles {
+  min-height: 150px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.uppy-Dashboard-AddFiles-info {
+  display: block !important;
+}
+
+.uppy-StatusBar-actions {
+  display: flex !important;
+  gap: 0.5rem !important;
+}
+
+.uppy-StatusBar-actionCircleBtn,
+.uppy-StatusBar-actionBtn--done {
+  background-color: hsl(var(--secondary)) !important;
+  color: hsl(var(--secondary-foreground)) !important;
+}
+
+.uppy-Dashboard-Item-previewIcon {
+  background-color: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.uppy-Dashboard-Item-fileInfo {
+  color: hsl(var(--foreground)) !important;
+}
+
+.uppy-Dashboard-AddFiles-list {
+  display: none !important;
+}
+
+button.uppy-u-reset.uppy-c-btn.uppy-Dashboard-browse {
+  background-color: hsl(var(--primary)) !important;
+  color: white !important;
 }
