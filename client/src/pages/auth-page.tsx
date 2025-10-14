@@ -51,7 +51,7 @@ export default function AuthPage() {
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="h-14 w-14 flex items-center justify-center">
+              <div className="h-14 w-14 flex items-center justify-center bg-primary rounded-lg p-2">
                 <img src={logoImage} alt="Silverleaf Academy Logo" className="w-full h-full object-contain" />
               </div>
               <div className="text-left">
