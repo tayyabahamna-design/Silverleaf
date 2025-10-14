@@ -364,12 +364,14 @@
 
 .uppy-Dashboard {
   position: relative !important;
+  overflow: visible !important;
 }
 
 .uppy-Dashboard-inner {
   background-color: hsl(var(--card)) !important;
   border: 1px solid hsl(var(--border)) !important;
   border-radius: 0.5rem !important;
+  overflow: visible !important;
 }
 
 .uppy-Dashboard-AddFiles {
@@ -553,8 +555,9 @@
 .uppy-Dashboard-inner {
   display: flex !important;
   flex-direction: column !important;
-  height: 550px !important;
-  max-height: 550px !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 400px !important;
 }
 
 .uppy-Dashboard-filesContainer {
@@ -562,7 +565,7 @@
   overflow-y: auto !important;
   padding-bottom: 0 !important;
   min-height: 0 !important;
-  max-height: calc(550px - 120px) !important;
+  max-height: 350px !important;
 }
 
 .uppy-Dashboard-filesContainer::-webkit-scrollbar {
@@ -699,13 +702,12 @@ button.uppy-u-reset.uppy-c-btn.uppy-Dashboard-browse {
 
 /* Fix upload button being cut off */
 .uppy-StatusBar {
-  position: sticky !important;
-  bottom: 0 !important;
+  flex-shrink: 0 !important;
   background-color: hsl(var(--card)) !important;
   border-top: 1px solid hsl(var(--border)) !important;
   z-index: 10 !important;
   padding: 1rem !important;
-  margin-top: auto !important;
+  min-height: 80px !important;
 }
 
 .uppy-StatusBar-content {
