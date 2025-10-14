@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import Uppy from "@uppy/core";
 import { DashboardModal } from "@uppy/react";
@@ -33,8 +33,11 @@ export function ObjectUploader({
   children,
 }: ObjectUploaderProps) {
   const [showModal, setShowModal] = useState(false);
-  const [uppy] = useState(() =>
-    new Uppy({
+  const uppyRef = useRef<Uppy | null>(null);
+
+  // Initialize Uppy instance
+  if (!uppyRef.current) {
+    uppyRef.current = new Uppy({
       restrictions: {
         maxNumberOfFiles,
         maxFileSize,
@@ -48,8 +51,20 @@ export function ObjectUploader({
       .on("complete", (result) => {
         onComplete?.(result);
         setShowModal(false);
-      })
-  );
+      });
+  }
+
+  // Update restrictions when props change
+  useEffect(() => {
+    if (uppyRef.current) {
+      uppyRef.current.setOptions({
+        restrictions: {
+          maxNumberOfFiles,
+          maxFileSize,
+        },
+      });
+    }
+  }, [maxNumberOfFiles, maxFileSize]);
 
   return (
     <div>
@@ -58,16 +73,19 @@ export function ObjectUploader({
         className={buttonClassName}
         size={buttonSize}
         variant={buttonVariant}
+        data-testid="button-upload-deck"
       >
         {children}
       </Button>
 
-      <DashboardModal
-        uppy={uppy}
-        open={showModal}
-        onRequestClose={() => setShowModal(false)}
-        proudlyDisplayPoweredByUppy={false}
-      />
+      {uppyRef.current && (
+        <DashboardModal
+          uppy={uppyRef.current}
+          open={showModal}
+          onRequestClose={() => setShowModal(false)}
+          proudlyDisplayPoweredByUppy={false}
+        />
+      )}
     </div>
   );
 }
