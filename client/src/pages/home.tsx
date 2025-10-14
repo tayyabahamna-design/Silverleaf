@@ -230,46 +230,48 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 bg-primary shadow-md">
         <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <span className="text-primary font-bold text-base sm:text-lg">SL</span>
+            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-bold text-base sm:text-lg">SL</span>
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold truncate" data-testid="text-app-title">
-                Silver Leaf
+              <h1 className="text-lg sm:text-xl font-bold text-white truncate" data-testid="text-app-title">
+                Silverleaf Academy
               </h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">
+              <p className="text-xs text-white/80 hidden sm:block">
                 Training Program Planner
               </p>
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
             {user && (
-              <div className="text-xs sm:text-sm text-muted-foreground hidden md:block truncate max-w-[200px]" data-testid="text-user-info">
+              <div className="text-xs sm:text-sm text-white/90 hidden md:block truncate max-w-[200px]" data-testid="text-user-info">
                 {user.email} ({user.role})
               </div>
             )}
-            <ThemeToggle />
+            <div className="text-white">
+              <ThemeToggle />
+            </div>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => logoutMutation.mutate()}
               disabled={logoutMutation.isPending}
               data-testid="button-logout"
-              className="hidden sm:flex"
+              className="hidden sm:flex bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Logout
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               size="icon"
               onClick={() => logoutMutation.mutate()}
               disabled={logoutMutation.isPending}
               data-testid="button-logout-mobile"
-              className="sm:hidden h-8 w-8"
+              className="sm:hidden h-8 w-8 bg-white/10 hover:bg-white/20 text-white border-white/20"
               aria-label="Logout"
             >
               <LogOut className="h-4 w-4" />
@@ -306,18 +308,18 @@ export default function Home() {
               <AccordionItem
                 key={week.id}
                 value={week.id}
-                className="border rounded-lg"
+                className="border-l-4 border-l-primary border rounded-lg bg-card shadow-sm hover:shadow-md transition-shadow"
                 data-testid={`card-week-${week.id}`}
               >
                 <div className="flex items-center pr-1 sm:pr-2">
-                  <AccordionTrigger className="flex-1 px-3 sm:px-6 py-3 sm:py-4 hover:no-underline">
-                    <div className="flex items-center gap-2 sm:gap-4 w-full min-w-0">
-                      <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span className="text-primary font-bold text-sm sm:text-base">{week.weekNumber}</span>
+                  <AccordionTrigger className="flex-1 px-3 sm:px-6 py-4 sm:py-5 hover:no-underline">
+                    <div className="flex items-center gap-3 sm:gap-4 w-full min-w-0">
+                      <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                        <span className="text-white font-bold text-base sm:text-lg">{week.weekNumber}</span>
                       </div>
                       <div className="text-left flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm sm:text-base">Week {week.weekNumber}</h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                        <h3 className="font-semibold text-base sm:text-lg">Week {week.weekNumber}</h3>
+                        <p className="text-sm sm:text-base text-muted-foreground truncate mt-0.5">
                           {week.competencyFocus || "No competency focus set"}
                         </p>
                       </div>
@@ -328,10 +330,10 @@ export default function Home() {
                       variant="ghost"
                       size="icon"
                       onClick={() => setDeleteId(week.id)}
-                      className="mr-1 sm:mr-2 h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0"
+                      className="mr-1 sm:mr-2 h-9 w-9 flex-shrink-0 hover:bg-destructive/10"
                       data-testid={`button-delete-${week.id}`}
                     >
-                      <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
+                      <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   )}
                 </div>
