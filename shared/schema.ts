@@ -39,15 +39,23 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// Deck file type
+export const deckFileSchema = z.object({
+  id: z.string(),
+  fileName: z.string(),
+  fileUrl: z.string(),
+  fileSize: z.number(),
+});
+
+export type DeckFile = z.infer<typeof deckFileSchema>;
+
 // Training weeks table
 export const trainingWeeks = pgTable("training_weeks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   weekNumber: integer("week_number").notNull(),
   competencyFocus: text("competency_focus").notNull().default(""),
   objective: text("objective").notNull().default(""),
-  deckFileName: text("deck_file_name"),
-  deckFileUrl: text("deck_file_url"),
-  deckFileSize: integer("deck_file_size"),
+  deckFiles: jsonb("deck_files").$type<DeckFile[]>().default(sql`'[]'::jsonb`),
 });
 
 export const insertTrainingWeekSchema = createInsertSchema(trainingWeeks).omit({
