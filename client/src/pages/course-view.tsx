@@ -6,7 +6,13 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronLeft, FileText, CheckCircle2, Circle } from "lucide-react";
+import { ChevronLeft, FileText, CheckCircle2, Circle, ExternalLink, Download, ZoomIn, ZoomOut } from "lucide-react";
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+// Configure PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface DeckFile {
   id: string;
@@ -30,6 +36,10 @@ export default function CourseView() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [numPages, setNumPages] = useState<number>(0);
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [scale, setScale] = useState<number>(1.2);
+  const [viewUrl, setViewUrl] = useState<string | null>(null);
 
   // Fetch deck files with progress
   const { data: deckFiles = [], isLoading } = useQuery<DeckFile[]>({
@@ -67,12 +77,39 @@ export default function CourseView() {
     },
   });
 
+  // Get selected file
+  const selectedFile = deckFiles.find(file => file.id === selectedFileId);
+
   // Auto-select first file
   useEffect(() => {
     if (deckFiles.length > 0 && !selectedFileId) {
       setSelectedFileId(deckFiles[0].id);
     }
   }, [deckFiles, selectedFileId]);
+
+  // Fetch presigned URL when file is selected
+  useEffect(() => {
+    const fetchViewUrl = async () => {
+      if (!selectedFile) {
+        setViewUrl(null);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/files/view-url?fileUrl=${encodeURIComponent(selectedFile.fileUrl)}`
+        );
+        const data = await response.json();
+        setViewUrl(data.viewUrl);
+      } catch (error) {
+        console.error('Error fetching view URL:', error);
+        setViewUrl(selectedFile.fileUrl); // Fallback to direct URL
+      }
+    };
+
+    fetchViewUrl();
+    setPageNumber(1); // Reset page number when switching files
+  }, [selectedFile]);
 
   // Handle file click - mark as completed
   const handleFileClick = (file: DeckFile) => {
@@ -87,8 +124,6 @@ export default function CourseView() {
       });
     }
   };
-
-  const selectedFile = deckFiles.find(file => file.id === selectedFileId);
 
   const getStatusIcon = (status?: string) => {
     switch (status) {
@@ -213,31 +248,120 @@ export default function CourseView() {
             </div>
 
             {/* Content Display */}
-            <div className="flex-1 flex items-center justify-center p-6 bg-muted/20">
-              <div className="w-full max-w-6xl">
-                <iframe
-                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(selectedFile.fileUrl)}`}
-                  className="w-full h-[calc(100vh-280px)] rounded-xl shadow-2xl border-0 bg-white"
-                  title={selectedFile.fileName}
-                  data-testid="file-viewer"
-                />
-                <div className="mt-4 flex gap-3">
-                  <Button
-                    onClick={() => window.open(selectedFile.fileUrl, '_blank')}
-                    variant="default"
-                    data-testid="button-download-file"
-                  >
-                    Download File
-                  </Button>
-                  <Button
-                    onClick={() => window.open(`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(selectedFile.fileUrl)}`, '_blank')}
-                    variant="outline"
-                    data-testid="button-fullscreen"
-                  >
-                    Open Fullscreen
-                  </Button>
+            <div className="flex-1 flex flex-col bg-muted/20">
+              {selectedFile.fileName.toLowerCase().endsWith('.pdf') ? (
+                <div className="flex-1 flex flex-col items-center p-6">
+                  <div className="w-full max-w-6xl flex flex-col items-center">
+                    {viewUrl && (
+                      <>
+                        <Document
+                          file={viewUrl}
+                          onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                          className="shadow-2xl rounded-xl overflow-hidden"
+                        >
+                          <Page
+                            pageNumber={pageNumber}
+                            scale={scale}
+                            renderTextLayer={true}
+                            renderAnnotationLayer={true}
+                          />
+                        </Document>
+                        <div className="mt-4 flex items-center gap-4 flex-wrap justify-center">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
+                              variant="outline"
+                              size="sm"
+                              data-testid="button-zoom-out"
+                            >
+                              <ZoomOut className="h-4 w-4" />
+                            </Button>
+                            <span className="text-sm text-muted-foreground min-w-16 text-center">
+                              {Math.round(scale * 100)}%
+                            </span>
+                            <Button
+                              onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
+                              variant="outline"
+                              size="sm"
+                              data-testid="button-zoom-in"
+                            >
+                              <ZoomIn className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+                              disabled={pageNumber <= 1}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Previous
+                            </Button>
+                            <span className="text-sm text-muted-foreground min-w-24 text-center">
+                              Page {pageNumber} of {numPages}
+                            </span>
+                            <Button
+                              onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
+                              disabled={pageNumber >= numPages}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Next
+                            </Button>
+                          </div>
+                          <Button
+                            onClick={() => window.open(viewUrl, '_blank')}
+                            variant="default"
+                            size="sm"
+                            data-testid="button-download-file"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <div className="w-full max-w-6xl">
+                    {viewUrl && (
+                      <>
+                        <iframe
+                          src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(viewUrl)}`}
+                          className="w-full h-[calc(100vh-280px)] rounded-xl shadow-2xl border-0 bg-white"
+                          title={selectedFile.fileName}
+                          data-testid="file-viewer"
+                        />
+                        <div className="mt-4 flex gap-3 flex-wrap">
+                          <Button
+                            onClick={() => window.open(viewUrl, '_blank')}
+                            variant="default"
+                            data-testid="button-download-file"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download File
+                          </Button>
+                          <Button
+                            onClick={() => window.open(`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(viewUrl)}`, '_blank')}
+                            variant="outline"
+                            data-testid="button-fullscreen"
+                          >
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Open Fullscreen
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                    {!viewUrl && (
+                      <div className="text-center py-12">
+                        <p className="text-muted-foreground">Loading presentation...</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : deckFiles.length === 0 ? (

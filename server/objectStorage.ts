@@ -102,6 +102,25 @@ export class ObjectStorageService {
     return `/objects/${entityId}`;
   }
 
+  async generatePresignedUrl(objectPath: string, ttlMs: number = 3600000): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    let fullPath = objectPath;
+    
+    // If it's a normalized path, convert it back to full path
+    if (objectPath.startsWith('uploads/')) {
+      fullPath = `${privateObjectDir}/${objectPath}`;
+    }
+    
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    
+    return signObjectURL({
+      bucketName,
+      objectName,
+      method: "GET",
+      ttlSec: Math.floor(ttlMs / 1000),
+    });
+  }
+
   async downloadObject(file: File, res: Response, cacheTtlSec: number = 3600) {
     try {
       const [metadata] = await file.getMetadata();

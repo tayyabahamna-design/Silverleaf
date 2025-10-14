@@ -184,6 +184,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate a public viewing URL for a file (authenticated users)
+  app.get("/api/files/view-url", isAuthenticated, async (req, res) => {
+    try {
+      const { fileUrl } = req.query;
+      if (!fileUrl || typeof fileUrl !== 'string') {
+        return res.status(400).json({ error: "fileUrl parameter required" });
+      }
+
+      // Generate a presigned URL with 1 hour expiration for viewing
+      const publicUrl = await objectStorageService.generatePresignedUrl(
+        fileUrl.replace('/objects/', ''),
+        60 * 60 * 1000 // 1 hour
+      );
+
+      res.json({ viewUrl: publicUrl });
+    } catch (error) {
+      console.error("Error generating view URL:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Content Items API - for LMS-style course content
 
   // Get all content items for a week with user progress (authenticated users)
