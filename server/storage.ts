@@ -1,13 +1,27 @@
-import { type TrainingWeek, type InsertTrainingWeek, type UpdateTrainingWeek, trainingWeeks } from "@shared/schema";
+import { 
+  type TrainingWeek, 
+  type InsertTrainingWeek, 
+  type UpdateTrainingWeek, 
+  type User,
+  type UpsertUser,
+  trainingWeeks,
+  users
+} from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 
 export interface IStorage {
+  // Training week operations
   getAllTrainingWeeks(): Promise<TrainingWeek[]>;
   getTrainingWeek(id: string): Promise<TrainingWeek | undefined>;
   createTrainingWeek(week: InsertTrainingWeek): Promise<TrainingWeek>;
   updateTrainingWeek(week: UpdateTrainingWeek): Promise<TrainingWeek | undefined>;
   deleteTrainingWeek(id: string): Promise<boolean>;
+  
+  // User operations (required for Replit Auth)
+  getUser(id: string): Promise<User | undefined>;
+  getAllUsers(): Promise<User[]>;
+  upsertUser(user: UpsertUser): Promise<User>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -42,6 +56,32 @@ export class DatabaseStorage implements IStorage {
   async deleteTrainingWeek(id: string): Promise<boolean> {
     const result = await db.delete(trainingWeeks).where(eq(trainingWeeks.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // User operations (required for Replit Auth)
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    const allUsers = await db.select().from(users);
+    return allUsers;
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
   }
 }
 

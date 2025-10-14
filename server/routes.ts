@@ -3,12 +3,28 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertTrainingWeekSchema, updateTrainingWeekSchema } from "@shared/schema";
+import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const objectStorageService = new ObjectStorageService();
 
-  // Get all training weeks
-  app.get("/api/training-weeks", async (req, res) => {
+  // Setup authentication (Replit Auth)
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Get all training weeks (authenticated users only)
+  app.get("/api/training-weeks", isAuthenticated, async (req, res) => {
     try {
       const weeks = await storage.getAllTrainingWeeks();
       res.json(weeks);
@@ -18,8 +34,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create a new training week
-  app.post("/api/training-weeks", async (req, res) => {
+  // Create a new training week (admin only)
+  app.post("/api/training-weeks", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const validated = insertTrainingWeekSchema.parse(req.body);
       const week = await storage.createTrainingWeek(validated);
@@ -30,8 +46,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update a training week
-  app.patch("/api/training-weeks/:id", async (req, res) => {
+  // Update a training week (admin only)
+  app.patch("/api/training-weeks/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const validated = updateTrainingWeekSchema.parse({
         ...req.body,
@@ -48,8 +64,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Delete a training week
-  app.delete("/api/training-weeks/:id", async (req, res) => {
+  // Delete a training week (admin only)
+  app.delete("/api/training-weeks/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const success = await storage.deleteTrainingWeek(req.params.id);
       if (!success) {
@@ -62,8 +78,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get upload URL for object storage
-  app.post("/api/objects/upload", async (req, res) => {
+  // Get upload URL for object storage (admin only)
+  app.post("/api/objects/upload", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
       res.json({ uploadURL });
@@ -73,8 +89,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update deck file after upload
-  app.post("/api/training-weeks/:id/deck", async (req, res) => {
+  // Update deck file after upload (admin only)
+  app.post("/api/training-weeks/:id/deck", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { fileUrl, fileName, fileSize } = req.body;
       

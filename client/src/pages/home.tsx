@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { Plus, Pencil, Trash2, Upload, ExternalLink } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, ExternalLink, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,7 @@ import type { UploadResult } from "@uppy/core";
 
 export default function Home() {
   const { toast } = useToast();
+  const { user, isAdmin } = useAuth();
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -208,21 +210,39 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-3">
+            {user && (
+              <div className="text-sm text-muted-foreground" data-testid="text-user-info">
+                {user.email} ({user.role})
+              </div>
+            )}
+            <ThemeToggle />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.location.href = "/api/logout"}
+              data-testid="button-logout"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="container mx-auto px-6 py-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold">Training Weeks</h2>
-          <Button
-            onClick={() => createWeekMutation.mutate()}
-            disabled={createWeekMutation.isPending}
-            data-testid="button-add-week"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add New Week
-          </Button>
+          {isAdmin && (
+            <Button
+              onClick={() => createWeekMutation.mutate()}
+              disabled={createWeekMutation.isPending}
+              data-testid="button-add-week"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add New Week
+            </Button>
+          )}
         </div>
 
         {isLoading ? (
@@ -250,7 +270,7 @@ export default function Home() {
                       <td className="p-4 font-medium">{week.weekNumber}</td>
                       
                       <td className="p-4">
-                        {editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
+                        {isAdmin && editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
                           <Input
                             ref={inputRef}
                             value={editValue}
@@ -272,17 +292,17 @@ export default function Home() {
                           />
                         ) : (
                           <div
-                            onClick={() => handleCellEdit(week.id, "competencyFocus", week.competencyFocus)}
-                            className="cursor-text p-2 rounded hover:bg-muted/50 min-h-[2.5rem] flex items-center"
+                            onClick={isAdmin ? () => handleCellEdit(week.id, "competencyFocus", week.competencyFocus) : undefined}
+                            className={isAdmin ? "cursor-text p-2 rounded hover:bg-muted/50 min-h-[2.5rem] flex items-center" : "p-2 min-h-[2.5rem] flex items-center"}
                             data-testid={`text-competency-${week.id}`}
                           >
-                            {week.competencyFocus || <span className="text-muted-foreground">Click to edit</span>}
+                            {week.competencyFocus || <span className="text-muted-foreground">{isAdmin ? "Click to edit" : "N/A"}</span>}
                           </div>
                         )}
                       </td>
 
                       <td className="p-4">
-                        {editingCell?.id === week.id && editingCell?.field === "objective" ? (
+                        {isAdmin && editingCell?.id === week.id && editingCell?.field === "objective" ? (
                           <Input
                             ref={inputRef}
                             value={editValue}
@@ -304,11 +324,11 @@ export default function Home() {
                           />
                         ) : (
                           <div
-                            onClick={() => handleCellEdit(week.id, "objective", week.objective)}
-                            className="cursor-text p-2 rounded hover:bg-muted/50 min-h-[2.5rem] flex items-center"
+                            onClick={isAdmin ? () => handleCellEdit(week.id, "objective", week.objective) : undefined}
+                            className={isAdmin ? "cursor-text p-2 rounded hover:bg-muted/50 min-h-[2.5rem] flex items-center" : "p-2 min-h-[2.5rem] flex items-center"}
                             data-testid={`text-objective-${week.id}`}
                           >
-                            {week.objective || <span className="text-muted-foreground">Click to edit</span>}
+                            {week.objective || <span className="text-muted-foreground">{isAdmin ? "Click to edit" : "N/A"}</span>}
                           </div>
                         )}
                       </td>
@@ -330,7 +350,7 @@ export default function Home() {
                               ({formatFileSize(week.deckFileSize || 0)})
                             </span>
                           </div>
-                        ) : (
+                        ) : isAdmin ? (
                           <ObjectUploader
                             maxNumberOfFiles={1}
                             onGetUploadParameters={handleGetUploadParams}
@@ -341,18 +361,22 @@ export default function Home() {
                             <Upload className="mr-2 h-3 w-3" />
                             Upload
                           </ObjectUploader>
+                        ) : (
+                          <span className="text-muted-foreground text-sm">N/A</span>
                         )}
                       </td>
 
                       <td className="p-4">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteId(week.id)}
-                          data-testid={`button-delete-${week.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteId(week.id)}
+                            data-testid={`button-delete-${week.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   ))}
