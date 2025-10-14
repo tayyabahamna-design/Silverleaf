@@ -69,3 +69,47 @@ export const updateTrainingWeekSchema = insertTrainingWeekSchema.partial().exten
 export type InsertTrainingWeek = z.infer<typeof insertTrainingWeekSchema>;
 export type UpdateTrainingWeek = z.infer<typeof updateTrainingWeekSchema>;
 export type TrainingWeek = typeof trainingWeeks.$inferSelect;
+
+// Content items table (videos and files for each week)
+export const contentItems = pgTable("content_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  weekId: varchar("week_id").notNull().references(() => trainingWeeks.id, { onDelete: "cascade" }),
+  type: varchar("type").notNull(), // 'video' or 'file'
+  title: text("title").notNull(),
+  url: text("url").notNull(),
+  orderIndex: integer("order_index").notNull().default(0),
+  duration: integer("duration"), // duration in seconds for videos
+  fileSize: integer("file_size"), // file size in bytes for files
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertContentItemSchema = createInsertSchema(contentItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertContentItem = z.infer<typeof insertContentItemSchema>;
+export type ContentItem = typeof contentItems.$inferSelect;
+
+// User progress tracking table
+export const userProgress = pgTable("user_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  contentItemId: varchar("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
+  status: varchar("status").notNull().default("pending"), // 'pending', 'in-progress', 'completed'
+  videoProgress: integer("video_progress").default(0), // current playback position in seconds
+  completedAt: timestamp("completed_at"),
+  lastAccessedAt: timestamp("last_accessed_at").defaultNow(),
+});
+
+export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
+  id: true,
+});
+
+export const updateUserProgressSchema = insertUserProgressSchema.partial().extend({
+  id: z.string(),
+});
+
+export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
+export type UpdateUserProgress = z.infer<typeof updateUserProgressSchema>;
+export type UserProgress = typeof userProgress.$inferSelect;

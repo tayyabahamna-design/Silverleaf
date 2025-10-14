@@ -4,11 +4,17 @@ import {
   type UpdateTrainingWeek, 
   type User,
   type InsertUser,
+  type ContentItem,
+  type InsertContentItem,
+  type UserProgress,
+  type InsertUserProgress,
   trainingWeeks,
-  users
+  users,
+  contentItems,
+  userProgress
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and, sql as sqlOp } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 
@@ -26,6 +32,16 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  // Content item operations
+  getContentItemsWithProgress(weekId: string, userId: string): Promise<any[]>;
+  createContentItem(item: InsertContentItem): Promise<ContentItem>;
+  updateContentItem(id: string, updates: Partial<InsertContentItem>): Promise<ContentItem | undefined>;
+  deleteContentItem(id: string): Promise<boolean>;
+  
+  // User progress operations
+  saveUserProgress(progress: Partial<InsertUserProgress>): Promise<UserProgress>;
+  getWeekProgress(weekId: string, userId: string): Promise<{ total: number; completed: number; percentage: number }>;
   
   // Session store
   sessionStore: session.Store;
@@ -92,6 +108,142 @@ export class DatabaseStorage implements IStorage {
       .values({ ...userData, role: "teacher" }) // Always create teachers, never admins
       .returning();
     return user;
+  }
+
+  // Content item operations
+  async getContentItemsWithProgress(weekId: string, userId: string): Promise<any[]> {
+    const items = await db
+      .select()
+      .from(contentItems)
+      .where(eq(contentItems.weekId, weekId))
+      .orderBy(contentItems.orderIndex);
+    
+    // Get progress for each item
+    const itemsWithProgress = await Promise.all(
+      items.map(async (item) => {
+        const [progress] = await db
+          .select()
+          .from(userProgress)
+          .where(
+            and(
+              eq(userProgress.contentItemId, item.id),
+              eq(userProgress.userId, userId)
+            )
+          );
+        
+        return {
+          ...item,
+          progress: progress || {
+            status: "pending",
+            videoProgress: 0,
+            completedAt: null,
+          },
+        };
+      })
+    );
+    
+    return itemsWithProgress;
+  }
+
+  async createContentItem(item: InsertContentItem): Promise<ContentItem> {
+    const [newItem] = await db
+      .insert(contentItems)
+      .values(item)
+      .returning();
+    return newItem;
+  }
+
+  async updateContentItem(id: string, updates: Partial<InsertContentItem>): Promise<ContentItem | undefined> {
+    const [item] = await db
+      .update(contentItems)
+      .set(updates)
+      .where(eq(contentItems.id, id))
+      .returning();
+    return item || undefined;
+  }
+
+  async deleteContentItem(id: string): Promise<boolean> {
+    const result = await db.delete(contentItems).where(eq(contentItems.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // User progress operations
+  async saveUserProgress(progress: Partial<InsertUserProgress>): Promise<UserProgress> {
+    const { userId, contentItemId, status, videoProgress, completedAt } = progress;
+    
+    // Check if progress already exists
+    const [existing] = await db
+      .select()
+      .from(userProgress)
+      .where(
+        and(
+          eq(userProgress.userId, userId!),
+          eq(userProgress.contentItemId, contentItemId!)
+        )
+      );
+    
+    if (existing) {
+      // Update existing progress
+      const [updated] = await db
+        .update(userProgress)
+        .set({
+          status,
+          videoProgress,
+          completedAt,
+          lastAccessedAt: new Date(),
+        })
+        .where(eq(userProgress.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new progress record
+      const [newProgress] = await db
+        .insert(userProgress)
+        .values({
+          userId: userId!,
+          contentItemId: contentItemId!,
+          status: status || "pending",
+          videoProgress: videoProgress || 0,
+          completedAt,
+        })
+        .returning();
+      return newProgress;
+    }
+  }
+
+  async getWeekProgress(weekId: string, userId: string): Promise<{ total: number; completed: number; percentage: number }> {
+    // Get all content items for the week
+    const items = await db
+      .select()
+      .from(contentItems)
+      .where(eq(contentItems.weekId, weekId));
+    
+    const total = items.length;
+    
+    if (total === 0) {
+      return { total: 0, completed: 0, percentage: 0 };
+    }
+    
+    // Count completed items
+    const completedItems = await db
+      .select()
+      .from(userProgress)
+      .where(
+        and(
+          eq(userProgress.userId, userId),
+          eq(userProgress.status, "completed")
+        )
+      );
+    
+    // Filter to only items in this week
+    const completedInWeek = completedItems.filter(p => 
+      items.some(item => item.id === p.contentItemId)
+    );
+    
+    const completed = completedInWeek.length;
+    const percentage = Math.round((completed / total) * 100);
+    
+    return { total, completed, percentage };
   }
 }
 

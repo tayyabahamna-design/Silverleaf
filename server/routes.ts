@@ -184,6 +184,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Content Items API - for LMS-style course content
+
+  // Get all content items for a week with user progress (authenticated users)
+  app.get("/api/training-weeks/:weekId/content", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { weekId } = req.params;
+      
+      const items = await storage.getContentItemsWithProgress(weekId, userId);
+      res.json(items);
+    } catch (error) {
+      console.error("Error getting content items:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Create a content item (admin only)
+  app.post("/api/training-weeks/:weekId/content", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const item = await storage.createContentItem({ ...req.body, weekId: req.params.weekId });
+      res.json(item);
+    } catch (error) {
+      console.error("Error creating content item:", error);
+      res.status(400).json({ error: "Invalid request" });
+    }
+  });
+
+  // Update a content item (admin only)
+  app.patch("/api/content-items/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const item = await storage.updateContentItem(req.params.id, req.body);
+      if (!item) {
+        return res.status(404).json({ error: "Content item not found" });
+      }
+      res.json(item);
+    } catch (error) {
+      console.error("Error updating content item:", error);
+      res.status(400).json({ error: "Invalid request" });
+    }
+  });
+
+  // Delete a content item (admin only)
+  app.delete("/api/content-items/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteContentItem(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Content item not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting content item:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // User Progress API
+
+  // Save or update user progress for a content item
+  app.post("/api/progress", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { contentItemId, status, videoProgress, completedAt } = req.body;
+      
+      const progress = await storage.saveUserProgress({
+        userId,
+        contentItemId,
+        status,
+        videoProgress,
+        completedAt: completedAt ? new Date(completedAt) : undefined,
+      });
+      
+      res.json(progress);
+    } catch (error) {
+      console.error("Error saving user progress:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get overall progress for a week (percentage complete)
+  app.get("/api/training-weeks/:weekId/progress", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { weekId } = req.params;
+      
+      const progressData = await storage.getWeekProgress(weekId, userId);
+      res.json(progressData);
+    } catch (error) {
+      console.error("Error getting week progress:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
