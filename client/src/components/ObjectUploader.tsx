@@ -1,10 +1,8 @@
-import { useState, useEffect, useRef } from "react";
-import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import Uppy from "@uppy/core";
-import { DashboardModal } from "@uppy/react";
+import { Dashboard } from "@uppy/react";
 import AwsS3 from "@uppy/aws-s3";
 import type { UploadResult } from "@uppy/core";
-import { Button } from "@/components/ui/button";
 
 interface ObjectUploaderProps {
   maxNumberOfFiles?: number;
@@ -16,10 +14,6 @@ interface ObjectUploaderProps {
   onComplete?: (
     result: UploadResult<Record<string, unknown>, Record<string, unknown>>
   ) => void;
-  buttonClassName?: string;
-  buttonSize?: "default" | "sm" | "lg" | "icon";
-  buttonVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost";
-  children: ReactNode;
 }
 
 export function ObjectUploader({
@@ -27,12 +21,7 @@ export function ObjectUploader({
   maxFileSize = 52428800, // 50MB default
   onGetUploadParameters,
   onComplete,
-  buttonClassName,
-  buttonSize = "sm",
-  buttonVariant = "outline",
-  children,
 }: ObjectUploaderProps) {
-  const [showModal, setShowModal] = useState(false);
   const uppyRef = useRef<Uppy | null>(null);
 
   // Initialize Uppy instance
@@ -50,7 +39,6 @@ export function ObjectUploader({
       })
       .on("complete", (result) => {
         onComplete?.(result);
-        setShowModal(false);
       });
   }
 
@@ -67,23 +55,13 @@ export function ObjectUploader({
   }, [maxNumberOfFiles, maxFileSize]);
 
   return (
-    <div>
-      <Button 
-        onClick={() => setShowModal(true)} 
-        className={buttonClassName}
-        size={buttonSize}
-        variant={buttonVariant}
-        data-testid="button-upload-deck"
-      >
-        {children}
-      </Button>
-
+    <div className="mt-2">
       {uppyRef.current && (
-        <DashboardModal
+        <Dashboard
           uppy={uppyRef.current}
-          open={showModal}
-          onRequestClose={() => setShowModal(false)}
           proudlyDisplayPoweredByUppy={false}
+          height={250}
+          width="100%"
         />
       )}
     </div>

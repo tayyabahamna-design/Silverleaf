@@ -453,13 +453,7 @@ export default function Home() {
                             maxNumberOfFiles={10}
                             onGetUploadParameters={handleGetUploadParams}
                             onComplete={handleUploadComplete(week.id)}
-                            buttonSize="default"
-                            buttonVariant="outline"
-                            data-testid={`uploader-deck-${week.id}`}
-                          >
-                            <Upload className="mr-2 h-4 w-4" />
-                            Upload Deck Files
-                          </ObjectUploader>
+                          />
                         )}
                       </div>
                     </div>
