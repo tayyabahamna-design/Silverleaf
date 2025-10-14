@@ -731,3 +731,33 @@ button.uppy-u-reset.uppy-c-btn.uppy-Dashboard-browse {
 .uppy-StatusBar-actionBtn--upload:hover {
   opacity: 0.9 !important;
 }
+
+/* Override green success indicators with primary color */
+.uppy-Dashboard-Item-progressIndicator,
+.uppy-Dashboard-Item-status,
+.uppy-Dashboard-Item-statusIcon {
+  color: hsl(var(--primary)) !important;
+}
+
+.uppy-StatusBar-statusIndicator {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Success checkmark */
+svg[aria-label="Complete"],
+.uppy-c-icon-check {
+  color: hsl(var(--primary)) !important;
+  fill: hsl(var(--primary)) !important;
+}
+
+/* Progress bars and indicators */
+.uppy-ProgressBar-fill,
+.uppy-StatusBar-progress .uppy-StatusBar-progressIndicator {
+  background-color: hsl(var(--primary)) !important;
+}
+
+/* Remove any green colors from Uppy defaults */
+.uppy-Dashboard-Item--success,
+.uppy-Dashboard-Item--complete {
+  border-left-color: hsl(var(--primary)) !important;
+}
