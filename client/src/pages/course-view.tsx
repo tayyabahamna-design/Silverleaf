@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -6,20 +6,15 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronLeft, PlayCircle, FileText, CheckCircle2, Circle, Clock } from "lucide-react";
+import { ChevronLeft, FileText, CheckCircle2, Circle } from "lucide-react";
 
-interface ContentItem {
+interface DeckFile {
   id: string;
-  weekId: string;
-  type: 'video' | 'file';
-  title: string;
-  url: string;
-  orderIndex: number;
-  duration?: number;
-  fileSize?: number;
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
   progress?: {
-    status: 'pending' | 'in-progress' | 'completed';
-    videoProgress: number;
+    status: 'pending' | 'completed';
     completedAt: Date | null;
   };
 }
@@ -34,18 +29,17 @@ export default function CourseView() {
   const { weekId } = useParams<{ weekId: string }>();
   const [, navigate] = useLocation();
   const { user } = useAuth();
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
 
-  // Fetch content items with progress
-  const { data: contentItems = [], isLoading } = useQuery<ContentItem[]>({
-    queryKey: ['/api/training-weeks', weekId, 'content'],
+  // Fetch deck files with progress
+  const { data: deckFiles = [], isLoading } = useQuery<DeckFile[]>({
+    queryKey: ['/api/training-weeks', weekId, 'deck-files'],
     enabled: !!weekId,
   });
 
   // Fetch week progress
   const { data: weekProgress } = useQuery<WeekProgress>({
-    queryKey: ['/api/training-weeks', weekId, 'progress'],
+    queryKey: ['/api/training-weeks', weekId, 'deck-progress'],
     enabled: !!weekId,
   });
 
@@ -58,98 +52,48 @@ export default function CourseView() {
   // Save progress mutation
   const saveProgressMutation = useMutation({
     mutationFn: async (data: {
-      contentItemId: string;
+      deckFileId: string;
       status: string;
-      videoProgress?: number;
       completedAt?: Date;
     }) => {
-      return apiRequest('/api/progress', 'POST', data);
+      return apiRequest('POST', '/api/deck-progress', {
+        weekId,
+        ...data
+      });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'content'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'progress'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'deck-files'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'deck-progress'] });
     },
   });
 
-  // Auto-select first item
+  // Auto-select first file
   useEffect(() => {
-    if (contentItems.length > 0 && !selectedItemId) {
-      setSelectedItemId(contentItems[0].id);
+    if (deckFiles.length > 0 && !selectedFileId) {
+      setSelectedFileId(deckFiles[0].id);
     }
-  }, [contentItems, selectedItemId]);
+  }, [deckFiles, selectedFileId]);
 
-  // Handle video progress tracking
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !selectedItemId) return;
-
-    const selectedItem = contentItems.find(item => item.id === selectedItemId);
-    if (!selectedItem || selectedItem.type !== 'video') return;
-
-    // Resume from saved progress
-    if (selectedItem.progress && selectedItem.progress.videoProgress > 0) {
-      video.currentTime = selectedItem.progress.videoProgress;
-    }
-
-    // Save progress periodically
-    const saveProgress = () => {
-      if (video.currentTime > 0) {
-        saveProgressMutation.mutate({
-          contentItemId: selectedItemId,
-          status: 'in-progress',
-          videoProgress: Math.floor(video.currentTime),
-        });
-      }
-    };
-
-    // Check for completion
-    const checkCompletion = () => {
-      if (video.currentTime >= video.duration - 1) {
-        saveProgressMutation.mutate({
-          contentItemId: selectedItemId,
-          status: 'completed',
-          videoProgress: Math.floor(video.duration),
-          completedAt: new Date(),
-        });
-      }
-    };
-
-    const progressInterval = setInterval(saveProgress, 5000); // Save every 5 seconds
-    video.addEventListener('timeupdate', checkCompletion);
-    video.addEventListener('play', () => {
+  // Handle file click - mark as completed
+  const handleFileClick = (file: DeckFile) => {
+    setSelectedFileId(file.id);
+    
+    // Mark as completed if not already
+    if (file.progress?.status !== 'completed') {
       saveProgressMutation.mutate({
-        contentItemId: selectedItemId,
-        status: 'in-progress',
-        videoProgress: Math.floor(video.currentTime),
-      });
-    });
-
-    return () => {
-      clearInterval(progressInterval);
-      video.removeEventListener('timeupdate', checkCompletion);
-    };
-  }, [selectedItemId, contentItems]);
-
-  // Handle file viewing - mark as completed when clicked
-  const handleFileClick = (item: ContentItem) => {
-    setSelectedItemId(item.id);
-    if (item.progress?.status !== 'completed') {
-      saveProgressMutation.mutate({
-        contentItemId: item.id,
+        deckFileId: file.id,
         status: 'completed',
         completedAt: new Date(),
       });
     }
   };
 
-  const selectedItem = contentItems.find(item => item.id === selectedItemId);
+  const selectedFile = deckFiles.find(file => file.id === selectedFileId);
 
   const getStatusIcon = (status?: string) => {
     switch (status) {
       case 'completed':
         return <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-500" />;
-      case 'in-progress':
-        return <Clock className="h-5 w-5 text-blue-600 dark:text-blue-500" />;
       default:
         return <Circle className="h-5 w-5 text-muted-foreground/40" />;
     }
@@ -207,46 +151,40 @@ export default function CourseView() {
               <div className="text-center py-8 text-muted-foreground text-sm">
                 Loading content...
               </div>
-            ) : contentItems.length === 0 ? (
+            ) : deckFiles.length === 0 ? (
               <div className="text-center py-8 px-4">
                 <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
                 <p className="text-sm font-medium text-muted-foreground mb-1">
                   No content available yet
                 </p>
                 <p className="text-xs text-muted-foreground/70">
-                  An administrator needs to add videos or files to this training week.
+                  An administrator needs to add files to this training week.
                 </p>
               </div>
             ) : (
-              contentItems.map((item) => (
+              deckFiles.map((file) => (
                 <button
-                  key={item.id}
-                  onClick={() => item.type === 'file' ? handleFileClick(item) : setSelectedItemId(item.id)}
+                  key={file.id}
+                  onClick={() => handleFileClick(file)}
                   className={`w-full text-left p-3 rounded-lg transition-colors ${
-                    selectedItemId === item.id
+                    selectedFileId === file.id
                       ? 'bg-primary/10 border-2 border-primary'
                       : 'hover:bg-muted/50 border-2 border-transparent'
                   }`}
-                  data-testid={`button-content-${item.id}`}
+                  data-testid={`button-file-${file.id}`}
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-0.5">
-                      {getStatusIcon(item.progress?.status)}
+                      {getStatusIcon(file.progress?.status)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        {item.type === 'video' ? (
-                          <PlayCircle className="h-4 w-4 text-primary flex-shrink-0" />
-                        ) : (
-                          <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                        )}
-                        <span className="font-semibold text-sm truncate">{item.title}</span>
+                        <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                        <span className="font-semibold text-sm truncate">{file.fileName}</span>
                       </div>
-                      {item.progress?.status === 'in-progress' && item.duration && (
-                        <div className="text-xs text-muted-foreground">
-                          {Math.floor(item.progress.videoProgress / 60)}:{String(item.progress.videoProgress % 60).padStart(2, '0')} / {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, '0')}
-                        </div>
-                      )}
+                      <div className="text-xs text-muted-foreground">
+                        {(file.fileSize / 1024 / 1024).toFixed(2)} MB
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -258,17 +196,17 @@ export default function CourseView() {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
-        {selectedItem ? (
+        {selectedFile ? (
           <div className="flex-1 flex flex-col">
             {/* Content Header */}
             <div className="p-6 border-b bg-card">
-              <h1 className="text-2xl font-bold mb-1">{selectedItem.title}</h1>
+              <h1 className="text-2xl font-bold mb-1">{selectedFile.fileName}</h1>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="capitalize">{selectedItem.type}</span>
-                {selectedItem.progress?.status && (
+                <span>Presentation File</span>
+                {selectedFile.progress?.status && (
                   <>
                     <span>•</span>
-                    <span className="capitalize">{selectedItem.progress.status.replace('-', ' ')}</span>
+                    <span className="capitalize">{selectedFile.progress.status}</span>
                   </>
                 )}
               </div>
@@ -276,50 +214,36 @@ export default function CourseView() {
 
             {/* Content Display */}
             <div className="flex-1 flex items-center justify-center p-6 bg-muted/20">
-              {selectedItem.type === 'video' ? (
-                <div className="w-full max-w-5xl">
-                  <video
-                    ref={videoRef}
-                    src={selectedItem.url}
-                    controls
-                    className="w-full rounded-xl shadow-2xl"
-                    data-testid="video-player"
-                  >
-                    Your browser does not support the video tag.
-                  </video>
-                </div>
-              ) : (
-                <div className="w-full max-w-5xl">
-                  <iframe
-                    src={selectedItem.url}
-                    className="w-full h-[calc(100vh-300px)] rounded-xl shadow-2xl border-0"
-                    title={selectedItem.title}
-                    data-testid="file-viewer"
-                  />
-                  <Button
-                    onClick={() => window.open(selectedItem.url, '_blank')}
-                    className="mt-4"
-                    data-testid="button-download-file"
-                  >
-                    Open in New Tab
-                  </Button>
-                </div>
-              )}
+              <div className="w-full max-w-5xl">
+                <iframe
+                  src={selectedFile.fileUrl}
+                  className="w-full h-[calc(100vh-300px)] rounded-xl shadow-2xl border-0"
+                  title={selectedFile.fileName}
+                  data-testid="file-viewer"
+                />
+                <Button
+                  onClick={() => window.open(selectedFile.fileUrl, '_blank')}
+                  className="mt-4"
+                  data-testid="button-download-file"
+                >
+                  Open in New Tab
+                </Button>
+              </div>
             </div>
           </div>
-        ) : contentItems.length === 0 ? (
+        ) : deckFiles.length === 0 ? (
           <div className="flex-1 flex items-center justify-center p-6">
             <div className="text-center max-w-md">
-              <PlayCircle className="h-16 w-16 mx-auto mb-4 text-muted-foreground/40" />
+              <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground/40" />
               <h3 className="text-xl font-semibold mb-2">No Content Available</h3>
               <p className="text-muted-foreground">
-                This training week doesn't have any videos or files yet. Please check back later or contact an administrator.
+                This training week doesn't have any files yet. Please check back later or contact an administrator.
               </p>
             </div>
           </div>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-muted-foreground">Select content from the sidebar to begin</p>
+            <p className="text-muted-foreground">Select a file from the sidebar to begin</p>
           </div>
         )}
       </div>
