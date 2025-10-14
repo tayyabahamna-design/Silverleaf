@@ -6,7 +6,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronLeft, FileText, CheckCircle2, Circle, ExternalLink, Download, ZoomIn, ZoomOut } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { ChevronLeft, FileText, CheckCircle2, Circle, Maximize2, Download, ZoomIn, ZoomOut, X } from "lucide-react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -40,6 +41,7 @@ export default function CourseView() {
   const [pageNumber, setPageNumber] = useState<number>(1);
   const [scale, setScale] = useState<number>(1.8); // Higher default scale for HD clarity
   const [viewUrl, setViewUrl] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // Fetch deck files with progress
   const { data: deckFiles = [], isLoading } = useQuery<DeckFile[]>({
@@ -330,21 +332,20 @@ export default function CourseView() {
                       <div className="h-full flex flex-col items-center">
                         <div className="w-full max-w-7xl h-full flex flex-col">
                           <iframe
-                            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(viewUrl)}&wdAr=1.7777777777777777`}
+                            src={viewUrl}
                             className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0"
                             title={selectedFile.fileName}
                             data-testid="file-viewer"
-                            frameBorder="0"
                           />
                           <div className="mt-4 flex gap-3 justify-center">
                             <Button
-                              onClick={() => window.open(`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(viewUrl)}`, '_blank')}
+                              onClick={() => setIsFullscreen(true)}
                               variant="default"
                               size="lg"
                               data-testid="button-fullscreen"
                             >
-                              <ExternalLink className="h-5 w-5 mr-2" />
-                              Open Fullscreen
+                              <Maximize2 className="h-5 w-5 mr-2" />
+                              Fullscreen View
                             </Button>
                             <Button
                               onClick={() => {
@@ -389,6 +390,73 @@ export default function CourseView() {
           </div>
         )}
       </div>
+
+      {/* Fullscreen Dialog */}
+      <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
+        <DialogContent className="max-w-[100vw] w-full h-screen p-0 gap-0">
+          <div className="flex flex-col h-full bg-background">
+            {/* Fullscreen header */}
+            <div className="flex items-center justify-between p-4 border-b bg-card">
+              <h2 className="text-lg font-semibold">{selectedFile?.fileName}</h2>
+              <Button
+                onClick={() => setIsFullscreen(false)}
+                variant="ghost"
+                size="icon"
+                data-testid="button-close-fullscreen"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* Fullscreen content */}
+            <div className="flex-1 p-6 overflow-auto bg-muted/20">
+              {selectedFile && viewUrl && (
+                selectedFile.fileName.toLowerCase().endsWith('.pdf') ? (
+                  <div className="h-full flex flex-col items-center">
+                    <Document
+                      file={viewUrl}
+                      onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                      className="shadow-2xl"
+                    >
+                      <Page
+                        pageNumber={pageNumber}
+                        scale={2.0}
+                        renderTextLayer={true}
+                        renderAnnotationLayer={true}
+                      />
+                    </Document>
+                    <div className="mt-4 flex items-center gap-4">
+                      <Button
+                        onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+                        disabled={pageNumber <= 1}
+                        variant="outline"
+                      >
+                        Previous
+                      </Button>
+                      <span className="text-sm">
+                        Page {pageNumber} of {numPages}
+                      </span>
+                      <Button
+                        onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
+                        disabled={pageNumber >= numPages}
+                        variant="outline"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <iframe
+                    src={viewUrl}
+                    className="w-full h-full border-0"
+                    title={selectedFile.fileName}
+                  />
+                )
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
