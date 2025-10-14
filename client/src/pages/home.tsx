@@ -449,6 +449,7 @@ export default function Home() {
                         ) : null}
                         {isAdmin && (
                           <ObjectUploader
+                            key={`uploader-${week.id}`}
                             maxNumberOfFiles={10}
                             onGetUploadParameters={handleGetUploadParams}
                             onComplete={handleUploadComplete(week.id)}
