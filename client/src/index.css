@@ -743,11 +743,14 @@ button.uppy-u-reset.uppy-c-btn.uppy-Dashboard-browse {
   color: hsl(var(--primary)) !important;
 }
 
-/* Success checkmark */
+/* Hide all decorative success graphics */
 svg[aria-label="Complete"],
-.uppy-c-icon-check {
-  color: hsl(var(--primary)) !important;
-  fill: hsl(var(--primary)) !important;
+.uppy-c-icon-check,
+.uppy-Dashboard-Item-previewIconWrap svg[viewBox*="58"],
+.uppy-Dashboard-Item-previewIconWrap circle,
+.uppy-StatusBar-statusPrimary svg,
+.uppy-StatusBar-statusPrimary circle {
+  display: none !important;
 }
 
 /* Progress bars and indicators */
@@ -759,5 +762,22 @@ svg[aria-label="Complete"],
 /* Remove any green colors from Uppy defaults */
 .uppy-Dashboard-Item--success,
 .uppy-Dashboard-Item--complete {
-  border-left-color: hsl(var(--primary)) !important;
+  border-left-color: transparent !important;
+}
+
+/* Hide all green decorative SVG elements */
+.uppy-Dashboard-Item svg[fill*="green"],
+.uppy-Dashboard-Item svg[stroke*="green"],
+.uppy-StatusBar svg[fill*="green"],
+.uppy-StatusBar svg[stroke*="green"],
+svg circle[fill*="green"],
+svg path[fill*="green"],
+svg rect[fill*="green"] {
+  display: none !important;
+}
+
+/* Hide success checkmark overlays */
+.uppy-Dashboard-Item-previewIconWrap::after,
+.uppy-Dashboard-Item-statusIcon {
+  display: none !important;
 }
