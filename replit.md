@@ -1,7 +1,7 @@
-# Silver Leaf Training Program Planner
+# Silverleaf Academy Training Program Planner
 
 ## Overview
-A web application for Silver Leaf to organize and manage their teacher training program. The app provides a clean, collapsible card-based interface with role-based access control for managing training weeks with competency focus, objectives, and presentation files.
+A web application for Silverleaf Academy to organize and manage their teacher training program. The app features a professional, modern design with the academy's navy blue branding, clean collapsible card interface, and role-based access control for managing training weeks with competency focus, objectives, and presentation files.
 
 ## Features
 - **Authentication**: Secure username/password authentication with scrypt password hashing
@@ -151,6 +151,38 @@ Admin accounts cannot be created through the web interface. To create a new admi
 - `DEFAULT_OBJECT_STORAGE_BUCKET_ID` - Object storage bucket ID
 
 ## Recent Changes
+
+### 2025-10-14: Professional Design Overhaul with Silverleaf Academy Branding
+- **Complete Visual Redesign**:
+  - Applied Silverleaf Academy navy blue branding (hsl(220, 80%, 32%)) as primary color
+  - Updated all color variables in index.css for light and dark modes
+  - Navy blue header with white text and Silverleaf Academy logo
+  - Professional, clean, modern design with generous white space
+  - Inter font family for professional, highly readable typography
+- **Header Redesign**:
+  - Navy blue background (bg-primary) with shadow for depth
+  - White text and icons throughout header
+  - Silverleaf Academy branding with "SL" logo badge
+  - Consistent logout button styling with semi-transparent white background
+- **Training Week Cards Enhancement**:
+  - Navy blue left border (4px) for visual accent
+  - Navy blue circular badge for week number with white text
+  - Enhanced shadows (shadow-sm with hover:shadow-md transition)
+  - Larger, more robust card layout with better spacing
+  - Professional hover states and interactions
+- **Auth Page Redesign**:
+  - Silverleaf Academy branding with navy blue logo badge
+  - Navy blue hero section on right side with white text
+  - Professional welcome message and information cards
+  - Semi-transparent white cards for better visual hierarchy
+- **Button Consistency**:
+  - All primary buttons use navy blue background with white text
+  - Consistent hover states using opacity changes
+  - Professional styling throughout the application
+- **Design Guidelines**:
+  - Updated design_guidelines.md with Silverleaf Academy specifications
+  - Documented color palette, typography, spacing, and component designs
+  - Established brand application guidelines for consistency
 
 ### 2025-10-14: Multi-File Upload Support
 - **Database Schema Update**:
