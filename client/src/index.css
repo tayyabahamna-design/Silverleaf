@@ -451,11 +451,15 @@
 
 .uppy-StatusBar {
   background-color: hsl(var(--card)) !important;
-  border-top: 1px solid hsl(var(--border)) !important;
+  border-top: 2px solid hsl(var(--border)) !important;
   color: hsl(var(--foreground)) !important;
-  min-height: 60px !important;
-  padding: 0.75rem !important;
+  min-height: 70px !important;
+  padding: 1rem !important;
   flex-shrink: 0 !important;
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 100 !important;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1) !important;
 }
 
 .uppy-StatusBar-content {
@@ -510,34 +514,33 @@
 .uppy-Dashboard-inner {
   display: flex !important;
   flex-direction: column !important;
+  height: 500px !important;
   max-height: 500px !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
 }
 
 .uppy-Dashboard-filesContainer {
-  flex: 0 0 auto !important;
-  overflow-y: visible !important;
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  padding-bottom: 1rem !important;
 }
 
-.uppy-Dashboard-inner::-webkit-scrollbar {
+.uppy-Dashboard-filesContainer::-webkit-scrollbar {
   width: 10px;
 }
 
-.uppy-Dashboard-inner::-webkit-scrollbar-track {
+.uppy-Dashboard-filesContainer::-webkit-scrollbar-track {
   background: hsl(var(--muted) / 0.3);
   border-radius: 5px;
   margin: 0.5rem 0;
 }
 
-.uppy-Dashboard-inner::-webkit-scrollbar-thumb {
-  background: hsl(var(--primary) / 0.4);
+.uppy-Dashboard-filesContainer::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.5);
   border-radius: 5px;
-  border: 2px solid hsl(var(--card));
 }
 
-.uppy-Dashboard-inner::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--primary) / 0.6);
+.uppy-Dashboard-filesContainer::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.7);
 }
 
 .uppy-Dashboard-dropFilesHereHint {

@@ -62,7 +62,7 @@ export function ObjectUploader({
           proudlyDisplayPoweredByUppy={false}
           height={500}
           width="100%"
-          note="Select up to 10 files, then scroll down to see the Upload button"
+          note="Select up to 10 files. The Upload button is always visible at the bottom."
         />
       )}
     </div>
