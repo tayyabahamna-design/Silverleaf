@@ -1,27 +1,32 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertTrainingWeekSchema, updateTrainingWeekSchema } from "@shared/schema";
-import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+import { setupAuth } from "./auth";
+
+// Middleware to check if user is authenticated
+function isAuthenticated(req: Request, res: Response, next: NextFunction) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ message: "Unauthorized" });
+}
+
+// Middleware to check if user is admin
+function isAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.user && req.user.role === "admin") {
+    return next();
+  }
+  res.status(403).json({ message: "Forbidden: Admin access required" });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const objectStorageService = new ObjectStorageService();
 
-  // Setup authentication (Replit Auth)
-  await setupAuth(app);
-
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Setup authentication (username/password)
+  setupAuth(app);
+  // Note: /api/register, /api/login, /api/logout, /api/user are now in auth.ts
 
   // Get all training weeks (authenticated users only)
   app.get("/api/training-weeks", isAuthenticated, async (req, res) => {

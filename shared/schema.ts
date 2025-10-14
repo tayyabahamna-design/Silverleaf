@@ -14,19 +14,29 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table for Replit Auth with role field
+// User storage table with username/password authentication
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  email: varchar("email").unique(),
+  username: varchar("username").notNull().unique(),
+  password: varchar("password").notNull(), // hashed password
+  email: varchar("email"),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
   role: varchar("role").notNull().default("teacher"), // 'admin' or 'teacher'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export type UpsertUser = typeof users.$inferInsert;
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  username: z.string().min(3, "Username must be at least 3 characters"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
 // Training weeks table

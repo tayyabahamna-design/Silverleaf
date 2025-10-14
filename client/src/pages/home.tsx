@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { Plus, Pencil, Trash2, Upload, ExternalLink, LogOut, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Accordion,
   AccordionContent,
@@ -29,7 +29,7 @@ import type { UploadResult } from "@uppy/core";
 
 export default function Home() {
   const { toast } = useToast();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, logoutMutation } = useAuth();
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -226,7 +226,8 @@ export default function Home() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.location.href = "/api/logout"}
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
               data-testid="button-logout"
               className="hidden sm:flex"
             >
@@ -236,7 +237,8 @@ export default function Home() {
             <Button
               variant="outline"
               size="icon"
-              onClick={() => window.location.href = "/api/logout"}
+              onClick={() => logoutMutation.mutate()}
+              disabled={logoutMutation.isPending}
               data-testid="button-logout-mobile"
               className="sm:hidden h-8 w-8"
               aria-label="Logout"

@@ -3,12 +3,16 @@ import {
   type InsertTrainingWeek, 
   type UpdateTrainingWeek, 
   type User,
-  type UpsertUser,
+  type InsertUser,
   trainingWeeks,
   users
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+
+const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
   // Training week operations
@@ -18,13 +22,26 @@ export interface IStorage {
   updateTrainingWeek(week: UpdateTrainingWeek): Promise<TrainingWeek | undefined>;
   deleteTrainingWeek(id: string): Promise<boolean>;
   
-  // User operations (required for Replit Auth)
+  // User operations (for username/password auth)
   getUser(id: string): Promise<User | undefined>;
-  getAllUsers(): Promise<User[]>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  
+  // Session store
+  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
+  sessionStore: session.Store;
+
+  constructor() {
+    this.sessionStore = new PostgresSessionStore({ 
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: false,
+      tableName: "sessions",
+    });
+  }
+
   async getAllTrainingWeeks(): Promise<TrainingWeek[]> {
     const weeks = await db.select().from(trainingWeeks).orderBy(trainingWeeks.weekNumber);
     return weeks;
@@ -58,28 +75,21 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount !== null && result.rowCount > 0;
   }
 
-  // User operations (required for Replit Auth)
+  // User operations (for username/password auth)
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
-  async getAllUsers(): Promise<User[]> {
-    const allUsers = await db.select().from(users);
-    return allUsers;
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
+  async createUser(userData: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          ...userData,
-          updatedAt: new Date(),
-        },
-      })
+      .values({ ...userData, role: "teacher" }) // Always create teachers, never admins
       .returning();
     return user;
   }
