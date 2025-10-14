@@ -214,20 +214,29 @@ export default function CourseView() {
 
             {/* Content Display */}
             <div className="flex-1 flex items-center justify-center p-6 bg-muted/20">
-              <div className="w-full max-w-5xl">
+              <div className="w-full max-w-6xl">
                 <iframe
-                  src={selectedFile.fileUrl}
-                  className="w-full h-[calc(100vh-300px)] rounded-xl shadow-2xl border-0"
+                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(selectedFile.fileUrl)}`}
+                  className="w-full h-[calc(100vh-280px)] rounded-xl shadow-2xl border-0 bg-white"
                   title={selectedFile.fileName}
                   data-testid="file-viewer"
                 />
-                <Button
-                  onClick={() => window.open(selectedFile.fileUrl, '_blank')}
-                  className="mt-4"
-                  data-testid="button-download-file"
-                >
-                  Open in New Tab
-                </Button>
+                <div className="mt-4 flex gap-3">
+                  <Button
+                    onClick={() => window.open(selectedFile.fileUrl, '_blank')}
+                    variant="default"
+                    data-testid="button-download-file"
+                  >
+                    Download File
+                  </Button>
+                  <Button
+                    onClick={() => window.open(`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(selectedFile.fileUrl)}`, '_blank')}
+                    variant="outline"
+                    data-testid="button-fullscreen"
+                  >
+                    Open Fullscreen
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
