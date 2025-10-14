@@ -561,6 +561,8 @@
   flex: 1 1 auto !important;
   overflow-y: auto !important;
   padding-bottom: 0 !important;
+  min-height: 0 !important;
+  max-height: calc(550px - 120px) !important;
 }
 
 .uppy-Dashboard-filesContainer::-webkit-scrollbar {
@@ -693,4 +695,37 @@
 button.uppy-u-reset.uppy-c-btn.uppy-Dashboard-browse {
   background-color: hsl(var(--primary)) !important;
   color: white !important;
+}
+
+/* Fix upload button being cut off */
+.uppy-StatusBar {
+  position: sticky !important;
+  bottom: 0 !important;
+  background-color: hsl(var(--card)) !important;
+  border-top: 1px solid hsl(var(--border)) !important;
+  z-index: 10 !important;
+  padding: 1rem !important;
+  margin-top: auto !important;
+}
+
+.uppy-StatusBar-content {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.75rem !important;
+  align-items: center !important;
+}
+
+.uppy-StatusBar-actionBtn--upload {
+  background-color: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  padding: 0.625rem 1.5rem !important;
+  border-radius: 0.375rem !important;
+  font-weight: 500 !important;
+  min-height: 2.5rem !important;
+  width: auto !important;
+  min-width: 120px !important;
+}
+
+.uppy-StatusBar-actionBtn--upload:hover {
+  opacity: 0.9 !important;
 }
