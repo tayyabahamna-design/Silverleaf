@@ -1,5 +1,6 @@
-import { type TrainingWeek, type InsertTrainingWeek, type UpdateTrainingWeek } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { type TrainingWeek, type InsertTrainingWeek, type UpdateTrainingWeek, trainingWeeks } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   getAllTrainingWeeks(): Promise<TrainingWeek[]>;
@@ -9,62 +10,39 @@ export interface IStorage {
   deleteTrainingWeek(id: string): Promise<boolean>;
 }
 
-export class MemStorage implements IStorage {
-  private trainingWeeks: Map<string, TrainingWeek>;
-
-  constructor() {
-    this.trainingWeeks = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
   async getAllTrainingWeeks(): Promise<TrainingWeek[]> {
-    return Array.from(this.trainingWeeks.values()).sort((a, b) => a.weekNumber - b.weekNumber);
+    const weeks = await db.select().from(trainingWeeks).orderBy(trainingWeeks.weekNumber);
+    return weeks;
   }
 
   async getTrainingWeek(id: string): Promise<TrainingWeek | undefined> {
-    return this.trainingWeeks.get(id);
+    const [week] = await db.select().from(trainingWeeks).where(eq(trainingWeeks.id, id));
+    return week || undefined;
   }
 
   async createTrainingWeek(insertWeek: InsertTrainingWeek): Promise<TrainingWeek> {
-    const id = randomUUID();
-    const week: TrainingWeek = {
-      id,
-      weekNumber: insertWeek.weekNumber,
-      competencyFocus: insertWeek.competencyFocus ?? "",
-      objective: insertWeek.objective ?? "",
-      deck2024FileName: insertWeek.deck2024FileName ?? null,
-      deck2024FileUrl: insertWeek.deck2024FileUrl ?? null,
-      deck2024FileSize: insertWeek.deck2024FileSize ?? null,
-      deck2025FileName: insertWeek.deck2025FileName ?? null,
-      deck2025FileUrl: insertWeek.deck2025FileUrl ?? null,
-      deck2025FileSize: insertWeek.deck2025FileSize ?? null,
-    };
-    this.trainingWeeks.set(id, week);
+    const [week] = await db
+      .insert(trainingWeeks)
+      .values(insertWeek)
+      .returning();
     return week;
   }
 
   async updateTrainingWeek(updateWeek: UpdateTrainingWeek): Promise<TrainingWeek | undefined> {
-    const existing = this.trainingWeeks.get(updateWeek.id);
-    if (!existing) return undefined;
-    
-    const updated: TrainingWeek = {
-      ...existing,
-      ...(updateWeek.weekNumber !== undefined && { weekNumber: updateWeek.weekNumber }),
-      ...(updateWeek.competencyFocus !== undefined && { competencyFocus: updateWeek.competencyFocus }),
-      ...(updateWeek.objective !== undefined && { objective: updateWeek.objective }),
-      ...(updateWeek.deck2024FileName !== undefined && { deck2024FileName: updateWeek.deck2024FileName }),
-      ...(updateWeek.deck2024FileUrl !== undefined && { deck2024FileUrl: updateWeek.deck2024FileUrl }),
-      ...(updateWeek.deck2024FileSize !== undefined && { deck2024FileSize: updateWeek.deck2024FileSize }),
-      ...(updateWeek.deck2025FileName !== undefined && { deck2025FileName: updateWeek.deck2025FileName }),
-      ...(updateWeek.deck2025FileUrl !== undefined && { deck2025FileUrl: updateWeek.deck2025FileUrl }),
-      ...(updateWeek.deck2025FileSize !== undefined && { deck2025FileSize: updateWeek.deck2025FileSize }),
-    };
-    this.trainingWeeks.set(updateWeek.id, updated);
-    return updated;
+    const { id, ...updates } = updateWeek;
+    const [week] = await db
+      .update(trainingWeeks)
+      .set(updates)
+      .where(eq(trainingWeeks.id, id))
+      .returning();
+    return week || undefined;
   }
 
   async deleteTrainingWeek(id: string): Promise<boolean> {
-    return this.trainingWeeks.delete(id);
+    const result = await db.delete(trainingWeeks).where(eq(trainingWeeks.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
