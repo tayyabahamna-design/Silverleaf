@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { TrainingWeek } from "@shared/schema";
 import type { UploadResult } from "@uppy/core";
-import logoImage from "@assets/image_1760441748572.png";
+import logoImage from "@assets/image_1760460046116.png";
 import { FilePreview } from "@/components/FilePreview";
 
 export default function Home() {
