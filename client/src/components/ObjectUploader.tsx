@@ -60,9 +60,9 @@ export function ObjectUploader({
         <Dashboard
           uppy={uppyRef.current}
           proudlyDisplayPoweredByUppy={false}
-          height={450}
+          height={500}
           width="100%"
-          note="Select up to 10 files, then click the blue Upload button at the bottom"
+          note="Select up to 10 files, then scroll down to see the Upload button"
         />
       )}
     </div>

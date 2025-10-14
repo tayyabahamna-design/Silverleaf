@@ -510,8 +510,9 @@
 .uppy-Dashboard-inner {
   display: flex !important;
   flex-direction: column !important;
-  max-height: 450px !important;
+  max-height: 500px !important;
   overflow-y: auto !important;
+  overflow-x: hidden !important;
 }
 
 .uppy-Dashboard-filesContainer {
@@ -598,7 +599,7 @@
 }
 
 .uppy-Dashboard-Item {
-  margin-bottom: 0.5rem !important;
+  margin-bottom: 0.75rem !important;
   border: 1px solid hsl(var(--border)) !important;
   border-radius: 0.5rem !important;
   background-color: hsl(var(--card)) !important;
@@ -607,6 +608,10 @@
 
 .uppy-Dashboard-Item:hover {
   background-color: hsl(var(--muted) / 0.3) !important;
+}
+
+.uppy-Dashboard-Item:last-child {
+  margin-bottom: 1rem !important;
 }
 
 .uppy-StatusBar-status {
