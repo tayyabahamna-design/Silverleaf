@@ -68,15 +68,15 @@ export default function AuthPage() {
             </TabsList>
 
             <TabsContent value="login">
-              <Card className="shadow-xl border-0">
-                <CardHeader className="space-y-2 pb-6">
-                  <CardTitle className="text-2xl">Login</CardTitle>
-                  <CardDescription className="text-base">
+              <Card className="shadow-2xl border-0 rounded-2xl">
+                <CardHeader className="space-y-3 pb-8">
+                  <CardTitle className="text-3xl font-bold">Login</CardTitle>
+                  <CardDescription className="text-base leading-relaxed">
                     Enter your credentials to access the training program planner
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleLogin} className="space-y-5">
+                <CardContent className="px-8 pb-8">
+                  <form onSubmit={handleLogin} className="space-y-6">
                     <div className="space-y-2">
                       <Label htmlFor="login-username">Username</Label>
                       <Input
@@ -116,15 +116,15 @@ export default function AuthPage() {
             </TabsContent>
 
             <TabsContent value="register">
-              <Card className="shadow-xl border-0">
-                <CardHeader className="space-y-2 pb-6">
-                  <CardTitle className="text-2xl">Create Teacher Account</CardTitle>
-                  <CardDescription className="text-base">
+              <Card className="shadow-2xl border-0 rounded-2xl">
+                <CardHeader className="space-y-3 pb-8">
+                  <CardTitle className="text-3xl font-bold">Create Teacher Account</CardTitle>
+                  <CardDescription className="text-base leading-relaxed">
                     Register to access the training program planner in view-only mode
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleRegister} className="space-y-5">
+                <CardContent className="px-8 pb-8">
+                  <form onSubmit={handleRegister} className="space-y-6">
                     <div className="space-y-2">
                       <Label htmlFor="register-username">Username *</Label>
                       <Input
