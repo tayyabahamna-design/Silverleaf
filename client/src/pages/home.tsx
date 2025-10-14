@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { TrainingWeek } from "@shared/schema";
 import type { UploadResult } from "@uppy/core";
+import logoImage from "@assets/image_1760441748572.png";
 
 export default function Home() {
   const { toast } = useToast();
@@ -233,8 +234,8 @@ export default function Home() {
       <header className="sticky top-0 z-50 bg-primary shadow-md">
         <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-bold text-base sm:text-lg">SL</span>
+            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 p-1.5">
+              <img src={logoImage} alt="Silverleaf Academy Logo" className="w-full h-full object-contain" />
             </div>
             <div className="min-w-0">
               <h1 className="text-lg sm:text-xl font-bold text-white truncate" data-testid="text-app-title">
