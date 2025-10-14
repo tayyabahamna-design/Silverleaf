@@ -203,39 +203,55 @@ export default function CourseView() {
         {/* Content List */}
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-2">
-            {contentItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => item.type === 'file' ? handleFileClick(item) : setSelectedItemId(item.id)}
-                className={`w-full text-left p-3 rounded-lg transition-colors ${
-                  selectedItemId === item.id
-                    ? 'bg-primary/10 border-2 border-primary'
-                    : 'hover:bg-muted/50 border-2 border-transparent'
-                }`}
-                data-testid={`button-content-${item.id}`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 mt-0.5">
-                    {getStatusIcon(item.progress?.status)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      {item.type === 'video' ? (
-                        <PlayCircle className="h-4 w-4 text-primary flex-shrink-0" />
-                      ) : (
-                        <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                      )}
-                      <span className="font-semibold text-sm truncate">{item.title}</span>
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground text-sm">
+                Loading content...
+              </div>
+            ) : contentItems.length === 0 ? (
+              <div className="text-center py-8 px-4">
+                <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
+                <p className="text-sm font-medium text-muted-foreground mb-1">
+                  No content available yet
+                </p>
+                <p className="text-xs text-muted-foreground/70">
+                  An administrator needs to add videos or files to this training week.
+                </p>
+              </div>
+            ) : (
+              contentItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => item.type === 'file' ? handleFileClick(item) : setSelectedItemId(item.id)}
+                  className={`w-full text-left p-3 rounded-lg transition-colors ${
+                    selectedItemId === item.id
+                      ? 'bg-primary/10 border-2 border-primary'
+                      : 'hover:bg-muted/50 border-2 border-transparent'
+                  }`}
+                  data-testid={`button-content-${item.id}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                      {getStatusIcon(item.progress?.status)}
                     </div>
-                    {item.progress?.status === 'in-progress' && item.duration && (
-                      <div className="text-xs text-muted-foreground">
-                        {Math.floor(item.progress.videoProgress / 60)}:{String(item.progress.videoProgress % 60).padStart(2, '0')} / {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, '0')}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        {item.type === 'video' ? (
+                          <PlayCircle className="h-4 w-4 text-primary flex-shrink-0" />
+                        ) : (
+                          <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                        )}
+                        <span className="font-semibold text-sm truncate">{item.title}</span>
                       </div>
-                    )}
+                      {item.progress?.status === 'in-progress' && item.duration && (
+                        <div className="text-xs text-muted-foreground">
+                          {Math.floor(item.progress.videoProgress / 60)}:{String(item.progress.videoProgress % 60).padStart(2, '0')} / {Math.floor(item.duration / 60)}:{String(item.duration % 60).padStart(2, '0')}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))
+            )}
           </div>
         </ScrollArea>
       </div>
@@ -289,6 +305,16 @@ export default function CourseView() {
                   </Button>
                 </div>
               )}
+            </div>
+          </div>
+        ) : contentItems.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="text-center max-w-md">
+              <PlayCircle className="h-16 w-16 mx-auto mb-4 text-muted-foreground/40" />
+              <h3 className="text-xl font-semibold mb-2">No Content Available</h3>
+              <p className="text-muted-foreground">
+                This training week doesn't have any videos or files yet. Please check back later or contact an administrator.
+              </p>
             </div>
           </div>
         ) : (
