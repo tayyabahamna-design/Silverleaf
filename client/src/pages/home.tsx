@@ -28,6 +28,7 @@ import {
 import type { TrainingWeek } from "@shared/schema";
 import type { UploadResult } from "@uppy/core";
 import logoImage from "@assets/image_1760441748572.png";
+import { FilePreview } from "@/components/FilePreview";
 
 export default function Home() {
   const { toast } = useToast();
@@ -430,27 +431,36 @@ export default function Home() {
                               : file.fileUrl;
                             
                             return (
-                              <div key={file.id} className="p-3 rounded-md border flex items-center justify-between gap-2">
-                                <button
-                                  onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
-                                  className="text-primary hover:underline flex items-center gap-2 flex-1 min-w-0 text-left"
-                                  data-testid={`link-deck-${week.id}-${file.id}`}
-                                >
-                                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                                  <span className="truncate">{file.fileName}</span>
-                                  {shouldUseOfficeViewer && (
-                                    <span className="text-xs text-muted-foreground ml-1">(click to view)</span>
-                                  )}
-                                </button>
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                  <span className="text-sm text-muted-foreground">
-                                    ({formatFileSize(file.fileSize)})
-                                  </span>
+                              <div key={file.id} className="rounded-md border overflow-hidden">
+                                <div className="flex items-center gap-3">
+                                  <div className="flex-shrink-0 w-20 h-20 border-r">
+                                    <FilePreview 
+                                      fileName={file.fileName} 
+                                      fileUrl={file.fileUrl} 
+                                      className="w-full h-full"
+                                    />
+                                  </div>
+                                  <button
+                                    onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
+                                    className="flex-1 min-w-0 text-left p-3 hover:bg-muted/50 transition-colors"
+                                    data-testid={`link-deck-${week.id}-${file.id}`}
+                                  >
+                                    <div className="flex items-start gap-2">
+                                      <ExternalLink className="h-4 w-4 flex-shrink-0 mt-0.5 text-primary" />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-medium text-sm truncate">{file.fileName}</div>
+                                        <div className="text-xs text-muted-foreground mt-0.5">
+                                          {formatFileSize(file.fileSize)}
+                                          {shouldUseOfficeViewer && <span className="ml-1">• Click to view</span>}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </button>
                                   {isAdmin && (
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8"
+                                      className="h-8 w-8 mr-2 flex-shrink-0"
                                       onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
                                       disabled={deleteDeckFileMutation.isPending}
                                       data-testid={`button-delete-deck-${week.id}-${file.id}`}
