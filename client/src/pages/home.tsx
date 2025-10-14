@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -25,9 +25,20 @@ export default function Home() {
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Keep input focused when editing
+  useEffect(() => {
+    if (editingCell && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [editingCell, editValue]); // Re-focus whenever editValue changes (during typing)
 
   const { data: weeks = [], isLoading } = useQuery<TrainingWeek[]>({
     queryKey: ["/api/training-weeks"],
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
+    staleTime: Infinity,
   });
 
   const createWeekMutation = useMutation({
@@ -49,8 +60,14 @@ export default function Home() {
     mutationFn: async ({ id, data }: { id: string; data: Partial<TrainingWeek> }) => {
       return apiRequest("PATCH", `/api/training-weeks/${id}`, data);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
+    onSuccess: (updatedWeek, variables) => {
+      // Update the cache directly instead of invalidating to prevent re-render
+      queryClient.setQueryData<TrainingWeek[]>(["/api/training-weeks"], (old) => {
+        if (!old) return old;
+        return old.map(week => 
+          week.id === variables.id ? { ...week, ...variables.data } : week
+        );
+      });
       setEditingCell(null);
       setEditValue("");
     },
@@ -128,7 +145,7 @@ export default function Home() {
   const handleUploadComplete = (weekId: string, year: string) => (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
     if (result.successful && result.successful.length > 0) {
       const file = result.successful[0];
-      if (!file.uploadURL) return;
+      if (!file.uploadURL || !file.name) return;
       
       uploadDeckMutation.mutate({
         weekId,
@@ -207,6 +224,7 @@ export default function Home() {
                       <td className="p-4">
                         {editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
                           <Input
+                            ref={inputRef}
                             value={editValue}
                             onChange={(e) => setEditValue(e.target.value)}
                             onKeyDown={(e) => {
@@ -237,6 +255,7 @@ export default function Home() {
                       <td className="p-4">
                         {editingCell?.id === week.id && editingCell?.field === "objective" ? (
                           <Input
+                            ref={inputRef}
                             value={editValue}
                             onChange={(e) => setEditValue(e.target.value)}
                             onKeyDown={(e) => {
