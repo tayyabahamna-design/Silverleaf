@@ -81,3 +81,8 @@ A web application for Silver Leaf to organize and manage their teacher training 
   - Added file upload functionality for 2024 and 2025 presentation decks
   - Integrated Replit Object Storage for file persistence
   - Added dark mode support
+  - **Fixed critical inline editing focus bug**: Input fields now maintain focus during editing
+    - Changed to direct cache updates (`setQueryData`) instead of query invalidation
+    - Added `isSavingRef` tracking to prevent blur handler interference during intentional saves
+    - Blur handler refocuses only on unintentional blurs (from re-renders)
+    - Error handling resets focus flag on save failures

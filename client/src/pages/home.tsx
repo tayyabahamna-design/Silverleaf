@@ -26,13 +26,29 @@ export default function Home() {
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const isSavingRef = useRef(false); // Track if we're intentionally saving
 
-  // Keep input focused when editing
+  // Focus input when entering edit mode
   useEffect(() => {
     if (editingCell && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [editingCell, editValue]); // Re-focus whenever editValue changes (during typing)
+  }, [editingCell]);
+
+  // Handle blur: only refocus if NOT intentionally saving
+  const handleInputBlur = () => {
+    // Don't refocus if we're intentionally saving (Enter/Escape pressed)
+    if (isSavingRef.current) return;
+    
+    // If we're still in edit mode and blur happened unintentionally, refocus
+    if (editingCell && inputRef.current) {
+      requestAnimationFrame(() => {
+        if (editingCell && inputRef.current && !isSavingRef.current) {
+          inputRef.current.focus();
+        }
+      });
+    }
+  };
 
   const { data: weeks = [], isLoading } = useQuery<TrainingWeek[]>({
     queryKey: ["/api/training-weeks"],
@@ -70,6 +86,17 @@ export default function Home() {
       });
       setEditingCell(null);
       setEditValue("");
+      // Reset the saving flag after save completes
+      setTimeout(() => { isSavingRef.current = false; }, 0);
+    },
+    onError: () => {
+      // Reset the saving flag on error to allow refocus if needed
+      isSavingRef.current = false;
+      toast({ 
+        title: "Save failed", 
+        description: "Failed to save changes. Please try again.",
+        variant: "destructive" 
+      });
     },
   });
 
@@ -106,6 +133,7 @@ export default function Home() {
   };
 
   const handleCellSave = () => {
+    isSavingRef.current = true; // Mark that we're intentionally saving
     if (editingCell && editValue !== "") {
       updateWeekMutation.mutate({
         id: editingCell.id,
@@ -115,12 +143,15 @@ export default function Home() {
       // Cancel editing if no value
       setEditingCell(null);
       setEditValue("");
+      setTimeout(() => { isSavingRef.current = false; }, 0);
     }
   };
 
   const handleCellCancel = () => {
+    isSavingRef.current = true; // Mark that we're intentionally canceling
     setEditingCell(null);
     setEditValue("");
+    setTimeout(() => { isSavingRef.current = false; }, 0);
   };
 
   const handleGetUploadParams = async () => {
@@ -227,6 +258,7 @@ export default function Home() {
                             ref={inputRef}
                             value={editValue}
                             onChange={(e) => setEditValue(e.target.value)}
+                            onBlur={handleInputBlur}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
@@ -258,6 +290,7 @@ export default function Home() {
                             ref={inputRef}
                             value={editValue}
                             onChange={(e) => setEditValue(e.target.value)}
+                            onBlur={handleInputBlur}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
                                 e.preventDefault();
