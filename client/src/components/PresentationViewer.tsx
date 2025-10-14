@@ -14,16 +14,17 @@ export function PresentationViewer({ isOpen, onClose, fileUrl, fileName }: Prese
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[95vw] h-[90vh] p-0">
-        <DialogHeader className="p-4 pb-2">
-          <DialogTitle className="truncate">{fileName}</DialogTitle>
+      <DialogContent className="max-w-[98vw] w-[98vw] h-[95vh] p-0 gap-0">
+        <DialogHeader className="px-6 py-3 border-b flex-shrink-0">
+          <DialogTitle className="truncate text-lg">{fileName}</DialogTitle>
         </DialogHeader>
-        <div className="flex-1 h-[calc(100%-60px)] w-full">
+        <div className="flex-1 w-full overflow-hidden">
           <iframe
             src={viewerUrl}
             className="w-full h-full border-0"
             title={fileName}
             allow="fullscreen"
+            style={{ minHeight: 'calc(95vh - 60px)' }}
           />
         </div>
       </DialogContent>
