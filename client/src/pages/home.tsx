@@ -5,9 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { Plus, Pencil, Trash2, Upload, ExternalLink, LogOut } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, ExternalLink, LogOut, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -249,141 +255,158 @@ export default function Home() {
           <div className="text-center py-12 text-muted-foreground">Loading...</div>
         ) : weeks.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            No training weeks yet. Click "Add New Week" to get started!
+            No training weeks yet. {isAdmin && 'Click "Add New Week" to get started!'}
           </div>
         ) : (
-          <div className="border rounded-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full" data-testid="table-training-weeks">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="text-left p-4 font-semibold border-b">Week</th>
-                    <th className="text-left p-4 font-semibold border-b min-w-[200px]">Competency Focus</th>
-                    <th className="text-left p-4 font-semibold border-b min-w-[200px]">Objective</th>
-                    <th className="text-left p-4 font-semibold border-b min-w-[180px]">Deck</th>
-                    <th className="text-left p-4 font-semibold border-b">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {weeks.map((week) => (
-                    <tr key={week.id} className="border-b last:border-b-0 hover-elevate" data-testid={`row-week-${week.id}`}>
-                      <td className="p-4 font-medium">{week.weekNumber}</td>
-                      
-                      <td className="p-4">
-                        {isAdmin && editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
-                          <Input
-                            ref={inputRef}
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onBlur={handleInputBlur}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleCellSave();
-                              }
-                              if (e.key === "Escape") {
-                                e.preventDefault();
-                                handleCellCancel();
-                              }
-                            }}
-                            autoFocus
-                            disabled={updateWeekMutation.isPending}
-                            data-testid={`input-competency-${week.id}`}
-                          />
-                        ) : (
-                          <div
-                            onClick={isAdmin ? () => handleCellEdit(week.id, "competencyFocus", week.competencyFocus) : undefined}
-                            className={isAdmin ? "cursor-text p-2 rounded hover:bg-muted/50 min-h-[2.5rem] flex items-center" : "p-2 min-h-[2.5rem] flex items-center"}
-                            data-testid={`text-competency-${week.id}`}
-                          >
-                            {week.competencyFocus || <span className="text-muted-foreground">{isAdmin ? "Click to edit" : "N/A"}</span>}
-                          </div>
-                        )}
-                      </td>
+          <Accordion type="multiple" className="space-y-4" data-testid="accordion-training-weeks">
+            {weeks.map((week) => (
+              <AccordionItem
+                key={week.id}
+                value={week.id}
+                className="border rounded-lg"
+                data-testid={`card-week-${week.id}`}
+              >
+                <div className="flex items-center pr-2">
+                  <AccordionTrigger className="flex-1 px-6 py-4 hover:no-underline">
+                    <div className="flex items-center gap-4 w-full">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span className="text-primary font-bold">{week.weekNumber}</span>
+                      </div>
+                      <div className="text-left flex-1">
+                        <h3 className="font-semibold">Week {week.weekNumber}</h3>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {week.competencyFocus || "No competency focus set"}
+                        </p>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  {isAdmin && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeleteId(week.id)}
+                      className="mr-2"
+                      data-testid={`button-delete-${week.id}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
+                </div>
+                <AccordionContent className="pt-4 space-y-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                        Competency Focus
+                      </label>
+                      {isAdmin && editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
+                        <Input
+                          ref={inputRef}
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={handleInputBlur}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleCellSave();
+                            }
+                            if (e.key === "Escape") {
+                              e.preventDefault();
+                              handleCellCancel();
+                            }
+                          }}
+                          autoFocus
+                          disabled={updateWeekMutation.isPending}
+                          data-testid={`input-competency-${week.id}`}
+                        />
+                      ) : (
+                        <div
+                          onClick={isAdmin ? () => handleCellEdit(week.id, "competencyFocus", week.competencyFocus) : undefined}
+                          className={`p-3 rounded-md border ${isAdmin ? "cursor-text hover:bg-muted/50" : ""}`}
+                          data-testid={`text-competency-${week.id}`}
+                        >
+                          {week.competencyFocus || <span className="text-muted-foreground text-sm">{isAdmin ? "Click to edit" : "Not set"}</span>}
+                        </div>
+                      )}
+                    </div>
 
-                      <td className="p-4">
-                        {isAdmin && editingCell?.id === week.id && editingCell?.field === "objective" ? (
-                          <Input
-                            ref={inputRef}
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onBlur={handleInputBlur}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                handleCellSave();
-                              }
-                              if (e.key === "Escape") {
-                                e.preventDefault();
-                                handleCellCancel();
-                              }
-                            }}
-                            autoFocus
-                            disabled={updateWeekMutation.isPending}
-                            data-testid={`input-objective-${week.id}`}
-                          />
-                        ) : (
-                          <div
-                            onClick={isAdmin ? () => handleCellEdit(week.id, "objective", week.objective) : undefined}
-                            className={isAdmin ? "cursor-text p-2 rounded hover:bg-muted/50 min-h-[2.5rem] flex items-center" : "p-2 min-h-[2.5rem] flex items-center"}
-                            data-testid={`text-objective-${week.id}`}
-                          >
-                            {week.objective || <span className="text-muted-foreground">{isAdmin ? "Click to edit" : "N/A"}</span>}
-                          </div>
-                        )}
-                      </td>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                        Objective
+                      </label>
+                      {isAdmin && editingCell?.id === week.id && editingCell?.field === "objective" ? (
+                        <Input
+                          ref={inputRef}
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={handleInputBlur}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleCellSave();
+                            }
+                            if (e.key === "Escape") {
+                              e.preventDefault();
+                              handleCellCancel();
+                            }
+                          }}
+                          autoFocus
+                          disabled={updateWeekMutation.isPending}
+                          data-testid={`input-objective-${week.id}`}
+                        />
+                      ) : (
+                        <div
+                          onClick={isAdmin ? () => handleCellEdit(week.id, "objective", week.objective) : undefined}
+                          className={`p-3 rounded-md border ${isAdmin ? "cursor-text hover:bg-muted/50" : ""}`}
+                          data-testid={`text-objective-${week.id}`}
+                        >
+                          {week.objective || <span className="text-muted-foreground text-sm">{isAdmin ? "Click to edit" : "Not set"}</span>}
+                        </div>
+                      )}
+                    </div>
 
-                      <td className="p-4">
-                        {week.deckFileName ? (
-                          <div className="flex items-center gap-2">
-                            <a
-                              href={week.deckFileUrl || "#"}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline flex items-center gap-1 flex-1 truncate"
-                              data-testid={`link-deck-${week.id}`}
-                            >
-                              <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{week.deckFileName}</span>
-                            </a>
-                            <span className="text-xs text-muted-foreground">
-                              ({formatFileSize(week.deckFileSize || 0)})
-                            </span>
-                          </div>
-                        ) : isAdmin ? (
-                          <ObjectUploader
-                            maxNumberOfFiles={1}
-                            onGetUploadParameters={handleGetUploadParams}
-                            onComplete={handleUploadComplete(week.id)}
-                            buttonSize="sm"
-                            buttonVariant="outline"
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                        Presentation Deck
+                      </label>
+                      {week.deckFileName ? (
+                        <div className="p-3 rounded-md border flex items-center justify-between">
+                          <a
+                            href={week.deckFileUrl || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline flex items-center gap-2 flex-1"
+                            data-testid={`link-deck-${week.id}`}
                           >
-                            <Upload className="mr-2 h-3 w-3" />
-                            Upload
-                          </ObjectUploader>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">N/A</span>
-                        )}
-                      </td>
-
-                      <td className="p-4">
-                        {isAdmin && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDeleteId(week.id)}
-                            data-testid={`button-delete-${week.id}`}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                            <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate">{week.deckFileName}</span>
+                          </a>
+                          <span className="text-sm text-muted-foreground ml-2">
+                            ({formatFileSize(week.deckFileSize || 0)})
+                          </span>
+                        </div>
+                      ) : isAdmin ? (
+                        <ObjectUploader
+                          maxNumberOfFiles={1}
+                          onGetUploadParameters={handleGetUploadParams}
+                          onComplete={handleUploadComplete(week.id)}
+                          buttonSize="default"
+                          buttonVariant="outline"
+                          data-testid={`uploader-deck-${week.id}`}
+                        >
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload Deck
+                        </ObjectUploader>
+                      ) : (
+                        <div className="p-3 rounded-md border">
+                          <span className="text-muted-foreground text-sm">No deck uploaded</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         )}
       </main>
 
