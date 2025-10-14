@@ -76,28 +76,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update deck file after upload
   app.post("/api/training-weeks/:id/deck", async (req, res) => {
     try {
-      const { fileUrl, fileName, fileSize, year } = req.body;
+      const { fileUrl, fileName, fileSize } = req.body;
       
-      if (!fileUrl || !fileName || !fileSize || !year) {
+      if (!fileUrl || !fileName || !fileSize) {
         return res.status(400).json({ error: "Missing required fields" });
-      }
-
-      if (year !== "2024" && year !== "2025") {
-        return res.status(400).json({ error: "Year must be 2024 or 2025" });
       }
 
       const objectPath = objectStorageService.normalizeObjectEntityPath(fileUrl);
 
-      const updateData: any = { id: req.params.id };
-      if (year === "2024") {
-        updateData.deck2024FileName = fileName;
-        updateData.deck2024FileUrl = objectPath;
-        updateData.deck2024FileSize = fileSize;
-      } else {
-        updateData.deck2025FileName = fileName;
-        updateData.deck2025FileUrl = objectPath;
-        updateData.deck2025FileSize = fileSize;
-      }
+      const updateData: any = {
+        id: req.params.id,
+        deckFileName: fileName,
+        deckFileUrl: objectPath,
+        deckFileSize: fileSize,
+      };
 
       const week = await storage.updateTrainingWeek(updateData);
       if (!week) {

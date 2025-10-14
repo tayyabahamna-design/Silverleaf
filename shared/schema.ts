@@ -8,12 +8,9 @@ export const trainingWeeks = pgTable("training_weeks", {
   weekNumber: integer("week_number").notNull(),
   competencyFocus: text("competency_focus").notNull().default(""),
   objective: text("objective").notNull().default(""),
-  deck2024FileName: text("deck_2024_file_name"),
-  deck2024FileUrl: text("deck_2024_file_url"),
-  deck2024FileSize: integer("deck_2024_file_size"),
-  deck2025FileName: text("deck_2025_file_name"),
-  deck2025FileUrl: text("deck_2025_file_url"),
-  deck2025FileSize: integer("deck_2025_file_size"),
+  deckFileName: text("deck_file_name"),
+  deckFileUrl: text("deck_file_url"),
+  deckFileSize: integer("deck_file_size"),
 });
 
 export const insertTrainingWeekSchema = createInsertSchema(trainingWeeks).omit({

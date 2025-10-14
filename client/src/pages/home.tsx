@@ -112,14 +112,13 @@ export default function Home() {
   });
 
   const uploadDeckMutation = useMutation({
-    mutationFn: async ({ weekId, fileUrl, fileName, fileSize, year }: {
+    mutationFn: async ({ weekId, fileUrl, fileName, fileSize }: {
       weekId: string;
       fileUrl: string;
       fileName: string;
       fileSize: number;
-      year: string;
     }) => {
-      return apiRequest("POST", `/api/training-weeks/${weekId}/deck`, { fileUrl, fileName, fileSize, year });
+      return apiRequest("POST", `/api/training-weeks/${weekId}/deck`, { fileUrl, fileName, fileSize });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
@@ -173,7 +172,7 @@ export default function Home() {
     }
   };
 
-  const handleUploadComplete = (weekId: string, year: string) => (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+  const handleUploadComplete = (weekId: string) => (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
     if (result.successful && result.successful.length > 0) {
       const file = result.successful[0];
       if (!file.uploadURL || !file.name) return;
@@ -183,7 +182,6 @@ export default function Home() {
         fileUrl: file.uploadURL,
         fileName: file.name,
         fileSize: file.size || 0,
-        year,
       });
     }
   };
@@ -242,8 +240,7 @@ export default function Home() {
                     <th className="text-left p-4 font-semibold border-b">Week</th>
                     <th className="text-left p-4 font-semibold border-b min-w-[200px]">Competency Focus</th>
                     <th className="text-left p-4 font-semibold border-b min-w-[200px]">Objective</th>
-                    <th className="text-left p-4 font-semibold border-b min-w-[180px]">2024 Deck</th>
-                    <th className="text-left p-4 font-semibold border-b min-w-[180px]">2025 Deck</th>
+                    <th className="text-left p-4 font-semibold border-b min-w-[180px]">Deck</th>
                     <th className="text-left p-4 font-semibold border-b">Actions</th>
                   </tr>
                 </thead>
@@ -317,58 +314,27 @@ export default function Home() {
                       </td>
 
                       <td className="p-4">
-                        {week.deck2024FileName ? (
+                        {week.deckFileName ? (
                           <div className="flex items-center gap-2">
                             <a
-                              href={week.deck2024FileUrl || "#"}
+                              href={week.deckFileUrl || "#"}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-sm text-primary hover:underline flex items-center gap-1 flex-1 truncate"
-                              data-testid={`link-deck2024-${week.id}`}
+                              data-testid={`link-deck-${week.id}`}
                             >
                               <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{week.deck2024FileName}</span>
+                              <span className="truncate">{week.deckFileName}</span>
                             </a>
                             <span className="text-xs text-muted-foreground">
-                              ({formatFileSize(week.deck2024FileSize || 0)})
+                              ({formatFileSize(week.deckFileSize || 0)})
                             </span>
                           </div>
                         ) : (
                           <ObjectUploader
                             maxNumberOfFiles={1}
                             onGetUploadParameters={handleGetUploadParams}
-                            onComplete={handleUploadComplete(week.id, "2024")}
-                            buttonSize="sm"
-                            buttonVariant="outline"
-                          >
-                            <Upload className="mr-2 h-3 w-3" />
-                            Upload
-                          </ObjectUploader>
-                        )}
-                      </td>
-
-                      <td className="p-4">
-                        {week.deck2025FileName ? (
-                          <div className="flex items-center gap-2">
-                            <a
-                              href={week.deck2025FileUrl || "#"}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline flex items-center gap-1 flex-1 truncate"
-                              data-testid={`link-deck2025-${week.id}`}
-                            >
-                              <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{week.deck2025FileName}</span>
-                            </a>
-                            <span className="text-xs text-muted-foreground">
-                              ({formatFileSize(week.deck2025FileSize || 0)})
-                            </span>
-                          </div>
-                        ) : (
-                          <ObjectUploader
-                            maxNumberOfFiles={1}
-                            onGetUploadParameters={handleGetUploadParams}
-                            onComplete={handleUploadComplete(week.id, "2025")}
+                            onComplete={handleUploadComplete(week.id)}
                             buttonSize="sm"
                             buttonVariant="outline"
                           >
