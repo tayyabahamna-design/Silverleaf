@@ -4,7 +4,7 @@
 A web application for Silver Leaf to organize and manage their teacher training program. The app provides a clean, collapsible card-based interface with role-based access control for managing training weeks with competency focus, objectives, and presentation files.
 
 ## Features
-- **Authentication**: Secure login with Replit Auth (OpenID Connect)
+- **Authentication**: Secure username/password authentication with scrypt password hashing
 - **Role-Based Access Control**: Admin (full CRUD access) and Teacher (view-only) roles
 - **Training Week Management**: Add, edit, and delete training weeks (admin only)
 - **Collapsible Cards UI**: Vertical accordion cards for better content organization
@@ -19,7 +19,7 @@ A web application for Silver Leaf to organize and manage their teacher training 
 - **Frontend**: React, TypeScript, Tailwind CSS, Shadcn UI
 - **Backend**: Express.js, TypeScript
 - **Database**: PostgreSQL (Neon) with Drizzle ORM
-- **Authentication**: Replit Auth (OpenID Connect)
+- **Authentication**: Passport.js Local Strategy with scrypt password hashing
 - **File Storage**: Replit Object Storage (Google Cloud Storage)
 - **File Uploads**: Uppy.js with AWS S3 plugin
 
@@ -33,28 +33,33 @@ A web application for Silver Leaf to organize and manage their teacher training 
 │   │   │   └── ui/                   # Shadcn UI components
 │   │   ├── pages/
 │   │   │   ├── home.tsx              # Main page with accordion cards
-│   │   │   └── landing.tsx           # Login/landing page
+│   │   │   └── auth-page.tsx         # Login/registration page
 │   │   ├── hooks/
-│   │   │   └── useAuth.ts            # Authentication hook
+│   │   │   └── use-auth.tsx          # Authentication hook with AuthProvider
 │   │   └── lib/
 │   │       ├── queryClient.ts        # React Query setup
-│   │       └── authUtils.ts          # Auth utilities
+│   │       └── protected-route.tsx   # Route protection component
 ├── server/
 │   ├── routes.ts                     # API routes with auth middleware
 │   ├── storage.ts                    # PostgreSQL storage implementation
-│   ├── replitAuth.ts                 # Replit Auth configuration
+│   ├── auth.ts                       # Passport.js authentication
 │   └── objectStorage.ts              # Object storage service
 └── shared/
     └── schema.ts                     # Shared types and schemas
 ```
 
 ## Authentication & Authorization
-- **Replit Auth (OIDC)**: Secure authentication using OpenID Connect
-- **First User**: Automatically assigned "admin" role
-- **Subsequent Users**: Assigned "teacher" role (view-only)
-- **Session Management**: Sessions stored in PostgreSQL
+- **Username/Password Authentication**: Secure login using Passport.js Local Strategy
+- **Password Hashing**: Scrypt algorithm with per-user salt for maximum security
+- **Teacher Registration**: Public registration available, automatically assigns "teacher" role (view-only)
+- **Admin Accounts**: Created manually in database only, no public sign-up
+- **Session Management**: Express sessions stored in PostgreSQL with connect-pg-simple
 - **Protected Endpoints**: All API routes require authentication
 - **Admin-Only Endpoints**: POST, PATCH, DELETE require admin role
+- **Current Admin Credentials**: 
+  - Username: `admin`
+  - Email: admin@silverleaf.com
+  - Password: `SecureAdmin123!`
 
 ## API Routes
 All routes require authentication. Admin-only routes marked with 🔒.
@@ -66,19 +71,23 @@ All routes require authentication. Admin-only routes marked with 🔒.
 - `POST /api/objects/upload` 🔒 - Get presigned URL for file upload (admin only)
 - `POST /api/training-weeks/:id/deck` 🔒 - Update deck file after upload (admin only)
 - `GET /objects/:objectPath` - Download uploaded files (authenticated)
-- `GET /api/auth/user` - Get current authenticated user
-- `GET /api/login` - Initiate Replit Auth login
-- `GET /api/callback` - Auth callback handler
-- `GET /api/logout` - Logout and clear session
+- `GET /api/user` - Get current authenticated user
+- `POST /api/register` - Register new teacher account (public, always creates teacher role)
+- `POST /api/login` - Login with username/password
+- `POST /api/logout` - Logout and clear session
 
 ## Database Schema (PostgreSQL)
 ```typescript
 users table:
 - id: varchar (UUID primary key)
-- email: text (unique)
-- name: text
-- role: text (admin or teacher)
+- username: varchar (unique, required)
+- password: varchar (hashed with scrypt)
+- email: varchar (optional)
+- firstName: varchar (optional)
+- lastName: varchar (optional)
+- role: varchar (admin or teacher, defaults to teacher)
 - createdAt: timestamp
+- updatedAt: timestamp
 
 sessions table:
 - sid: varchar (primary key)
@@ -98,7 +107,7 @@ trainingWeeks table:
 ## How to Use
 
 ### For Admin Users
-1. Login with Replit Auth (first user becomes admin)
+1. Login with admin credentials (username: admin, password: SecureAdmin123!)
 2. Click "Add New Week" to create a new training week
 3. Click the accordion trigger to expand a week card
 4. Click on Competency Focus or Objective fields to edit inline (press Enter to save)
@@ -107,12 +116,23 @@ trainingWeeks table:
 7. Click the delete (trash) icon to remove a training week (requires confirmation)
 
 ### For Teacher Users
-1. Login with Replit Auth (subsequent users become teachers)
-2. View all training weeks in read-only mode
-3. Click accordion triggers to expand week details
-4. View competency focus, objectives, and presentation files
-5. Download presentation files by clicking the file links
-6. No edit, delete, or upload capabilities (view-only access)
+1. Register a new account on the registration tab (automatically assigned teacher role)
+2. Login with your username and password
+3. View all training weeks in read-only mode
+4. Click accordion triggers to expand week details
+5. View competency focus, objectives, and presentation files
+6. Download presentation files by clicking the file links
+7. No edit, delete, or upload capabilities (view-only access)
+
+### Creating Additional Admin Accounts
+Admin accounts cannot be created through the web interface. To create a new admin:
+1. Generate a hashed password using the scrypt algorithm
+2. Insert directly into the database with role='admin'
+3. Example SQL (replace with your values):
+   ```sql
+   INSERT INTO users (username, password, email, role)
+   VALUES ('newadmin', 'hashed_password_here', 'admin@example.com', 'admin');
+   ```
 
 ## Responsive Design
 - **Desktop (≥1024px)**: Full layout with all elements visible
@@ -127,13 +147,32 @@ trainingWeeks table:
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection string
 - `SESSION_SECRET` - Session encryption secret
-- `ISSUER_URL` - Replit Auth OIDC issuer URL
-- `CLIENT_ID` - Replit Auth client ID
-- `CLIENT_SECRET` - Replit Auth client secret
 - `PRIVATE_OBJECT_DIR` - Directory path for private object storage
 - `DEFAULT_OBJECT_STORAGE_BUCKET_ID` - Object storage bucket ID
 
 ## Recent Changes
+
+### 2025-10-14: Migration to Username/Password Authentication
+- **Authentication System Overhaul**:
+  - Migrated from Replit Auth (OIDC) to traditional username/password authentication
+  - Implemented Passport.js Local Strategy for authentication
+  - Scrypt password hashing with per-user salt for maximum security
+  - Public teacher registration with automatic "teacher" role assignment
+  - Admin accounts created manually in database only (no public sign-up)
+  - Created tabbed auth page with separate login and registration forms
+  - Built AuthProvider with useAuth hook for frontend authentication state
+  - Implemented ProtectedRoute component for route protection
+  - PostgreSQL session storage with connect-pg-simple
+- **Database Schema Updates**:
+  - Added username and password fields to users table
+  - Removed OIDC-specific fields (no longer needed)
+  - Username is unique and required
+  - Password stored as hashed string with salt
+- **Admin Account Setup**:
+  - Created first admin account: username "admin", email "admin@silverleaf.com"
+  - Password: "SecureAdmin123!" (can be changed by user)
+  - Future admin accounts must be created via direct database insertion
+
 ### 2024-10-14: Complete Redesign with Authentication and Responsive UI
 - **Database Migration**: Migrated from in-memory storage to PostgreSQL with Drizzle ORM
 - **Schema Update**: Removed 2024 Deck column, simplified to single Deck field per week
@@ -168,7 +207,9 @@ trainingWeeks table:
 
 ## User Preferences
 - Clean, modern UI with vertical card layout
-- Role-based access control for security
+- Username/password authentication (no external auth providers)
+- Role-based access control with manual admin creation for security
+- Public teacher registration for easy onboarding
 - Responsive design for all devices
 - Keyboard accessibility for all interactions
 - Dark mode support
