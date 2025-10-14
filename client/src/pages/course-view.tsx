@@ -38,7 +38,7 @@ export default function CourseView() {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
-  const [scale, setScale] = useState<number>(1.2);
+  const [scale, setScale] = useState<number>(1.8); // Higher default scale for HD clarity
   const [viewUrl, setViewUrl] = useState<string | null>(null);
 
   // Fetch deck files with progress
@@ -324,37 +324,57 @@ export default function CourseView() {
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 flex items-center justify-center p-6">
+                <div className="flex-1 flex flex-col items-center justify-center p-6">
                   <div className="w-full max-w-6xl">
-                    {viewUrl && (
-                      <>
-                        <iframe
-                          src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(viewUrl)}`}
-                          className="w-full h-[calc(100vh-280px)] rounded-xl shadow-2xl border-0 bg-white"
-                          title={selectedFile.fileName}
-                          data-testid="file-viewer"
-                        />
-                        <div className="mt-4 flex gap-3 flex-wrap">
+                    {viewUrl ? (
+                      <div className="space-y-6">
+                        {/* Preview iframe */}
+                        <div className="relative">
+                          <iframe
+                            src={viewUrl}
+                            className="w-full h-[calc(100vh-320px)] rounded-xl shadow-2xl border-0 bg-white"
+                            title={selectedFile.fileName}
+                            data-testid="file-viewer"
+                          />
+                          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent to-background/5 rounded-xl" />
+                        </div>
+                        
+                        {/* Action buttons */}
+                        <div className="flex gap-3 flex-wrap justify-center">
                           <Button
                             onClick={() => window.open(viewUrl, '_blank')}
                             variant="default"
-                            data-testid="button-download-file"
+                            size="lg"
+                            className="min-w-48"
+                            data-testid="button-open-original"
                           >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download File
+                            <ExternalLink className="h-5 w-5 mr-2" />
+                            Open Full Quality
                           </Button>
                           <Button
-                            onClick={() => window.open(`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(viewUrl)}`, '_blank')}
+                            onClick={() => {
+                              const link = document.createElement('a');
+                              link.href = viewUrl;
+                              link.download = selectedFile.fileName;
+                              link.click();
+                            }}
                             variant="outline"
-                            data-testid="button-fullscreen"
+                            size="lg"
+                            data-testid="button-download-file"
                           >
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Open Fullscreen
+                            <Download className="h-5 w-5 mr-2" />
+                            Download File
                           </Button>
                         </div>
-                      </>
-                    )}
-                    {!viewUrl && (
+                        
+                        {/* HD viewing tip */}
+                        <div className="text-center p-4 bg-primary/5 rounded-lg border border-primary/20">
+                          <p className="text-sm text-muted-foreground">
+                            <span className="font-semibold text-foreground">For maximum clarity:</span> Click "Open Full Quality" to view the presentation in a new tab with native HD rendering
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
                       <div className="text-center py-12">
                         <p className="text-muted-foreground">Loading presentation...</p>
                       </div>
