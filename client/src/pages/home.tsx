@@ -51,6 +51,8 @@ export default function Home() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
+      setEditingCell(null);
+      setEditValue("");
     },
   });
 
@@ -87,14 +89,21 @@ export default function Home() {
   };
 
   const handleCellSave = () => {
-    if (editingCell) {
+    if (editingCell && editValue !== "") {
       updateWeekMutation.mutate({
         id: editingCell.id,
         data: { [editingCell.field]: editValue },
       });
+    } else if (editingCell) {
+      // Cancel editing if no value
       setEditingCell(null);
       setEditValue("");
     }
+  };
+
+  const handleCellCancel = () => {
+    setEditingCell(null);
+    setEditValue("");
   };
 
   const handleGetUploadParams = async () => {
@@ -200,12 +209,18 @@ export default function Home() {
                           <Input
                             value={editValue}
                             onChange={(e) => setEditValue(e.target.value)}
-                            onBlur={handleCellSave}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter") handleCellSave();
-                              if (e.key === "Escape") setEditingCell(null);
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleCellSave();
+                              }
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                handleCellCancel();
+                              }
                             }}
                             autoFocus
+                            disabled={updateWeekMutation.isPending}
                             data-testid={`input-competency-${week.id}`}
                           />
                         ) : (
@@ -224,12 +239,18 @@ export default function Home() {
                           <Input
                             value={editValue}
                             onChange={(e) => setEditValue(e.target.value)}
-                            onBlur={handleCellSave}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter") handleCellSave();
-                              if (e.key === "Escape") setEditingCell(null);
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleCellSave();
+                              }
+                              if (e.key === "Escape") {
+                                e.preventDefault();
+                                handleCellCancel();
+                              }
                             }}
                             autoFocus
+                            disabled={updateWeekMutation.isPending}
                             data-testid={`input-objective-${week.id}`}
                           />
                         ) : (
