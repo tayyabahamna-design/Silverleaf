@@ -202,23 +202,23 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <span className="text-primary font-bold text-lg">SL</span>
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <span className="text-primary font-bold text-base sm:text-lg">SL</span>
             </div>
-            <div>
-              <h1 className="text-xl font-bold" data-testid="text-app-title">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold truncate" data-testid="text-app-title">
                 Silver Leaf
               </h1>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground hidden sm:block">
                 Training Program Planner
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
             {user && (
-              <div className="text-sm text-muted-foreground" data-testid="text-user-info">
+              <div className="text-xs sm:text-sm text-muted-foreground hidden md:block truncate max-w-[200px]" data-testid="text-user-info">
                 {user.email} ({user.role})
               </div>
             )}
@@ -228,22 +228,34 @@ export default function Home() {
               size="sm"
               onClick={() => window.location.href = "/api/logout"}
               data-testid="button-logout"
+              className="hidden sm:flex"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Logout
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => window.location.href = "/api/logout"}
+              data-testid="button-logout-mobile"
+              className="sm:hidden h-8 w-8"
+              aria-label="Logout"
+            >
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold">Training Weeks</h2>
+      <main className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl font-semibold">Training Weeks</h2>
           {isAdmin && (
             <Button
               onClick={() => createWeekMutation.mutate()}
               disabled={createWeekMutation.isPending}
               data-testid="button-add-week"
+              className="w-full sm:w-auto"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add New Week
@@ -258,7 +270,7 @@ export default function Home() {
             No training weeks yet. {isAdmin && 'Click "Add New Week" to get started!'}
           </div>
         ) : (
-          <Accordion type="multiple" className="space-y-4" data-testid="accordion-training-weeks">
+          <Accordion type="multiple" className="space-y-3 sm:space-y-4" data-testid="accordion-training-weeks">
             {weeks.map((week) => (
               <AccordionItem
                 key={week.id}
@@ -266,15 +278,15 @@ export default function Home() {
                 className="border rounded-lg"
                 data-testid={`card-week-${week.id}`}
               >
-                <div className="flex items-center pr-2">
-                  <AccordionTrigger className="flex-1 px-6 py-4 hover:no-underline">
-                    <div className="flex items-center gap-4 w-full">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <span className="text-primary font-bold">{week.weekNumber}</span>
+                <div className="flex items-center pr-1 sm:pr-2">
+                  <AccordionTrigger className="flex-1 px-3 sm:px-6 py-3 sm:py-4 hover:no-underline">
+                    <div className="flex items-center gap-2 sm:gap-4 w-full min-w-0">
+                      <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span className="text-primary font-bold text-sm sm:text-base">{week.weekNumber}</span>
                       </div>
-                      <div className="text-left flex-1">
-                        <h3 className="font-semibold">Week {week.weekNumber}</h3>
-                        <p className="text-sm text-muted-foreground truncate">
+                      <div className="text-left flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm sm:text-base">Week {week.weekNumber}</h3>
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
                           {week.competencyFocus || "No competency focus set"}
                         </p>
                       </div>
@@ -285,15 +297,15 @@ export default function Home() {
                       variant="ghost"
                       size="icon"
                       onClick={() => setDeleteId(week.id)}
-                      className="mr-2"
+                      className="mr-1 sm:mr-2 h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0"
                       data-testid={`button-delete-${week.id}`}
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
                     </Button>
                   )}
                 </div>
-                <AccordionContent className="pt-4 space-y-6">
-                  <div className="space-y-4">
+                <AccordionContent className="pt-3 sm:pt-4 pb-4 px-3 sm:px-6">
+                  <div className="space-y-3 sm:space-y-4">
                     <div>
                       <label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Competency Focus
