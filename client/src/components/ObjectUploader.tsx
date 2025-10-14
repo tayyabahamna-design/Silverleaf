@@ -62,6 +62,7 @@ export function ObjectUploader({
           proudlyDisplayPoweredByUppy={false}
           height={250}
           width="100%"
+          note="Upload up to 10 presentation files (PowerPoint, PDF, Keynote). After selecting files, click the Upload button to save them."
         />
       )}
     </div>
