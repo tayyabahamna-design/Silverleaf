@@ -324,58 +324,47 @@ export default function CourseView() {
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center p-6">
-                  <div className="w-full max-w-6xl">
+                <div className="flex-1 flex flex-col">
+                  <div className="flex-1 bg-muted/20 p-6">
                     {viewUrl ? (
-                      <div className="space-y-6">
-                        {/* Preview iframe */}
-                        <div className="relative">
+                      <div className="h-full flex flex-col items-center">
+                        <div className="w-full max-w-7xl h-full flex flex-col">
                           <iframe
-                            src={viewUrl}
-                            className="w-full h-[calc(100vh-320px)] rounded-xl shadow-2xl border-0 bg-white"
+                            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(viewUrl)}&wdAr=1.7777777777777777`}
+                            className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0"
                             title={selectedFile.fileName}
                             data-testid="file-viewer"
+                            frameBorder="0"
                           />
-                          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent to-background/5 rounded-xl" />
-                        </div>
-                        
-                        {/* Action buttons */}
-                        <div className="flex gap-3 flex-wrap justify-center">
-                          <Button
-                            onClick={() => window.open(viewUrl, '_blank')}
-                            variant="default"
-                            size="lg"
-                            className="min-w-48"
-                            data-testid="button-open-original"
-                          >
-                            <ExternalLink className="h-5 w-5 mr-2" />
-                            Open Full Quality
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              const link = document.createElement('a');
-                              link.href = viewUrl;
-                              link.download = selectedFile.fileName;
-                              link.click();
-                            }}
-                            variant="outline"
-                            size="lg"
-                            data-testid="button-download-file"
-                          >
-                            <Download className="h-5 w-5 mr-2" />
-                            Download File
-                          </Button>
-                        </div>
-                        
-                        {/* HD viewing tip */}
-                        <div className="text-center p-4 bg-primary/5 rounded-lg border border-primary/20">
-                          <p className="text-sm text-muted-foreground">
-                            <span className="font-semibold text-foreground">For maximum clarity:</span> Click "Open Full Quality" to view the presentation in a new tab with native HD rendering
-                          </p>
+                          <div className="mt-4 flex gap-3 justify-center">
+                            <Button
+                              onClick={() => window.open(`https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(viewUrl)}`, '_blank')}
+                              variant="default"
+                              size="lg"
+                              data-testid="button-fullscreen"
+                            >
+                              <ExternalLink className="h-5 w-5 mr-2" />
+                              Open Fullscreen
+                            </Button>
+                            <Button
+                              onClick={() => {
+                                const link = document.createElement('a');
+                                link.href = viewUrl;
+                                link.download = selectedFile.fileName;
+                                link.click();
+                              }}
+                              variant="outline"
+                              size="lg"
+                              data-testid="button-download-file"
+                            >
+                              <Download className="h-5 w-5 mr-2" />
+                              Download
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-center py-12">
+                      <div className="flex items-center justify-center h-full">
                         <p className="text-muted-foreground">Loading presentation...</p>
                       </div>
                     )}

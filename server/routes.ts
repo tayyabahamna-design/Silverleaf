@@ -192,16 +192,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "fileUrl parameter required" });
       }
 
-      // Generate a presigned URL with 1 hour expiration for viewing
-      const publicUrl = await objectStorageService.generatePresignedUrl(
-        fileUrl.replace('/objects/', ''),
-        60 * 60 * 1000 // 1 hour
-      );
-
-      res.json({ viewUrl: publicUrl });
+      // Return a proxied URL that will serve the file through our backend
+      const encodedUrl = encodeURIComponent(fileUrl);
+      const baseUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+        : `http://localhost:${process.env.PORT || 5000}`;
+      
+      const viewUrl = `${baseUrl}/api/files/proxy?url=${encodedUrl}`;
+      
+      res.json({ viewUrl });
     } catch (error) {
       console.error("Error generating view URL:", error);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Proxy file requests to make them publicly accessible for Office viewer
+  app.get("/api/files/proxy", async (req, res) => {
+    try {
+      const { url } = req.query;
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ error: "url parameter required" });
+      }
+
+      const objectFile = await objectStorageService.getObjectEntityFile(url);
+      await objectStorageService.downloadObject(objectFile, res, 3600);
+    } catch (error) {
+      console.error("Error proxying file:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.sendStatus(404);
+      }
+      return res.sendStatus(500);
     }
   });
 
