@@ -120,17 +120,26 @@ export default function Home() {
   });
 
   const uploadDeckMutation = useMutation({
-    mutationFn: async ({ weekId, fileUrl, fileName, fileSize }: {
+    mutationFn: async ({ weekId, files }: {
       weekId: string;
-      fileUrl: string;
-      fileName: string;
-      fileSize: number;
+      files: Array<{ fileUrl: string; fileName: string; fileSize: number }>;
     }) => {
-      return apiRequest("POST", `/api/training-weeks/${weekId}/deck`, { fileUrl, fileName, fileSize });
+      return apiRequest("POST", `/api/training-weeks/${weekId}/deck`, { files });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
+      const count = variables.files.length;
+      toast({ title: `${count} file${count > 1 ? 's' : ''} uploaded successfully` });
+    },
+  });
+
+  const deleteDeckFileMutation = useMutation({
+    mutationFn: async ({ weekId, fileId }: { weekId: string; fileId: string }) => {
+      return apiRequest("DELETE", `/api/training-weeks/${weekId}/deck/${fileId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
-      toast({ title: "File uploaded successfully" });
+      toast({ title: "File deleted successfully" });
     },
   });
 
@@ -182,15 +191,17 @@ export default function Home() {
 
   const handleUploadComplete = (weekId: string) => (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
     if (result.successful && result.successful.length > 0) {
-      const file = result.successful[0];
-      if (!file.uploadURL || !file.name) return;
+      const files = result.successful
+        .filter(file => file.uploadURL && file.name)
+        .map(file => ({
+          fileUrl: file.uploadURL!,
+          fileName: file.name!,
+          fileSize: file.size || 0,
+        }));
       
-      uploadDeckMutation.mutate({
-        weekId,
-        fileUrl: file.uploadURL,
-        fileName: file.name,
-        fileSize: file.size || 0,
-      });
+      if (files.length > 0) {
+        uploadDeckMutation.mutate({ weekId, files });
+      }
     }
   };
 
@@ -382,39 +393,58 @@ export default function Home() {
                       <label className="text-sm font-medium text-muted-foreground mb-2 block">
                         Presentation Deck
                       </label>
-                      {week.deckFileName ? (
-                        <div className="p-3 rounded-md border flex items-center justify-between">
-                          <a
-                            href={week.deckFileUrl || "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary hover:underline flex items-center gap-2 flex-1"
-                            data-testid={`link-deck-${week.id}`}
+                      <div className="space-y-2">
+                        {week.deckFiles && week.deckFiles.length > 0 ? (
+                          week.deckFiles.map((file) => (
+                            <div key={file.id} className="p-3 rounded-md border flex items-center justify-between gap-2">
+                              <a
+                                href={file.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline flex items-center gap-2 flex-1 min-w-0"
+                                data-testid={`link-deck-${week.id}-${file.id}`}
+                              >
+                                <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                                <span className="truncate">{file.fileName}</span>
+                              </a>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <span className="text-sm text-muted-foreground">
+                                  ({formatFileSize(file.fileSize)})
+                                </span>
+                                {isAdmin && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
+                                    disabled={deleteDeckFileMutation.isPending}
+                                    data-testid={`button-delete-deck-${week.id}-${file.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        ) : !isAdmin ? (
+                          <div className="p-3 rounded-md border">
+                            <span className="text-muted-foreground text-sm">No deck uploaded</span>
+                          </div>
+                        ) : null}
+                        {isAdmin && (
+                          <ObjectUploader
+                            maxNumberOfFiles={10}
+                            onGetUploadParameters={handleGetUploadParams}
+                            onComplete={handleUploadComplete(week.id)}
+                            buttonSize="default"
+                            buttonVariant="outline"
+                            data-testid={`uploader-deck-${week.id}`}
                           >
-                            <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                            <span className="truncate">{week.deckFileName}</span>
-                          </a>
-                          <span className="text-sm text-muted-foreground ml-2">
-                            ({formatFileSize(week.deckFileSize || 0)})
-                          </span>
-                        </div>
-                      ) : isAdmin ? (
-                        <ObjectUploader
-                          maxNumberOfFiles={1}
-                          onGetUploadParameters={handleGetUploadParams}
-                          onComplete={handleUploadComplete(week.id)}
-                          buttonSize="default"
-                          buttonVariant="outline"
-                          data-testid={`uploader-deck-${week.id}`}
-                        >
-                          <Upload className="mr-2 h-4 w-4" />
-                          Upload Deck
-                        </ObjectUploader>
-                      ) : (
-                        <div className="p-3 rounded-md border">
-                          <span className="text-muted-foreground text-sm">No deck uploaded</span>
-                        </div>
-                      )}
+                            <Upload className="mr-2 h-4 w-4" />
+                            Upload Deck Files
+                          </ObjectUploader>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </AccordionContent>
