@@ -1,5 +1,6 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import { randomUUID } from "crypto";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertTrainingWeekSchema, updateTrainingWeekSchema } from "@shared/schema";
@@ -94,32 +95,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update deck file after upload (admin only)
+  // Add deck files after upload (admin only) - supports multiple files
   app.post("/api/training-weeks/:id/deck", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const { fileUrl, fileName, fileSize } = req.body;
+      const { files } = req.body; // Expecting an array of {fileUrl, fileName, fileSize}
       
-      if (!fileUrl || !fileName || !fileSize) {
-        return res.status(400).json({ error: "Missing required fields" });
+      if (!files || !Array.isArray(files) || files.length === 0) {
+        return res.status(400).json({ error: "Missing or invalid files array" });
       }
 
-      const objectPath = objectStorageService.normalizeObjectEntityPath(fileUrl);
-
-      const updateData: any = {
-        id: req.params.id,
-        deckFileName: fileName,
-        deckFileUrl: objectPath,
-        deckFileSize: fileSize,
-      };
-
-      const week = await storage.updateTrainingWeek(updateData);
+      const week = await storage.getTrainingWeek(req.params.id);
       if (!week) {
         return res.status(404).json({ error: "Training week not found" });
       }
 
-      res.json({ objectPath, week });
+      // Process each file and add to the existing deck files
+      const newDeckFiles = files.map(file => {
+        const objectPath = objectStorageService.normalizeObjectEntityPath(file.fileUrl);
+        return {
+          id: randomUUID(),
+          fileName: file.fileName,
+          fileUrl: objectPath,
+          fileSize: file.fileSize,
+        };
+      });
+
+      const currentDeckFiles = week.deckFiles || [];
+      const updatedDeckFiles = [...currentDeckFiles, ...newDeckFiles];
+
+      const updatedWeek = await storage.updateTrainingWeek({
+        id: req.params.id,
+        deckFiles: updatedDeckFiles,
+      });
+
+      res.json({ week: updatedWeek });
     } catch (error) {
-      console.error("Error updating deck:", error);
+      console.error("Error adding deck files:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete a specific deck file (admin only)
+  app.delete("/api/training-weeks/:id/deck/:fileId", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id, fileId } = req.params;
+
+      const week = await storage.getTrainingWeek(id);
+      if (!week) {
+        return res.status(404).json({ error: "Training week not found" });
+      }
+
+      const currentDeckFiles = week.deckFiles || [];
+      const updatedDeckFiles = currentDeckFiles.filter(file => file.id !== fileId);
+
+      const updatedWeek = await storage.updateTrainingWeek({
+        id,
+        deckFiles: updatedDeckFiles,
+      });
+
+      res.json({ week: updatedWeek });
+    } catch (error) {
+      console.error("Error deleting deck file:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
