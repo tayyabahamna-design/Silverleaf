@@ -411,37 +411,54 @@ export default function Home() {
                       </label>
                       <div className="space-y-2">
                         {week.deckFiles && week.deckFiles.length > 0 ? (
-                          week.deckFiles.map((file) => (
-                            <div key={file.id} className="p-3 rounded-md border flex items-center justify-between gap-2">
-                              <a
-                                href={file.fileUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary hover:underline flex items-center gap-2 flex-1 min-w-0"
-                                data-testid={`link-deck-${week.id}-${file.id}`}
-                              >
-                                <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                                <span className="truncate">{file.fileName}</span>
-                              </a>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <span className="text-sm text-muted-foreground">
-                                  ({formatFileSize(file.fileSize)})
-                                </span>
-                                {isAdmin && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
-                                    disabled={deleteDeckFileMutation.isPending}
-                                    data-testid={`button-delete-deck-${week.id}-${file.id}`}
-                                  >
-                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                  </Button>
-                                )}
+                          week.deckFiles.map((file) => {
+                            // Determine if file should open in Office Online viewer
+                            const isPowerPoint = file.fileName.toLowerCase().endsWith('.pptx') || file.fileName.toLowerCase().endsWith('.ppt');
+                            const isWord = file.fileName.toLowerCase().endsWith('.docx') || file.fileName.toLowerCase().endsWith('.doc');
+                            const isExcel = file.fileName.toLowerCase().endsWith('.xlsx') || file.fileName.toLowerCase().endsWith('.xls');
+                            const shouldUseOfficeViewer = isPowerPoint || isWord || isExcel;
+                            
+                            // Create Office Online viewer URL
+                            const fileUrl = `${window.location.origin}${file.fileUrl}`;
+                            const viewerUrl = shouldUseOfficeViewer 
+                              ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`
+                              : file.fileUrl;
+                            
+                            return (
+                              <div key={file.id} className="p-3 rounded-md border flex items-center justify-between gap-2">
+                                <a
+                                  href={viewerUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline flex items-center gap-2 flex-1 min-w-0"
+                                  data-testid={`link-deck-${week.id}-${file.id}`}
+                                >
+                                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                                  <span className="truncate">{file.fileName}</span>
+                                  {shouldUseOfficeViewer && (
+                                    <span className="text-xs text-muted-foreground ml-1">(opens in viewer)</span>
+                                  )}
+                                </a>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  <span className="text-sm text-muted-foreground">
+                                    ({formatFileSize(file.fileSize)})
+                                  </span>
+                                  {isAdmin && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
+                                      disabled={deleteDeckFileMutation.isPending}
+                                      data-testid={`button-delete-deck-${week.id}-${file.id}`}
+                                    >
+                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : !isAdmin ? (
                           <div className="p-3 rounded-md border">
                             <span className="text-muted-foreground text-sm">No deck uploaded</span>
