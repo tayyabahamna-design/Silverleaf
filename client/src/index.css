@@ -732,24 +732,17 @@ button.uppy-u-reset.uppy-c-btn.uppy-Dashboard-browse {
   opacity: 0.9 !important;
 }
 
-/* Override green success indicators with primary color */
+/* Status styling for non-hidden elements */
+.uppy-Dashboard-Item-status {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Hide all decorative success graphics - precise selectors */
 .uppy-Dashboard-Item-progressIndicator,
-.uppy-Dashboard-Item-status,
-.uppy-Dashboard-Item-statusIcon {
-  color: hsl(var(--primary)) !important;
-}
-
-.uppy-StatusBar-statusIndicator {
-  color: hsl(var(--primary)) !important;
-}
-
-/* Hide all decorative success graphics */
+.uppy-StatusBar-statusIndicator,
+.uppy-StatusBar-statusPrimary,
 svg[aria-label="Complete"],
-.uppy-c-icon-check,
-.uppy-Dashboard-Item-previewIconWrap svg[viewBox*="58"],
-.uppy-Dashboard-Item-previewIconWrap circle,
-.uppy-StatusBar-statusPrimary svg,
-.uppy-StatusBar-statusPrimary circle {
+.uppy-c-icon-check {
   display: none !important;
 }
 
