@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import logoImage from "@assets/image_1760441748572.png";
 
 export default function AuthPage() {
   const { user, isLoading, loginMutation, registerMutation } = useAuth();
@@ -50,8 +51,8 @@ export default function AuthPage() {
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="h-14 w-14 rounded-lg bg-primary flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-2xl">SL</span>
+              <div className="h-14 w-14 rounded-lg bg-primary flex items-center justify-center shadow-md p-2">
+                <img src={logoImage} alt="Silverleaf Academy Logo" className="w-full h-full object-contain" />
               </div>
               <div className="text-left">
                 <h1 className="text-2xl sm:text-3xl font-bold text-primary">Silverleaf Academy</h1>
