@@ -8,10 +8,14 @@ import {
   type InsertContentItem,
   type UserProgress,
   type InsertUserProgress,
+  type DeckFileProgress,
+  type InsertDeckFileProgress,
+  type DeckFile,
   trainingWeeks,
   users,
   contentItems,
-  userProgress
+  userProgress,
+  deckFileProgress
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql as sqlOp } from "drizzle-orm";
@@ -42,6 +46,11 @@ export interface IStorage {
   // User progress operations
   saveUserProgress(progress: Partial<InsertUserProgress>): Promise<UserProgress>;
   getWeekProgress(weekId: string, userId: string): Promise<{ total: number; completed: number; percentage: number }>;
+  
+  // Deck file progress operations
+  getDeckFilesWithProgress(weekId: string, userId: string): Promise<(DeckFile & { progress?: DeckFileProgress })[]>;
+  saveDeckFileProgress(progress: Partial<InsertDeckFileProgress>): Promise<DeckFileProgress>;
+  getWeekDeckProgress(weekId: string, userId: string): Promise<{ total: number; completed: number; percentage: number }>;
   
   // Session store
   sessionStore: session.Store;
@@ -241,6 +250,114 @@ export class DatabaseStorage implements IStorage {
     );
     
     const completed = completedInWeek.length;
+    const percentage = Math.round((completed / total) * 100);
+    
+    return { total, completed, percentage };
+  }
+
+  // Deck file progress operations
+  async getDeckFilesWithProgress(weekId: string, userId: string): Promise<(DeckFile & { progress?: DeckFileProgress })[]> {
+    // Get the week with its deck files
+    const [week] = await db
+      .select()
+      .from(trainingWeeks)
+      .where(eq(trainingWeeks.id, weekId));
+    
+    if (!week || !week.deckFiles || week.deckFiles.length === 0) {
+      return [];
+    }
+    
+    // Get progress for all deck files in this week
+    const progressRecords = await db
+      .select()
+      .from(deckFileProgress)
+      .where(
+        and(
+          eq(deckFileProgress.weekId, weekId),
+          eq(deckFileProgress.userId, userId)
+        )
+      );
+    
+    // Combine deck files with their progress
+    return week.deckFiles.map(file => ({
+      ...file,
+      progress: progressRecords.find(p => p.deckFileId === file.id)
+    }));
+  }
+
+  async saveDeckFileProgress(progress: Partial<InsertDeckFileProgress>): Promise<DeckFileProgress> {
+    const { userId, weekId, deckFileId, status, completedAt } = progress;
+    
+    // Check if progress already exists
+    const [existing] = await db
+      .select()
+      .from(deckFileProgress)
+      .where(
+        and(
+          eq(deckFileProgress.userId, userId!),
+          eq(deckFileProgress.weekId, weekId!),
+          eq(deckFileProgress.deckFileId, deckFileId!)
+        )
+      );
+    
+    if (existing) {
+      // Update existing progress
+      const [updated] = await db
+        .update(deckFileProgress)
+        .set({
+          status,
+          completedAt,
+          lastAccessedAt: new Date(),
+        })
+        .where(eq(deckFileProgress.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new progress record
+      const [newProgress] = await db
+        .insert(deckFileProgress)
+        .values({
+          userId: userId!,
+          weekId: weekId!,
+          deckFileId: deckFileId!,
+          status: status || "pending",
+          completedAt,
+        })
+        .returning();
+      return newProgress;
+    }
+  }
+
+  async getWeekDeckProgress(weekId: string, userId: string): Promise<{ total: number; completed: number; percentage: number }> {
+    // Get the week with its deck files
+    const [week] = await db
+      .select()
+      .from(trainingWeeks)
+      .where(eq(trainingWeeks.id, weekId));
+    
+    if (!week || !week.deckFiles) {
+      return { total: 0, completed: 0, percentage: 0 };
+    }
+    
+    const total = week.deckFiles.length;
+    
+    if (total === 0) {
+      return { total: 0, completed: 0, percentage: 0 };
+    }
+    
+    // Count completed deck files
+    const completedFiles = await db
+      .select()
+      .from(deckFileProgress)
+      .where(
+        and(
+          eq(deckFileProgress.weekId, weekId),
+          eq(deckFileProgress.userId, userId),
+          eq(deckFileProgress.status, "completed")
+        )
+      );
+    
+    const completed = completedFiles.length;
     const percentage = Math.round((completed / total) * 100);
     
     return { total, completed, percentage };

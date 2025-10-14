@@ -276,6 +276,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Deck File Progress API - for tracking progress on presentation files
+
+  // Get deck files for a week with user progress
+  app.get("/api/training-weeks/:weekId/deck-files", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { weekId } = req.params;
+      
+      const files = await storage.getDeckFilesWithProgress(weekId, userId);
+      res.json(files);
+    } catch (error) {
+      console.error("Error getting deck files:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Save or update deck file progress
+  app.post("/api/deck-progress", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { weekId, deckFileId, status, completedAt } = req.body;
+      
+      const progress = await storage.saveDeckFileProgress({
+        userId,
+        weekId,
+        deckFileId,
+        status,
+        completedAt: completedAt ? new Date(completedAt) : undefined,
+      });
+      
+      res.json(progress);
+    } catch (error) {
+      console.error("Error saving deck file progress:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get overall deck file progress for a week
+  app.get("/api/training-weeks/:weekId/deck-progress", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { weekId } = req.params;
+      
+      const progressData = await storage.getWeekDeckProgress(weekId, userId);
+      res.json(progressData);
+    } catch (error) {
+      console.error("Error getting deck progress:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

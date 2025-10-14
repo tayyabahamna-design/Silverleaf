@@ -113,3 +113,21 @@ export const updateUserProgressSchema = insertUserProgressSchema.partial().exten
 export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
 export type UpdateUserProgress = z.infer<typeof updateUserProgressSchema>;
 export type UserProgress = typeof userProgress.$inferSelect;
+
+// Deck file progress tracking table
+export const deckFileProgress = pgTable("deck_file_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  weekId: varchar("week_id").notNull().references(() => trainingWeeks.id, { onDelete: "cascade" }),
+  deckFileId: varchar("deck_file_id").notNull(), // ID from the deckFiles JSONB array
+  status: varchar("status").notNull().default("pending"), // 'pending', 'completed'
+  completedAt: timestamp("completed_at"),
+  lastAccessedAt: timestamp("last_accessed_at").defaultNow(),
+});
+
+export const insertDeckFileProgressSchema = createInsertSchema(deckFileProgress).omit({
+  id: true,
+});
+
+export type InsertDeckFileProgress = z.infer<typeof insertDeckFileProgressSchema>;
+export type DeckFileProgress = typeof deckFileProgress.$inferSelect;
