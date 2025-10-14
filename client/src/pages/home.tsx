@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { PresentationViewer } from "@/components/PresentationViewer";
 import { Plus, Pencil, Trash2, Upload, ExternalLink, LogOut, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -33,6 +34,7 @@ export default function Home() {
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [viewingFile, setViewingFile] = useState<{ url: string; name: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isSavingRef = useRef(false); // Track if we're intentionally saving
 
@@ -426,19 +428,17 @@ export default function Home() {
                             
                             return (
                               <div key={file.id} className="p-3 rounded-md border flex items-center justify-between gap-2">
-                                <a
-                                  href={viewerUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-primary hover:underline flex items-center gap-2 flex-1 min-w-0"
+                                <button
+                                  onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
+                                  className="text-primary hover:underline flex items-center gap-2 flex-1 min-w-0 text-left"
                                   data-testid={`link-deck-${week.id}-${file.id}`}
                                 >
                                   <ExternalLink className="h-4 w-4 flex-shrink-0" />
                                   <span className="truncate">{file.fileName}</span>
                                   {shouldUseOfficeViewer && (
-                                    <span className="text-xs text-muted-foreground ml-1">(opens in viewer)</span>
+                                    <span className="text-xs text-muted-foreground ml-1">(click to view)</span>
                                   )}
-                                </a>
+                                </button>
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                   <span className="text-sm text-muted-foreground">
                                     ({formatFileSize(file.fileSize)})
@@ -501,6 +501,15 @@ export default function Home() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {viewingFile && (
+        <PresentationViewer
+          isOpen={!!viewingFile}
+          onClose={() => setViewingFile(null)}
+          fileUrl={viewingFile.url}
+          fileName={viewingFile.name}
+        />
+      )}
     </div>
   );
 }
