@@ -377,6 +377,7 @@
   border-radius: 0.5rem !important;
   background-color: transparent !important;
   padding: 2rem !important;
+  min-height: 140px !important;
 }
 
 .uppy-Dashboard-AddFiles:hover {
@@ -493,25 +494,33 @@
 .uppy-Dashboard-files {
   background-color: transparent !important;
   padding: 1rem !important;
-  max-height: 200px !important;
+}
+
+.uppy-Dashboard-inner {
+  max-height: none !important;
+  overflow-y: visible !important;
+}
+
+.uppy-Dashboard-filesContainer {
+  max-height: 250px !important;
   overflow-y: auto !important;
 }
 
-.uppy-Dashboard-files::-webkit-scrollbar {
+.uppy-Dashboard-filesContainer::-webkit-scrollbar {
   width: 8px;
 }
 
-.uppy-Dashboard-files::-webkit-scrollbar-track {
+.uppy-Dashboard-filesContainer::-webkit-scrollbar-track {
   background: hsl(var(--muted) / 0.3);
   border-radius: 4px;
 }
 
-.uppy-Dashboard-files::-webkit-scrollbar-thumb {
+.uppy-Dashboard-filesContainer::-webkit-scrollbar-thumb {
   background: hsl(var(--muted-foreground) / 0.3);
   border-radius: 4px;
 }
 
-.uppy-Dashboard-files::-webkit-scrollbar-thumb:hover {
+.uppy-Dashboard-filesContainer::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground) / 0.5);
 }
 
