@@ -46,16 +46,18 @@ export default function AuthPage() {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Left side - Auth forms */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
         <div className="w-full max-w-md">
           <div className="mb-8 text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <span className="text-primary font-bold text-xl">SL</span>
+              <div className="h-14 w-14 rounded-lg bg-primary flex items-center justify-center shadow-md">
+                <span className="text-white font-bold text-2xl">SL</span>
               </div>
-              <h1 className="text-3xl font-bold">Silver Leaf</h1>
+              <div className="text-left">
+                <h1 className="text-2xl sm:text-3xl font-bold text-primary">Silverleaf Academy</h1>
+                <p className="text-sm text-muted-foreground">Training Program Planner</p>
+              </div>
             </div>
-            <p className="text-muted-foreground">Training Program Planner</p>
           </div>
 
           <Tabs defaultValue="login" className="w-full">
@@ -200,20 +202,27 @@ export default function AuthPage() {
       </div>
 
       {/* Right side - Hero section */}
-      <div className="hidden lg:flex flex-1 bg-primary/5 items-center justify-center p-8">
+      <div className="hidden lg:flex flex-1 bg-primary items-center justify-center p-8">
         <div className="max-w-md text-center space-y-6">
-          <h2 className="text-4xl font-bold">Welcome to Silver Leaf Training Program</h2>
-          <p className="text-lg text-muted-foreground">
+          <div className="h-20 w-20 rounded-2xl bg-white/10 flex items-center justify-center mx-auto mb-6">
+            <span className="text-white font-bold text-4xl">SL</span>
+          </div>
+          <h2 className="text-4xl font-bold text-white">Welcome to Silverleaf Academy</h2>
+          <p className="text-lg text-white/90">
             Organize and manage teacher training content with ease. Track competency focus, objectives,
             and presentation materials for each training week.
           </p>
-          <div className="pt-4">
-            <p className="text-sm text-muted-foreground">
-              <strong>Teachers:</strong> Create an account to view training materials
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              <strong>Admins:</strong> Contact your administrator for admin access
-            </p>
+          <div className="pt-6 space-y-3">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-left">
+              <p className="text-white/90">
+                <strong className="text-white">Teachers:</strong> Create an account to view training materials
+              </p>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-left">
+              <p className="text-white/90">
+                <strong className="text-white">Admins:</strong> Contact your administrator for admin access
+              </p>
+            </div>
           </div>
         </div>
       </div>
