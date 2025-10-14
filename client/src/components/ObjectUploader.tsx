@@ -60,9 +60,9 @@ export function ObjectUploader({
         <Dashboard
           uppy={uppyRef.current}
           proudlyDisplayPoweredByUppy={false}
-          height={250}
+          height={350}
           width="100%"
-          note="Upload up to 10 presentation files (PowerPoint, PDF, Keynote). After selecting files, click the Upload button to save them."
+          note="Select up to 10 files, then click the blue Upload button at the bottom"
         />
       )}
     </div>
