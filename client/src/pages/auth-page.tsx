@@ -49,34 +49,34 @@ export default function AuthPage() {
       {/* Left side - Auth forms */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
         <div className="w-full max-w-md">
-          <div className="mb-8 text-center">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="h-14 w-14 flex items-center justify-center bg-primary rounded-lg p-2">
+          <div className="mb-10 text-center">
+            <div className="flex items-center justify-center gap-3 mb-6">
+              <div className="h-16 w-16 flex items-center justify-center bg-primary rounded-xl p-2 shadow-lg">
                 <img src={logoImage} alt="Silverleaf Academy Logo" className="w-full h-full object-contain" />
               </div>
               <div className="text-left">
-                <h1 className="text-2xl sm:text-3xl font-bold text-primary">Silverleaf Academy</h1>
-                <p className="text-sm text-muted-foreground">Training Program Planner</p>
+                <h1 className="text-3xl sm:text-4xl font-bold text-primary">Silverleaf Academy</h1>
+                <p className="text-sm text-muted-foreground mt-1">Training Program Planner</p>
               </div>
             </div>
           </div>
 
           <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
-              <TabsTrigger value="register" data-testid="tab-register">Create Account</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="login" data-testid="tab-login" className="text-base">Login</TabsTrigger>
+              <TabsTrigger value="register" data-testid="tab-register" className="text-base">Create Account</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Login</CardTitle>
-                  <CardDescription>
+              <Card className="shadow-xl border-0">
+                <CardHeader className="space-y-2 pb-6">
+                  <CardTitle className="text-2xl">Login</CardTitle>
+                  <CardDescription className="text-base">
                     Enter your credentials to access the training program planner
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleLogin} className="space-y-4">
+                  <form onSubmit={handleLogin} className="space-y-5">
                     <div className="space-y-2">
                       <Label htmlFor="login-username">Username</Label>
                       <Input
@@ -116,15 +116,15 @@ export default function AuthPage() {
             </TabsContent>
 
             <TabsContent value="register">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Create Teacher Account</CardTitle>
-                  <CardDescription>
+              <Card className="shadow-xl border-0">
+                <CardHeader className="space-y-2 pb-6">
+                  <CardTitle className="text-2xl">Create Teacher Account</CardTitle>
+                  <CardDescription className="text-base">
                     Register to access the training program planner in view-only mode
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleRegister} className="space-y-4">
+                  <form onSubmit={handleRegister} className="space-y-5">
                     <div className="space-y-2">
                       <Label htmlFor="register-username">Username *</Label>
                       <Input
@@ -203,25 +203,25 @@ export default function AuthPage() {
       </div>
 
       {/* Right side - Hero section */}
-      <div className="hidden lg:flex flex-1 bg-primary items-center justify-center p-8">
-        <div className="max-w-md text-center space-y-6">
-          <div className="h-20 w-20 rounded-2xl bg-white/10 flex items-center justify-center mx-auto mb-6">
-            <span className="text-white font-bold text-4xl">SL</span>
+      <div className="hidden lg:flex flex-1 bg-primary items-center justify-center p-12">
+        <div className="max-w-lg text-center space-y-8">
+          <div className="h-24 w-24 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-8 shadow-2xl">
+            <img src={logoImage} alt="Silverleaf Academy Logo" className="w-20 h-20 object-contain" />
           </div>
-          <h2 className="text-4xl font-bold text-white">Welcome to Silverleaf Academy</h2>
-          <p className="text-lg text-white/90">
+          <h2 className="text-5xl font-bold text-white leading-tight">Welcome to Silverleaf Academy</h2>
+          <p className="text-xl text-white/90 leading-relaxed">
             Organize and manage teacher training content with ease. Track competency focus, objectives,
             and presentation materials for each training week.
           </p>
-          <div className="pt-6 space-y-3">
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-left">
-              <p className="text-white/90">
-                <strong className="text-white">Teachers:</strong> Create an account to view training materials
+          <div className="pt-8 space-y-4">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 text-left shadow-lg hover:bg-white/15 transition-colors">
+              <p className="text-white/90 text-base">
+                <strong className="text-white font-semibold">Teachers:</strong> Create an account to view training materials
               </p>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-left">
-              <p className="text-white/90">
-                <strong className="text-white">Admins:</strong> Contact your administrator for admin access
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 text-left shadow-lg hover:bg-white/15 transition-colors">
+              <p className="text-white/90 text-base">
+                <strong className="text-white font-semibold">Admins:</strong> Contact your administrator for admin access
               </p>
             </div>
           </div>

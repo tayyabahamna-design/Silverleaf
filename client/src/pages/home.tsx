@@ -305,23 +305,23 @@ export default function Home() {
             No training weeks yet. {isAdmin && 'Click "Add New Week" to get started!'}
           </div>
         ) : (
-          <Accordion type="multiple" className="space-y-3 sm:space-y-4" data-testid="accordion-training-weeks">
+          <Accordion type="multiple" className="space-y-4 sm:space-y-5" data-testid="accordion-training-weeks">
             {weeks.map((week) => (
               <AccordionItem
                 key={week.id}
                 value={week.id}
-                className="border-l-4 border-l-primary border rounded-lg bg-card shadow-sm hover:shadow-md transition-shadow"
+                className="border-l-4 border-l-primary border rounded-xl bg-card shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5"
                 data-testid={`card-week-${week.id}`}
               >
-                <div className="flex items-center pr-1 sm:pr-2">
-                  <AccordionTrigger className="flex-1 px-3 sm:px-6 py-4 sm:py-5 hover:no-underline">
-                    <div className="flex items-center gap-3 sm:gap-4 w-full min-w-0">
-                      <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                        <span className="text-white font-bold text-base sm:text-lg">{week.weekNumber}</span>
+                <div className="flex items-center pr-2 sm:pr-3">
+                  <AccordionTrigger className="flex-1 px-4 sm:px-8 py-5 sm:py-6 hover:no-underline">
+                    <div className="flex items-center gap-4 sm:gap-5 w-full min-w-0">
+                      <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <span className="text-white font-bold text-lg sm:text-xl">{week.weekNumber}</span>
                       </div>
                       <div className="text-left flex-1 min-w-0">
-                        <h3 className="font-semibold text-base sm:text-lg">Week {week.weekNumber}</h3>
-                        <p className="text-sm sm:text-base text-muted-foreground truncate mt-0.5">
+                        <h3 className="font-bold text-lg sm:text-xl mb-1">Week {week.weekNumber}</h3>
+                        <p className="text-sm sm:text-base text-muted-foreground truncate">
                           {week.competencyFocus || "No competency focus set"}
                         </p>
                       </div>
@@ -339,10 +339,10 @@ export default function Home() {
                     </Button>
                   )}
                 </div>
-                <AccordionContent className="pt-3 sm:pt-4 pb-4 px-3 sm:px-6">
-                  <div className="space-y-3 sm:space-y-4">
+                <AccordionContent className="pt-4 sm:pt-6 pb-5 sm:pb-6 px-4 sm:px-8">
+                  <div className="space-y-5 sm:space-y-6">
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 block">
                         Competency Focus
                       </label>
                       {isAdmin && editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
@@ -364,20 +364,25 @@ export default function Home() {
                           autoFocus
                           disabled={updateWeekMutation.isPending}
                           data-testid={`input-competency-${week.id}`}
+                          className="text-base"
                         />
                       ) : (
                         <div
                           onClick={isAdmin ? () => handleCellEdit(week.id, "competencyFocus", week.competencyFocus) : undefined}
-                          className={`p-3 rounded-md border ${isAdmin ? "cursor-text hover:bg-muted/50" : ""}`}
+                          className={`p-4 rounded-lg border bg-muted/30 ${isAdmin ? "cursor-text hover:bg-muted/50 transition-colors" : ""}`}
                           data-testid={`text-competency-${week.id}`}
                         >
-                          {week.competencyFocus || <span className="text-muted-foreground text-sm">{isAdmin ? "Click to edit" : "Not set"}</span>}
+                          {week.competencyFocus ? (
+                            <p className="text-base leading-relaxed">{week.competencyFocus}</p>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">{isAdmin ? "Click to edit" : "Not set"}</span>
+                          )}
                         </div>
                       )}
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 block">
                         Objective
                       </label>
                       {isAdmin && editingCell?.id === week.id && editingCell?.field === "objective" ? (
@@ -399,23 +404,28 @@ export default function Home() {
                           autoFocus
                           disabled={updateWeekMutation.isPending}
                           data-testid={`input-objective-${week.id}`}
+                          className="text-base"
                         />
                       ) : (
                         <div
                           onClick={isAdmin ? () => handleCellEdit(week.id, "objective", week.objective) : undefined}
-                          className={`p-3 rounded-md border ${isAdmin ? "cursor-text hover:bg-muted/50" : ""}`}
+                          className={`p-4 rounded-lg border bg-muted/30 ${isAdmin ? "cursor-text hover:bg-muted/50 transition-colors" : ""}`}
                           data-testid={`text-objective-${week.id}`}
                         >
-                          {week.objective || <span className="text-muted-foreground text-sm">{isAdmin ? "Click to edit" : "Not set"}</span>}
+                          {week.objective ? (
+                            <p className="text-base leading-relaxed">{week.objective}</p>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">{isAdmin ? "Click to edit" : "Not set"}</span>
+                          )}
                         </div>
                       )}
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 block">
                         Presentation Deck
                       </label>
-                      <div className="space-y-2">
+                      <div className="space-y-3">
                         {week.deckFiles && week.deckFiles.length > 0 ? (
                           week.deckFiles.map((file) => {
                             // Determine if file should open in Office Online viewer
@@ -431,7 +441,7 @@ export default function Home() {
                               : file.fileUrl;
                             
                             return (
-                              <div key={file.id} className="rounded-md border overflow-hidden">
+                              <div key={file.id} className="rounded-lg border overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-card">
                                 <div className="flex items-center gap-3">
                                   <div className="flex-shrink-0 w-20 h-20 border-r">
                                     <FilePreview 
@@ -442,14 +452,14 @@ export default function Home() {
                                   </div>
                                   <button
                                     onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
-                                    className="flex-1 min-w-0 text-left p-3 hover:bg-muted/50 transition-colors"
+                                    className="flex-1 min-w-0 text-left p-4 hover:bg-muted/30 transition-colors"
                                     data-testid={`link-deck-${week.id}-${file.id}`}
                                   >
                                     <div className="flex items-start gap-2">
                                       <ExternalLink className="h-4 w-4 flex-shrink-0 mt-0.5 text-primary" />
                                       <div className="flex-1 min-w-0">
-                                        <div className="font-medium text-sm truncate">{file.fileName}</div>
-                                        <div className="text-xs text-muted-foreground mt-0.5">
+                                        <div className="font-semibold text-sm truncate">{file.fileName}</div>
+                                        <div className="text-xs text-muted-foreground mt-1">
                                           {formatFileSize(file.fileSize)}
                                           {shouldUseOfficeViewer && <span className="ml-1">• Click to view</span>}
                                         </div>
@@ -460,7 +470,7 @@ export default function Home() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-8 w-8 mr-2 flex-shrink-0"
+                                      className="h-9 w-9 mr-3 flex-shrink-0 rounded-lg hover:bg-destructive/10 transition-colors"
                                       onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
                                       disabled={deleteDeckFileMutation.isPending}
                                       data-testid={`button-delete-deck-${week.id}-${file.id}`}
@@ -473,7 +483,7 @@ export default function Home() {
                             );
                           })
                         ) : !isAdmin ? (
-                          <div className="p-3 rounded-md border">
+                          <div className="p-4 rounded-lg border bg-muted/30">
                             <span className="text-muted-foreground text-sm">No deck uploaded</span>
                           </div>
                         ) : null}
