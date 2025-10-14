@@ -433,12 +433,20 @@
 .uppy-Dashboard-Item-name {
   color: hsl(var(--foreground)) !important;
   font-weight: 500 !important;
-  font-size: 0.95rem !important;
+  font-size: 0.9375rem !important;
+  flex: 1 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
 
 .uppy-Dashboard-Item-preview {
-  border-radius: 0.5rem !important;
-  overflow: hidden !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+  flex-shrink: 0 !important;
 }
 
 .uppy-Dashboard-Item-status {
@@ -450,16 +458,17 @@
 }
 
 .uppy-StatusBar {
-  background-color: hsl(var(--card)) !important;
-  border-top: 2px solid hsl(var(--border)) !important;
+  background-color: transparent !important;
+  border-top: 1px solid hsl(var(--border)) !important;
   color: hsl(var(--foreground)) !important;
-  min-height: 70px !important;
+  min-height: 80px !important;
   padding: 1rem !important;
+  padding-top: 1.25rem !important;
   flex-shrink: 0 !important;
   position: sticky !important;
   bottom: 0 !important;
   z-index: 100 !important;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1) !important;
+  margin-top: 0.5rem !important;
 }
 
 .uppy-StatusBar-content {
@@ -474,12 +483,16 @@
   background-color: hsl(var(--primary)) !important;
   color: white !important;
   font-weight: 600 !important;
-  padding: 0.625rem 2rem !important;
-  border-radius: 0.375rem !important;
+  padding: 0.75rem 2.5rem !important;
+  border-radius: 0.5rem !important;
   border: none !important;
   cursor: pointer !important;
-  font-size: 1rem !important;
-  min-height: 42px !important;
+  font-size: 1.0625rem !important;
+  min-height: 48px !important;
+  width: 100% !important;
+  max-width: 300px !important;
+  display: block !important;
+  margin: 0 auto !important;
 }
 
 .uppy-StatusBar-actionBtn:hover {
@@ -507,8 +520,7 @@
 /* Additional Uppy Core Styles for Visibility */
 .uppy-Dashboard-files {
   background-color: transparent !important;
-  padding: 1rem !important;
-  padding-bottom: 0.5rem !important;
+  padding: 0.5rem 1rem !important;
 }
 
 .uppy-Dashboard-inner {
@@ -521,7 +533,7 @@
 .uppy-Dashboard-filesContainer {
   flex: 1 1 auto !important;
   overflow-y: auto !important;
-  padding-bottom: 1rem !important;
+  padding-bottom: 0 !important;
 }
 
 .uppy-Dashboard-filesContainer::-webkit-scrollbar {
@@ -580,41 +592,54 @@
 }
 
 .uppy-Dashboard-Item-previewIcon {
-  background: linear-gradient(135deg, hsl(var(--primary) / 0.1) 0%, hsl(var(--primary) / 0.2) 100%) !important;
-  color: hsl(var(--primary)) !important;
-  border: 2px solid hsl(var(--primary) / 0.3) !important;
-  border-radius: 0.5rem !important;
+  background: transparent !important;
+  border: none !important;
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  font-size: 2rem !important;
-  font-weight: 600 !important;
 }
 
 .uppy-Dashboard-Item-previewIcon svg {
-  width: 3rem !important;
-  height: 3rem !important;
+  width: 32px !important;
+  height: 32px !important;
   color: hsl(var(--primary)) !important;
 }
 
 .uppy-Dashboard-Item-fileInfo {
-  color: hsl(var(--foreground)) !important;
+  color: hsl(var(--muted-foreground)) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  flex: 1 !important;
+}
+
+.uppy-Dashboard-Item-status {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 0.875rem !important;
 }
 
 .uppy-Dashboard-Item {
-  margin-bottom: 0.75rem !important;
-  border: 1px solid hsl(var(--border)) !important;
-  border-radius: 0.5rem !important;
-  background-color: hsl(var(--card)) !important;
-  padding: 0.75rem !important;
+  margin-bottom: 0.5rem !important;
+  border: none !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  padding: 0.75rem 0.5rem !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.75rem !important;
 }
 
 .uppy-Dashboard-Item:hover {
-  background-color: hsl(var(--muted) / 0.3) !important;
+  background-color: hsl(var(--muted) / 0.2) !important;
 }
 
 .uppy-Dashboard-Item:last-child {
-  margin-bottom: 1rem !important;
+  border-bottom: none !important;
+  margin-bottom: 0.5rem !important;
 }
 
 .uppy-StatusBar-status {
