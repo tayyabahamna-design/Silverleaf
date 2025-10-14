@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
 import Home from "@/pages/home";
+import CourseView from "@/pages/course-view";
 import AuthPage from "@/pages/auth-page";
 import NotFound from "@/pages/not-found";
 
@@ -14,6 +15,7 @@ function Router() {
   return (
     <Switch>
       <ProtectedRoute path="/" component={Home} />
+      <ProtectedRoute path="/course/:weekId" component={CourseView} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>

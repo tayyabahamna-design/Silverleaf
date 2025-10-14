@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -6,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { Plus, Pencil, Trash2, Upload, ExternalLink, LogOut, ChevronDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, ExternalLink, LogOut, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -31,6 +32,7 @@ import logoImage from "@assets/image_1760460046116.png";
 import { FilePreview } from "@/components/FilePreview";
 
 export default function Home() {
+  const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user, isAdmin, logoutMutation } = useAuth();
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
@@ -304,7 +306,35 @@ export default function Home() {
           <div className="text-center py-12 text-muted-foreground">
             No training weeks yet. {isAdmin && 'Click "Add New Week" to get started!'}
           </div>
+        ) : !isAdmin ? (
+          // Teacher view: Clickable cards that navigate to course view
+          <div className="space-y-5 sm:space-y-6">
+            {weeks.map((week) => (
+              <button
+                key={week.id}
+                onClick={() => navigate(`/course/${week.id}`)}
+                className="w-full border-l-4 border-l-primary border-0 rounded-2xl bg-card shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 text-left"
+                data-testid={`card-week-${week.id}`}
+              >
+                <div className="flex items-center justify-between px-5 sm:px-10 py-6 sm:py-8">
+                  <div className="flex items-center gap-5 sm:gap-6 flex-1 min-w-0">
+                    <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-md">
+                      <span className="text-white font-bold text-xl sm:text-2xl">{week.weekNumber}</span>
+                    </div>
+                    <div className="text-left flex-1 min-w-0">
+                      <h3 className="font-extrabold text-xl sm:text-2xl mb-2">Week {week.weekNumber}</h3>
+                      <p className="text-sm sm:text-base text-muted-foreground/80 truncate leading-relaxed">
+                        {week.competencyFocus || "No competency focus set"}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-6 w-6 text-muted-foreground flex-shrink-0" />
+                </div>
+              </button>
+            ))}
+          </div>
         ) : (
+          // Admin view: Accordion for editing
           <Accordion type="multiple" className="space-y-5 sm:space-y-6" data-testid="accordion-training-weeks">
             {weeks.map((week) => (
               <AccordionItem
@@ -327,17 +357,15 @@ export default function Home() {
                       </div>
                     </div>
                   </AccordionTrigger>
-                  {isAdmin && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteId(week.id)}
-                      className="mr-2 sm:mr-3 h-10 w-10 flex-shrink-0 rounded-xl hover:bg-amber-500/10 transition-colors"
-                      data-testid={`button-delete-${week.id}`}
-                    >
-                      <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setDeleteId(week.id)}
+                    className="mr-2 sm:mr-3 h-10 w-10 flex-shrink-0 rounded-xl hover:bg-amber-500/10 transition-colors"
+                    data-testid={`button-delete-${week.id}`}
+                  >
+                    <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                  </Button>
                 </div>
                 <AccordionContent className="pt-6 sm:pt-8 pb-6 sm:pb-8 px-5 sm:px-10">
                   <div className="space-y-6 sm:space-y-8">
