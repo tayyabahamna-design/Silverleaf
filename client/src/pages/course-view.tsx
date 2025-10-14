@@ -98,11 +98,21 @@ export default function CourseView() {
       }
 
       try {
-        const response = await fetch(
-          `/api/files/view-url?fileUrl=${encodeURIComponent(selectedFile.fileUrl)}`
-        );
-        const data = await response.json();
-        setViewUrl(data.viewUrl);
+        const isPptx = selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
+                       selectedFile.fileName.toLowerCase().endsWith('.ppt');
+        
+        if (isPptx) {
+          // For PowerPoint files, convert to PDF for HD viewing
+          const convertUrl = `/api/files/convert-to-pdf?url=${encodeURIComponent(selectedFile.fileUrl)}`;
+          setViewUrl(convertUrl);
+        } else {
+          // For other files, use the proxy endpoint
+          const response = await fetch(
+            `/api/files/view-url?fileUrl=${encodeURIComponent(selectedFile.fileUrl)}`
+          );
+          const data = await response.json();
+          setViewUrl(data.viewUrl);
+        }
       } catch (error) {
         console.error('Error fetching view URL:', error);
         setViewUrl(selectedFile.fileUrl); // Fallback to direct URL
@@ -251,7 +261,9 @@ export default function CourseView() {
 
             {/* Content Display */}
             <div className="flex-1 flex flex-col bg-muted/20">
-              {selectedFile.fileName.toLowerCase().endsWith('.pdf') ? (
+              {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
+                selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
+                selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
                 <div className="flex-1 flex flex-col items-center p-6">
                   <div className="w-full max-w-6xl flex flex-col items-center">
                     {viewUrl && (
@@ -411,7 +423,9 @@ export default function CourseView() {
             {/* Fullscreen content */}
             <div className="flex-1 p-6 overflow-auto bg-muted/20">
               {selectedFile && viewUrl && (
-                selectedFile.fileName.toLowerCase().endsWith('.pdf') ? (
+                (selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
+                 selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
+                 selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
                   <div className="h-full flex flex-col items-center">
                     <Document
                       file={viewUrl}

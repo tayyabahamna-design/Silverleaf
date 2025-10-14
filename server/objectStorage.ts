@@ -147,6 +147,25 @@ export class ObjectStorageService {
       }
     }
   }
+
+  async getObjectBuffer(file: File): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      const stream = file.createReadStream();
+      
+      stream.on("data", (chunk: Buffer) => {
+        chunks.push(chunk);
+      });
+      
+      stream.on("end", () => {
+        resolve(Buffer.concat(chunks));
+      });
+      
+      stream.on("error", (err) => {
+        reject(err);
+      });
+    });
+  }
 }
 
 function parseObjectPath(path: string): { bucketName: string; objectName: string } {

@@ -226,6 +226,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Convert PPTX to PDF for HD viewing (authenticated users)
+  app.get("/api/files/convert-to-pdf", isAuthenticated, async (req, res) => {
+    try {
+      const { url } = req.query;
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ error: "url parameter required" });
+      }
+
+      const libre = require('libreoffice-convert');
+      const { promisify } = require('util');
+      const convertAsync = promisify(libre.convert);
+
+      // Download the original file
+      const objectFile = await objectStorageService.getObjectEntityFile(url);
+      const buffer = await objectStorageService.getObjectBuffer(objectFile);
+
+      // Convert to PDF
+      const pdfBuffer = await convertAsync(buffer, '.pdf', undefined);
+
+      // Set response headers
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Error converting file to PDF:", error);
+      if (error instanceof ObjectNotFoundError) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      return res.status(500).json({ error: "Conversion failed" });
+    }
+  });
+
   // Content Items API - for LMS-style course content
 
   // Get all content items for a week with user progress (authenticated users)
