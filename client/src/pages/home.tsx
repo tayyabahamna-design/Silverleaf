@@ -305,23 +305,23 @@ export default function Home() {
             No training weeks yet. {isAdmin && 'Click "Add New Week" to get started!'}
           </div>
         ) : (
-          <Accordion type="multiple" className="space-y-4 sm:space-y-5" data-testid="accordion-training-weeks">
+          <Accordion type="multiple" className="space-y-5 sm:space-y-6" data-testid="accordion-training-weeks">
             {weeks.map((week) => (
               <AccordionItem
                 key={week.id}
                 value={week.id}
-                className="border-l-4 border-l-primary border rounded-xl bg-card shadow-md hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5"
+                className="border-l-4 border-l-primary border-0 rounded-2xl bg-card shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
                 data-testid={`card-week-${week.id}`}
               >
-                <div className="flex items-center pr-2 sm:pr-3">
-                  <AccordionTrigger className="flex-1 px-4 sm:px-8 py-5 sm:py-6 hover:no-underline">
-                    <div className="flex items-center gap-4 sm:gap-5 w-full min-w-0">
-                      <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-sm">
-                        <span className="text-white font-bold text-lg sm:text-xl">{week.weekNumber}</span>
+                <div className="flex items-center pr-3 sm:pr-4">
+                  <AccordionTrigger className="flex-1 px-5 sm:px-10 py-6 sm:py-8 hover:no-underline">
+                    <div className="flex items-center gap-5 sm:gap-6 w-full min-w-0">
+                      <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-md">
+                        <span className="text-white font-bold text-xl sm:text-2xl">{week.weekNumber}</span>
                       </div>
                       <div className="text-left flex-1 min-w-0">
-                        <h3 className="font-bold text-lg sm:text-xl mb-1">Week {week.weekNumber}</h3>
-                        <p className="text-sm sm:text-base text-muted-foreground truncate">
+                        <h3 className="font-extrabold text-xl sm:text-2xl mb-2">Week {week.weekNumber}</h3>
+                        <p className="text-sm sm:text-base text-muted-foreground/80 truncate leading-relaxed">
                           {week.competencyFocus || "No competency focus set"}
                         </p>
                       </div>
@@ -332,17 +332,17 @@ export default function Home() {
                       variant="ghost"
                       size="icon"
                       onClick={() => setDeleteId(week.id)}
-                      className="mr-1 sm:mr-2 h-9 w-9 flex-shrink-0 hover:bg-destructive/10"
+                      className="mr-2 sm:mr-3 h-10 w-10 flex-shrink-0 rounded-xl hover:bg-amber-500/10 transition-colors"
                       data-testid={`button-delete-${week.id}`}
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
                     </Button>
                   )}
                 </div>
-                <AccordionContent className="pt-4 sm:pt-6 pb-5 sm:pb-6 px-4 sm:px-8">
-                  <div className="space-y-5 sm:space-y-6">
+                <AccordionContent className="pt-6 sm:pt-8 pb-6 sm:pb-8 px-5 sm:px-10">
+                  <div className="space-y-6 sm:space-y-8">
                     <div>
-                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 block">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
                         Competency Focus
                       </label>
                       {isAdmin && editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
@@ -382,7 +382,7 @@ export default function Home() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 block">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
                         Objective
                       </label>
                       {isAdmin && editingCell?.id === week.id && editingCell?.field === "objective" ? (
@@ -422,7 +422,7 @@ export default function Home() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3 block">
+                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
                         Presentation Deck
                       </label>
                       <div className="space-y-3">
@@ -441,9 +441,9 @@ export default function Home() {
                               : file.fileUrl;
                             
                             return (
-                              <div key={file.id} className="rounded-lg border overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-card">
-                                <div className="flex items-center gap-3">
-                                  <div className="flex-shrink-0 w-20 h-20 border-r">
+                              <div key={file.id} className="rounded-xl border-0 overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 bg-muted/20 hover:bg-muted/30">
+                                <div className="flex items-center gap-4">
+                                  <div className="flex-shrink-0 w-20 h-20 border-r border-border/50">
                                     <FilePreview 
                                       fileName={file.fileName} 
                                       fileUrl={file.fileUrl} 
@@ -452,16 +452,16 @@ export default function Home() {
                                   </div>
                                   <button
                                     onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
-                                    className="flex-1 min-w-0 text-left p-4 hover:bg-muted/30 transition-colors"
+                                    className="flex-1 min-w-0 text-left py-4 pr-2 transition-colors"
                                     data-testid={`link-deck-${week.id}-${file.id}`}
                                   >
-                                    <div className="flex items-start gap-2">
-                                      <ExternalLink className="h-4 w-4 flex-shrink-0 mt-0.5 text-primary" />
+                                    <div className="flex items-start gap-3">
+                                      <ExternalLink className="h-5 w-5 flex-shrink-0 mt-0.5 text-primary" />
                                       <div className="flex-1 min-w-0">
-                                        <div className="font-semibold text-sm truncate">{file.fileName}</div>
-                                        <div className="text-xs text-muted-foreground mt-1">
+                                        <div className="font-bold text-base truncate">{file.fileName}</div>
+                                        <div className="text-xs text-muted-foreground/70 mt-1.5">
                                           {formatFileSize(file.fileSize)}
-                                          {shouldUseOfficeViewer && <span className="ml-1">• Click to view</span>}
+                                          {shouldUseOfficeViewer && <span className="ml-2">• Click to view</span>}
                                         </div>
                                       </div>
                                     </div>
@@ -470,12 +470,12 @@ export default function Home() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      className="h-9 w-9 mr-3 flex-shrink-0 rounded-lg hover:bg-destructive/10 transition-colors"
+                                      className="h-10 w-10 mr-3 flex-shrink-0 rounded-xl hover:bg-amber-500/10 transition-colors"
                                       onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
                                       disabled={deleteDeckFileMutation.isPending}
                                       data-testid={`button-delete-deck-${week.id}-${file.id}`}
                                     >
-                                      <Trash2 className="h-4 w-4 text-destructive" />
+                                      <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
                                     </Button>
                                   )}
                                 </div>
