@@ -1,123 +1,188 @@
-# Silver Leaf Presentation Manager - Design Guidelines
+# Silverleaf Academy Training Program Planner - Design Guidelines
 
 ## Design Approach
-**Selected System**: Material Design-inspired productivity application
-**Rationale**: This internal tool prioritizes efficiency, clarity, and usability. Material Design principles provide clear visual hierarchy, intuitive interactions, and familiar patterns that reduce learning curve for teachers managing their presentations.
+**Brand Identity**: Silverleaf Academy professional branding with deep navy blue primary color
+**Purpose**: Internal training program management tool for admins and teachers
+**Design Philosophy**: Clean, modern, professional with emphasis on clarity, usability, and brand consistency
 
 ## Core Design Elements
 
-### A. Color Palette
+### A. Color Palette (Silverleaf Academy Branding)
 
 **Light Mode:**
-- Primary: 220 60% 50% (Professional blue for primary actions and branding)
-- Background: 0 0% 98% (Soft off-white for reduced eye strain)
-- Surface: 0 0% 100% (Pure white for cards and elevated elements)
-- Text Primary: 220 15% 20% (Dark slate for main content)
-- Text Secondary: 220 10% 45% (Medium gray for supporting text)
-- Border: 220 15% 88% (Subtle borders for separation)
-- Success: 142 76% 36% (Green for upload success)
+- Primary: 220 80% 32% (Silverleaf deep navy blue - from logo)
+- Primary Foreground: 0 0% 100% (White text on navy)
+- Background: 0 0% 98% (Soft off-white)
+- Surface/Card: 0 0% 100% (Pure white for cards)
+- Text Primary: 220 15% 20% (Dark slate)
+- Text Secondary: 220 10% 45% (Medium gray)
+- Border: 220 15% 88% (Subtle borders)
+- Success: 142 76% 36% (Green for success states)
 - Destructive: 0 72% 51% (Red for delete actions)
+- Muted: 220 12% 92% (Light gray backgrounds)
 
 **Dark Mode:**
-- Primary: 220 70% 60% (Lighter blue for contrast)
-- Background: 220 18% 12% (Deep navy background)
-- Surface: 220 15% 16% (Elevated dark surface)
-- Text Primary: 220 15% 95% (Off-white for readability)
-- Text Secondary: 220 10% 70% (Light gray for secondary content)
+- Primary: 220 75% 55% (Lighter navy for dark mode contrast)
+- Primary Foreground: 0 0% 100% (White text)
+- Background: 220 18% 12% (Deep dark background)
+- Surface/Card: 220 15% 16% (Elevated dark surface)
+- Text Primary: 220 15% 95% (Off-white)
+- Text Secondary: 220 10% 70% (Light gray)
 - Border: 220 15% 25% (Subtle dark borders)
 
 ### B. Typography
-- **Primary Font**: 'Inter' or 'Roboto' via Google Fonts CDN
+- **Primary Font**: 'Inter' (professional, modern, highly readable sans-serif)
 - **Headings**: 
-  - H1: 2.25rem (36px), font-weight 700, letter-spacing -0.02em
-  - H2: 1.5rem (24px), font-weight 600
-  - H3: 1.25rem (20px), font-weight 600
+  - Page Title (H1): 2rem (32px), font-weight 700, tracking-tight
+  - Section Heading (H2): 1.5rem (24px), font-weight 600
+  - Card Title (H3): 1.125rem (18px), font-weight 600
 - **Body Text**: 1rem (16px), font-weight 400, line-height 1.6
 - **Small/Meta**: 0.875rem (14px), font-weight 400
+- **Button Text**: 0.9375rem (15px), font-weight 600
 
 ### C. Layout System
-**Spacing Primitives**: Use Tailwind units of 2, 4, 6, 8, 12, and 16 for consistent rhythm
-- Container padding: p-6 (mobile), p-8 (tablet), p-12 (desktop)
-- Card spacing: p-6 with gap-4 between elements
-- Section spacing: mt-8 to mt-12 for major sections
-- Button padding: px-6 py-3 for primary actions
+**Spacing Philosophy**: Generous white space for professional, uncluttered appearance
 
-**Grid System**:
-- Upload section: Full-width centered container (max-w-4xl)
-- Presentation grid: grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6
-- Responsive breakpoints: sm (640px), md (768px), lg (1024px), xl (1280px)
+**Container Spacing**:
+- Mobile: p-4 (padding)
+- Tablet: p-6
+- Desktop: p-8 to p-12 for main container
 
-### D. Component Library
+**Card Spacing**:
+- Internal padding: p-6
+- Gap between elements: gap-4
+- Card margins: mb-4 or gap-4 in grid
 
-**Upload Section**:
-- Prominent drag-and-drop zone with dashed border (border-2 border-dashed)
-- Large upload icon from Heroicons (document-arrow-up, w-16 h-16)
-- Primary CTA button: "Upload Presentation" with px-8 py-4, rounded-lg
-- Supported formats text below: "Supports: .pptx, .ppt, .pdf, .key (Max 50MB)"
-- Visual feedback: border color change on drag-over state
+**Section Spacing**:
+- Between major sections: mt-8 to mt-12
+- Between form elements: space-y-4
 
-**Presentation Cards**:
-- Elevated surface with subtle shadow (shadow-md hover:shadow-lg transition)
-- Card structure:
-  - File icon with extension badge (document-text from Heroicons)
-  - Presentation title (truncate with ellipsis if needed)
-  - Metadata row: Upload date and file size in small text
-  - Action buttons row: Edit (pencil icon) and Delete (trash icon) buttons
-- Rounded corners: rounded-xl
-- Border: 1px solid border color in light mode, subtle glow in dark mode
+### D. Component Design Specifications
 
-**Navigation Header**:
-- Fixed top bar with Silver Leaf logo/name on left
-- Height: h-16
-- Subtle bottom border
-- Background: surface color with backdrop-blur-sm for depth
+**Header / Navigation**:
+- Background: Navy blue (primary color)
+- Height: h-16 (64px)
+- White text and icons
+- Logo/title on left
+- User info and actions on right
+- Subtle shadow for depth
+
+**Training Week Cards** (Vertical Accordion):
+- Background: White card surface
+- Border: 1px solid with subtle border color OR navy blue left border (4px) for accent
+- Rounded corners: rounded-lg
+- Padding: p-6
+- Shadow: subtle shadow-sm, elevated to shadow-md on hover
+- Card Header:
+  - Week number badge: Navy blue circular badge with white text
+  - Competency Focus preview: Primary text weight
+  - Action buttons (Edit/Delete): Icon buttons on the right
+- Expanded Content:
+  - Competency Focus: Clean section with label
+  - Objective: Formatted with clear structure, bullet points if multiple items
+  - Deck Files: List of clickable files with icons and sizes
+  - Upload section: Inline for admins
 
 **Buttons**:
-- Primary: Solid fill with primary color, white text, rounded-lg
-- Secondary/Destructive: Use outline variant with appropriate color
-- Icon buttons: Square (w-10 h-10), rounded-md, hover:bg-surface transition
-- All buttons: Use Heroicons for consistent iconography
+- Primary Action: Navy blue background, white text, rounded-md, px-6 py-2.5
+- Secondary: Outline style with navy border, navy text
+- Destructive: Red background, white text (for delete actions)
+- Icon Buttons: Square (w-9 h-9), rounded-md, hover state
+- All buttons: Smooth hover transitions (hover:opacity-90)
 
-**Modals/Dialogs**:
-- Edit modal: Centered overlay with max-w-md
-- Input field with label above, helper text below
-- Actions: Cancel (secondary) and Save (primary) buttons
-- Delete confirmation: Alert dialog with warning icon, clear consequences text
+**Login/Auth Page**:
+- Centered card design (max-w-md)
+- Navy blue header section with Silverleaf branding
+- White card body with form
+- Large, welcoming design
+- Primary button for login/register (navy blue)
+- Clean tab switching between login/register
 
-**File Metadata Display**:
-- Inline badge for file type (.pptx, .pdf, etc.) with rounded-full px-3 py-1
-- Date format: "MMM DD, YYYY" or relative time ("2 hours ago")
-- File size: Human-readable format (KB, MB)
-- Status indicators: Use small colored dots for upload progress/success
+**Forms & Inputs**:
+- Input fields: Border style, rounded-md, focus:ring-2 focus:ring-primary
+- Labels: font-medium text-sm mb-2
+- Error states: Red border and error text
+- Success states: Green checkmark or success message
+
+**File Upload Interface**:
+- Clean, professional appearance
+- File list with icons (not large preview boxes)
+- Upload button: Navy blue, prominent
+- Progress indicators: Navy blue accent color
 
 ### E. Interactions & States
-- Hover states: Subtle elevation changes (shadow transitions) and slight scale (scale-105)
-- Loading states: Skeleton loaders for card grid during fetch
-- Empty state: Centered illustration/icon with encouraging message "Upload your first presentation"
-- Error states: Toast notifications (top-right corner) with appropriate icons
-- Focus states: Visible 2px ring with primary color offset
-- Animations: Minimal - only for state transitions (300ms ease-in-out)
 
-## Images
-**No hero image required** - This is a utility application focused on functionality. The upload section serves as the visual anchor with clear iconography and call-to-action.
+**Hover States**:
+- Cards: Subtle shadow elevation (shadow-sm → shadow-md)
+- Buttons: Slight opacity change (hover:opacity-90)
+- Links: Underline or color change
 
-**File type icons**: Use Heroicons document variants with color-coded backgrounds:
-- PowerPoint: Orange/red background tint
-- PDF: Red background tint  
-- Keynote: Blue background tint
+**Active/Focus States**:
+- Focus ring: 2px ring with primary color
+- Active cards: Slightly elevated, navy blue accent
 
-## Accessibility & UX Considerations
-- Consistent dark mode across all form inputs and text fields
-- All interactive elements keyboard accessible (tab navigation)
+**Loading States**:
+- Skeleton loaders matching component structure
+- Navy blue loading spinners
+
+**Empty States**:
+- Centered icon/illustration
+- Encouraging message
+- Primary action button (navy blue)
+
+**Animations**:
+- Smooth transitions: 200-300ms ease-in-out
+- Accordion expand/collapse: smooth height transition
+- Modal open/close: fade + scale
+
+### F. Mobile Responsiveness
+
+**Breakpoints**:
+- Mobile: < 640px
+- Tablet: 640px - 1024px
+- Desktop: > 1024px
+
+**Mobile Optimizations**:
+- Stack layout for header elements
+- Full-width cards
+- Touch-friendly button sizes (min-height: 44px)
+- Collapsible sections for content
+- Hide less critical info on small screens
+- Larger tap targets for interactive elements
+
+### G. Accessibility
+
+- Keyboard navigation for all interactive elements
 - ARIA labels for icon-only buttons
-- Error messages associated with form fields
-- Loading indicators for file upload progress (percentage or spinner)
-- Confirmation dialogs before destructive actions (delete)
-- Success feedback after operations (toast or inline message)
+- Color contrast ratios meeting WCAG AA standards (4.5:1 for text)
+- Focus indicators always visible
+- Screen reader friendly markup
+
+## Brand Application Guidelines
+
+1. **Consistent Navy Blue Usage**: Use the Silverleaf navy blue for:
+   - Main header/navigation
+   - Primary action buttons
+   - Card accents (left border or header)
+   - Focus states and active indicators
+
+2. **White Space**: Embrace generous spacing for professional, clean appearance
+
+3. **Typography Hierarchy**: Use clear font size and weight differences to establish visual hierarchy
+
+4. **Professional Polish**: 
+   - Rounded corners (rounded-md to rounded-lg)
+   - Subtle shadows for depth
+   - Smooth transitions for all interactions
+   - Consistent spacing throughout
+
+5. **Mobile-First Approach**: Design works beautifully on mobile, enhanced for desktop
 
 ## Visual Hierarchy Principles
-1. Upload section dominates above-the-fold (primary action)
-2. Presentation grid uses consistent card size for scanability
-3. Visual weight through typography scale, not just color
-4. Whitespace creates breathing room - generous padding in cards
-5. Subtle borders and shadows for depth, not heavy lines
+
+1. Navy blue header establishes brand presence at top
+2. Training week cards are primary focus - clear, scannable layout
+3. Action buttons use color (navy) to indicate primary actions
+4. White space creates breathing room and professional feel
+5. Subtle borders and shadows for depth without heaviness
+6. Typography scale creates clear hierarchy without relying solely on color
