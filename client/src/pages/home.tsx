@@ -172,14 +172,16 @@ export default function Home() {
 
   const handleGetUploadParams = async () => {
     try {
+      console.log("[UPLOAD DEBUG] Requesting presigned URL from backend");
       const response = await apiRequest("POST", "/api/objects/upload", {});
       const data = await response.json();
+      console.log("[UPLOAD DEBUG] Received presigned URL:", data.uploadURL);
       return {
         method: "PUT" as const,
         url: data.uploadURL,
       };
     } catch (error) {
-      console.error("Error getting upload parameters:", error);
+      console.error("[UPLOAD ERROR] Error getting upload parameters:", error);
       toast({
         title: "Upload error",
         description: "Failed to get upload URL. Please try again.",
@@ -190,7 +192,11 @@ export default function Home() {
   };
 
   const handleUploadComplete = (weekId: string) => (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    console.log("[UPLOAD DEBUG] Upload complete, result:", result);
+    
     if (result.successful && result.successful.length > 0) {
+      console.log(`[UPLOAD DEBUG] ${result.successful.length} files uploaded successfully`);
+      
       const files = result.successful
         .filter(file => file.uploadURL && file.name)
         .map(file => ({
@@ -199,9 +205,19 @@ export default function Home() {
           fileSize: file.size || 0,
         }));
       
+      console.log("[UPLOAD DEBUG] Sending files to backend:", files);
+      
       if (files.length > 0) {
         uploadDeckMutation.mutate({ weekId, files });
+      } else {
+        console.log("[UPLOAD DEBUG] No valid files to upload");
       }
+    } else {
+      console.log("[UPLOAD DEBUG] No successful uploads");
+    }
+    
+    if (result.failed && result.failed.length > 0) {
+      console.error("[UPLOAD ERROR] Failed uploads:", result.failed);
     }
   };
 

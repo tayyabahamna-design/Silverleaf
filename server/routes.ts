@@ -88,9 +88,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/objects/upload", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      console.log("[UPLOAD DEBUG] Generated presigned URL for file upload");
       res.json({ uploadURL });
     } catch (error) {
-      console.error("Error getting upload URL:", error);
+      console.error("[UPLOAD ERROR] Error getting upload URL:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -98,20 +99,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Add deck files after upload (admin only) - supports multiple files
   app.post("/api/training-weeks/:id/deck", isAuthenticated, isAdmin, async (req, res) => {
     try {
+      console.log("[UPLOAD DEBUG] Request body:", JSON.stringify(req.body, null, 2));
       const { files } = req.body; // Expecting an array of {fileUrl, fileName, fileSize}
       
       if (!files || !Array.isArray(files) || files.length === 0) {
+        console.log("[UPLOAD DEBUG] Invalid files array:", files);
         return res.status(400).json({ error: "Missing or invalid files array" });
       }
 
+      console.log(`[UPLOAD DEBUG] Processing ${files.length} files for week ${req.params.id}`);
+
       const week = await storage.getTrainingWeek(req.params.id);
       if (!week) {
+        console.log("[UPLOAD DEBUG] Week not found:", req.params.id);
         return res.status(404).json({ error: "Training week not found" });
       }
 
       // Process each file and add to the existing deck files
       const newDeckFiles = files.map(file => {
         const objectPath = objectStorageService.normalizeObjectEntityPath(file.fileUrl);
+        console.log(`[UPLOAD DEBUG] Normalized ${file.fileUrl} -> ${objectPath}`);
         return {
           id: randomUUID(),
           fileName: file.fileName,
@@ -123,14 +130,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentDeckFiles = week.deckFiles || [];
       const updatedDeckFiles = [...currentDeckFiles, ...newDeckFiles];
 
+      console.log(`[UPLOAD DEBUG] Current files: ${currentDeckFiles.length}, New files: ${newDeckFiles.length}, Total: ${updatedDeckFiles.length}`);
+
       const updatedWeek = await storage.updateTrainingWeek({
         id: req.params.id,
         deckFiles: updatedDeckFiles,
       });
 
+      console.log("[UPLOAD DEBUG] Database updated successfully");
       res.json({ week: updatedWeek });
     } catch (error) {
-      console.error("Error adding deck files:", error);
+      console.error("[UPLOAD ERROR] Error adding deck files:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

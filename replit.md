@@ -69,7 +69,8 @@ All routes require authentication. Admin-only routes marked with 🔒.
 - `PATCH /api/training-weeks/:id` 🔒 - Update a training week (admin only)
 - `DELETE /api/training-weeks/:id` 🔒 - Delete a training week (admin only)
 - `POST /api/objects/upload` 🔒 - Get presigned URL for file upload (admin only)
-- `POST /api/training-weeks/:id/deck` 🔒 - Update deck file after upload (admin only)
+- `POST /api/training-weeks/:id/deck` 🔒 - Add multiple deck files after upload (admin only)
+- `DELETE /api/training-weeks/:id/deck/:fileId` 🔒 - Delete a specific deck file (admin only)
 - `GET /objects/:objectPath` - Download uploaded files (authenticated)
 - `GET /api/user` - Get current authenticated user
 - `POST /api/register` - Register new teacher account (public, always creates teacher role)
@@ -94,14 +95,12 @@ sessions table:
 - sess: json
 - expire: timestamp
 
-trainingWeeks table:
+training_weeks table:
 - id: varchar (UUID primary key)
-- weekNumber: serial (auto-incremented)
-- competencyFocus: text (nullable)
-- objective: text (nullable)
-- deckFileName: text (nullable)
-- deckFileUrl: text (nullable)
-- deckFileSize: integer (nullable)
+- week_number: integer (required)
+- competency_focus: text (required, defaults to empty string)
+- objective: text (required, defaults to empty string)
+- deck_files: jsonb (array of file objects with id, fileName, fileUrl, fileSize)
 ```
 
 ## How to Use
@@ -111,9 +110,10 @@ trainingWeeks table:
 2. Click "Add New Week" to create a new training week
 3. Click the accordion trigger to expand a week card
 4. Click on Competency Focus or Objective fields to edit inline (press Enter to save)
-5. Click "Upload Deck" to upload presentation files
-6. Uploaded files appear as clickable links with file size
-7. Click the delete (trash) icon to remove a training week (requires confirmation)
+5. Click "Upload Deck Files" to upload multiple presentation files (supports up to 10 files)
+6. Uploaded files appear as clickable links with file size and individual delete buttons
+7. Click the trash icon next to a file to delete that specific file
+8. Click the delete (trash) icon on the card header to remove entire training week (requires confirmation)
 
 ### For Teacher Users
 1. Register a new account on the registration tab (automatically assigned teacher role)
@@ -151,6 +151,22 @@ Admin accounts cannot be created through the web interface. To create a new admi
 - `DEFAULT_OBJECT_STORAGE_BUCKET_ID` - Object storage bucket ID
 
 ## Recent Changes
+
+### 2025-10-14: Multi-File Upload Support
+- **Database Schema Update**:
+  - Migrated from single file columns (deckFileName, deckFileUrl, deckFileSize) to jsonb array
+  - Added deck_files column to store multiple files per training week
+  - Each file has: id (UUID), fileName, fileUrl, fileSize
+  - Database schema synchronized with `npm run db:push --force`
+- **Backend API Updates**:
+  - POST /api/training-weeks/:id/deck now accepts array of files
+  - DELETE /api/training-weeks/:id/deck/:fileId for individual file deletion
+  - Added comprehensive debug logging for upload flow
+- **Frontend UI Changes**:
+  - Updated ObjectUploader to support maxNumberOfFiles=10
+  - Display all uploaded files as clickable links with individual delete buttons
+  - Each file shows name, size, and delete button (admin only)
+  - Upload button text changed to "Upload Deck Files"
 
 ### 2025-10-14: Migration to Username/Password Authentication
 - **Authentication System Overhaul**:
