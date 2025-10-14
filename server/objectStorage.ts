@@ -109,6 +109,7 @@ export class ObjectStorageService {
         "Content-Type": metadata.contentType || "application/octet-stream",
         "Content-Length": metadata.size,
         "Cache-Control": `public, max-age=${cacheTtlSec}`,
+        "Content-Disposition": "inline", // Open in browser instead of downloading
       });
 
       const stream = file.createReadStream();
