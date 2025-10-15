@@ -179,7 +179,8 @@ export default function CourseView() {
         {/* Sidebar Panel */}
         <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
           <div className="h-full border-r bg-card flex flex-col">
-            <div className="p-6 border-b">
+            {/* Fixed Header: Back Button and Week Title */}
+            <div className="p-6 border-b flex-shrink-0">
               <Button
                 variant="ghost"
                 size="sm"
@@ -193,97 +194,109 @@ export default function CourseView() {
               <h2 className="text-2xl font-bold mb-2">
                 Week {currentWeek?.weekNumber}
               </h2>
-              <p className="text-base text-muted-foreground">
-                {currentWeek?.competencyFocus || 'Training Content'}
-              </p>
-
-              {/* Objectives */}
-              {currentWeek?.objective && (
-                <div className="mt-4">
-                  <h3 className="text-base font-semibold text-foreground mb-3">
-                    Learning Objectives
-                  </h3>
-                  <div className="text-sm text-muted-foreground leading-loose space-y-2">
-                    {currentWeek.objective.split(/(?=\d+\.)/).map((line: string, idx: number) => {
-                      const trimmed = line.trim();
-                      if (!trimmed) return null;
-                      return (
-                        <p key={idx} className="pl-2">
-                          {trimmed}
-                        </p>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Progress Bar */}
-              {weekProgress && weekProgress.total > 0 && (
-                <div className="mt-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-semibold text-muted-foreground">
-                      Course Progress
-                    </span>
-                    <span className="text-sm font-bold text-primary">
-                      {weekProgress.percentage}%
-                    </span>
-                  </div>
-                  <Progress value={weekProgress.percentage} className="h-2" />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {weekProgress.completed} of {weekProgress.total} completed
-                  </p>
-                </div>
-              )}
             </div>
 
-            {/* Content List */}
-            <ScrollArea className="flex-1">
-              <div className="p-4 space-y-2">
-                {isLoading ? (
-                  <div className="text-center py-8 text-muted-foreground text-sm">
-                    Loading content...
+            {/* Scrollable Content: Competency Focus, Objectives, Progress, and File List */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6 space-y-6">
+                {/* Competency Focus */}
+                <div>
+                  <p className="text-base text-muted-foreground">
+                    {currentWeek?.competencyFocus || 'Training Content'}
+                  </p>
+                </div>
+
+                {/* Learning Objectives */}
+                {currentWeek?.objective && (
+                  <div>
+                    <h3 className="text-base font-semibold text-foreground mb-3">
+                      Learning Objectives
+                    </h3>
+                    <div className="text-sm text-muted-foreground leading-loose space-y-2">
+                      {currentWeek.objective.split(/(?=\d+\.)/).map((line: string, idx: number) => {
+                        const trimmed = line.trim();
+                        if (!trimmed) return null;
+                        return (
+                          <p key={idx} className="pl-2">
+                            {trimmed}
+                          </p>
+                        );
+                      })}
+                    </div>
                   </div>
-                ) : deckFiles.length === 0 ? (
-                  <div className="text-center py-8 px-4">
-                    <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
-                    <p className="text-sm font-medium text-muted-foreground mb-1">
-                      No content available yet
-                    </p>
-                    <p className="text-xs text-muted-foreground/70">
-                      An administrator needs to add files to this training week.
-                    </p>
-                  </div>
-                ) : (
-                  deckFiles.map((file) => (
-                    <button
-                      key={file.id}
-                      onClick={() => handleFileClick(file)}
-                      className={`w-full text-left p-3 rounded-lg transition-colors ${
-                        selectedFileId === file.id
-                          ? 'bg-primary/10 border-2 border-primary'
-                          : 'hover:bg-muted/50 border-2 border-transparent'
-                      }`}
-                      data-testid={`button-file-${file.id}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-0.5">
-                          {getStatusIcon(file.progress?.status)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <FileText className="h-5 w-5 text-primary flex-shrink-0" />
-                            <span className="font-semibold text-base truncate">{file.fileName}</span>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {(file.fileSize / 1024 / 1024).toFixed(2)} MB
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))
                 )}
+
+                {/* Course Progress */}
+                {weekProgress && weekProgress.total > 0 && (
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-semibold text-muted-foreground">
+                        Course Progress
+                      </span>
+                      <span className="text-sm font-bold text-primary">
+                        {weekProgress.percentage}%
+                      </span>
+                    </div>
+                    <Progress value={weekProgress.percentage} className="h-2" />
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {weekProgress.completed} of {weekProgress.total} completed
+                    </p>
+                  </div>
+                )}
+
+                {/* Lesson List */}
+                <div>
+                  <h3 className="text-base font-semibold text-foreground mb-3">
+                    Lesson Files
+                  </h3>
+                  <div className="space-y-2">
+                    {isLoading ? (
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        Loading content...
+                      </div>
+                    ) : deckFiles.length === 0 ? (
+                      <div className="text-center py-8">
+                        <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
+                        <p className="text-sm font-medium text-muted-foreground mb-1">
+                          No content available yet
+                        </p>
+                        <p className="text-xs text-muted-foreground/70">
+                          An administrator needs to add files to this training week.
+                        </p>
+                      </div>
+                    ) : (
+                      deckFiles.map((file) => (
+                        <button
+                          key={file.id}
+                          onClick={() => handleFileClick(file)}
+                          className={`w-full text-left p-3 rounded-lg transition-colors ${
+                            selectedFileId === file.id
+                              ? 'bg-primary/10 border-2 border-primary'
+                              : 'hover:bg-muted/50 border-2 border-transparent'
+                          }`}
+                          data-testid={`button-file-${file.id}`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-0.5">
+                              {getStatusIcon(file.progress?.status)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <FileText className="h-5 w-5 text-primary flex-shrink-0" />
+                                <span className="font-semibold text-base truncate">{file.fileName}</span>
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {(file.fileSize / 1024 / 1024).toFixed(2)} MB
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
               </div>
-            </ScrollArea>
+            </div>
           </div>
         </ResizablePanel>
 
