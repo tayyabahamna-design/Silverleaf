@@ -1,10 +1,14 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { randomUUID } from "crypto";
+import { promisify } from "util";
+import libre from "libreoffice-convert";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertTrainingWeekSchema, updateTrainingWeekSchema } from "@shared/schema";
 import { setupAuth } from "./auth";
+
+const convertAsync = promisify(libre.convert);
 
 // Middleware to check if user is authenticated
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
@@ -233,10 +237,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!url || typeof url !== 'string') {
         return res.status(400).json({ error: "url parameter required" });
       }
-
-      const libre = require('libreoffice-convert');
-      const { promisify } = require('util');
-      const convertAsync = promisify(libre.convert);
 
       // Download the original file
       const objectFile = await objectStorageService.getObjectEntityFile(url);
