@@ -26,6 +26,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import type { TrainingWeek } from "@shared/schema";
 import type { UploadResult } from "@uppy/core";
 import logoImage from "@assets/image_1760460046116.png";
@@ -39,6 +49,9 @@ export default function Home() {
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<{ url: string; name: string } | null>(null);
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
+  const [resetUserIdentifier, setResetUserIdentifier] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const isSavingRef = useRef(false); // Track if we're intentionally saving
 
@@ -122,6 +135,28 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
       toast({ title: "Week deleted successfully" });
       setDeleteId(null);
+    },
+  });
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ userIdentifier, newPassword }: { userIdentifier: string; newPassword: string }) => {
+      return apiRequest("POST", "/api/admin/reset-user-password", { userIdentifier, newPassword });
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: "Password Reset Successful", 
+        description: data.message 
+      });
+      setResetPasswordOpen(false);
+      setResetUserIdentifier("");
+      setResetNewPassword("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Password Reset Failed",
+        description: error.message || "Could not reset password",
+        variant: "destructive",
+      });
     },
   });
 
@@ -288,15 +323,95 @@ export default function Home() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
           <h2 className="text-xl sm:text-2xl font-semibold">Training Weeks</h2>
           {isAdmin && (
-            <Button
-              onClick={() => createWeekMutation.mutate()}
-              disabled={createWeekMutation.isPending}
-              data-testid="button-add-week"
-              className="w-full sm:w-auto"
-            >
-              <Plus className="mr-2 h-4 w-4" />
-              Add New Week
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    data-testid="button-reset-password"
+                  >
+                    Reset User Password
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Reset User Password</DialogTitle>
+                    <DialogDescription>
+                      Enter the username or email of the user whose password you want to reset.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="userIdentifier">Username or Email</Label>
+                      <Input
+                        id="userIdentifier"
+                        placeholder="Enter username or email"
+                        value={resetUserIdentifier}
+                        onChange={(e) => setResetUserIdentifier(e.target.value)}
+                        data-testid="input-user-identifier"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword">New Password</Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        placeholder="Enter new password (min 6 characters)"
+                        value={resetNewPassword}
+                        onChange={(e) => setResetNewPassword(e.target.value)}
+                        data-testid="input-new-password"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setResetPasswordOpen(false)}
+                      data-testid="button-cancel-reset"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const trimmedIdentifier = resetUserIdentifier.trim();
+                        const trimmedPassword = resetNewPassword.trim();
+                        
+                        if (trimmedIdentifier && trimmedPassword.length >= 6) {
+                          resetPasswordMutation.mutate({
+                            userIdentifier: trimmedIdentifier,
+                            newPassword: trimmedPassword,
+                          });
+                        } else {
+                          toast({
+                            title: "Validation Error",
+                            description: "Please enter a valid username/email and password (min 6 characters)",
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      disabled={
+                        !resetUserIdentifier.trim() || 
+                        resetNewPassword.trim().length < 6 || 
+                        resetPasswordMutation.isPending
+                      }
+                      data-testid="button-confirm-reset"
+                    >
+                      {resetPasswordMutation.isPending ? "Resetting..." : "Reset Password"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              <Button
+                onClick={() => createWeekMutation.mutate()}
+                disabled={createWeekMutation.isPending}
+                data-testid="button-add-week"
+                className="w-full sm:w-auto"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add New Week
+              </Button>
+            </div>
           )}
         </div>
 

@@ -9,7 +9,8 @@ import { join } from "path";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertTrainingWeekSchema, updateTrainingWeekSchema } from "@shared/schema";
-import { setupAuth } from "./auth";
+import { setupAuth, hashPassword } from "./auth";
+import { z } from "zod";
 
 const execAsync = promisify(exec);
 
@@ -35,6 +36,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication (username/password)
   setupAuth(app);
   // Note: /api/register, /api/login, /api/logout, /api/user are now in auth.ts
+
+  // Admin password reset endpoint
+  const resetPasswordSchema = z.object({
+    userIdentifier: z.string().trim().min(1, "Username or email required"),
+    newPassword: z.string().trim().min(6, "Password must be at least 6 characters"),
+  });
+
+  app.post("/api/admin/reset-user-password", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userIdentifier, newPassword } = resetPasswordSchema.parse(req.body);
+      
+      // Try to find user by username or email
+      let user = await storage.getUserByUsername(userIdentifier);
+      if (!user) {
+        user = await storage.getUserByEmail(userIdentifier);
+      }
+      
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Hash the new password
+      const hashedPassword = await hashPassword(newPassword);
+      
+      // Update user's password
+      const updatedUser = await storage.updateUserPassword(user.id, hashedPassword);
+      
+      if (!updatedUser) {
+        return res.status(500).json({ error: "Failed to update password" });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Password reset successful for user: ${updatedUser.username}` 
+      });
+    } catch (error) {
+      console.error("Error resetting password:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
 
   // Get all training weeks (authenticated users only)
   app.get("/api/training-weeks", isAuthenticated, async (req, res) => {
