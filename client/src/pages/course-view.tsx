@@ -11,6 +11,7 @@ import { ChevronLeft, FileText, CheckCircle2, Circle, Maximize2, Download, ZoomI
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -140,7 +141,7 @@ export default function CourseView() {
   const getStatusIcon = (status?: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-500" />;
+        return <CheckCircle2 className="h-5 w-5 text-primary" />;
       default:
         return <Circle className="h-5 w-5 text-muted-foreground/40" />;
     }
@@ -151,98 +152,105 @@ export default function CourseView() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <div className="w-80 border-r bg-card flex flex-col">
-        <div className="p-6 border-b">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/')}
-            className="mb-4 -ml-2"
-            data-testid="button-back-to-weeks"
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Back to Weeks
-          </Button>
-          <h2 className="text-xl font-bold mb-1">
-            Week {currentWeek?.weekNumber}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {currentWeek?.competencyFocus || 'Training Content'}
-          </p>
-
-          {/* Progress Bar */}
-          {weekProgress && weekProgress.total > 0 && (
-            <div className="mt-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-semibold text-muted-foreground">
-                  Course Progress
-                </span>
-                <span className="text-xs font-bold text-primary">
-                  {weekProgress.percentage}%
-                </span>
-              </div>
-              <Progress value={weekProgress.percentage} className="h-2" />
-              <p className="text-xs text-muted-foreground mt-1">
-                {weekProgress.completed} of {weekProgress.total} completed
+    <div className="h-screen bg-background flex flex-col">
+      <ResizablePanelGroup direction="horizontal" className="flex-1">
+        {/* Sidebar Panel */}
+        <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
+          <div className="h-full border-r bg-card flex flex-col">
+            <div className="p-6 border-b">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/')}
+                className="mb-4 -ml-2"
+                data-testid="button-back-to-weeks"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Back to Weeks
+              </Button>
+              <h2 className="text-xl font-bold mb-1">
+                Week {currentWeek?.weekNumber}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {currentWeek?.competencyFocus || 'Training Content'}
               </p>
-            </div>
-          )}
-        </div>
 
-        {/* Content List */}
-        <ScrollArea className="flex-1">
-          <div className="p-4 space-y-2">
-            {isLoading ? (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                Loading content...
-              </div>
-            ) : deckFiles.length === 0 ? (
-              <div className="text-center py-8 px-4">
-                <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
-                <p className="text-sm font-medium text-muted-foreground mb-1">
-                  No content available yet
-                </p>
-                <p className="text-xs text-muted-foreground/70">
-                  An administrator needs to add files to this training week.
-                </p>
-              </div>
-            ) : (
-              deckFiles.map((file) => (
-                <button
-                  key={file.id}
-                  onClick={() => handleFileClick(file)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors ${
-                    selectedFileId === file.id
-                      ? 'bg-primary/10 border-2 border-primary'
-                      : 'hover:bg-muted/50 border-2 border-transparent'
-                  }`}
-                  data-testid={`button-file-${file.id}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {getStatusIcon(file.progress?.status)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                        <span className="font-semibold text-sm truncate">{file.fileName}</span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {(file.fileSize / 1024 / 1024).toFixed(2)} MB
-                      </div>
-                    </div>
+              {/* Progress Bar */}
+              {weekProgress && weekProgress.total > 0 && (
+                <div className="mt-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      Course Progress
+                    </span>
+                    <span className="text-xs font-bold text-primary">
+                      {weekProgress.percentage}%
+                    </span>
                   </div>
-                </button>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      </div>
+                  <Progress value={weekProgress.percentage} className="h-2" />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {weekProgress.completed} of {weekProgress.total} completed
+                  </p>
+                </div>
+              )}
+            </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
+            {/* Content List */}
+            <ScrollArea className="flex-1">
+              <div className="p-4 space-y-2">
+                {isLoading ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    Loading content...
+                  </div>
+                ) : deckFiles.length === 0 ? (
+                  <div className="text-center py-8 px-4">
+                    <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
+                    <p className="text-sm font-medium text-muted-foreground mb-1">
+                      No content available yet
+                    </p>
+                    <p className="text-xs text-muted-foreground/70">
+                      An administrator needs to add files to this training week.
+                    </p>
+                  </div>
+                ) : (
+                  deckFiles.map((file) => (
+                    <button
+                      key={file.id}
+                      onClick={() => handleFileClick(file)}
+                      className={`w-full text-left p-3 rounded-lg transition-colors ${
+                        selectedFileId === file.id
+                          ? 'bg-primary/10 border-2 border-primary'
+                          : 'hover:bg-muted/50 border-2 border-transparent'
+                      }`}
+                      data-testid={`button-file-${file.id}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                          {getStatusIcon(file.progress?.status)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                            <span className="font-semibold text-sm truncate">{file.fileName}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {(file.fileSize / 1024 / 1024).toFixed(2)} MB
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+          </div>
+        </ResizablePanel>
+
+        {/* Resizable Handle */}
+        <ResizableHandle withHandle />
+
+        {/* Main Content Panel */}
+        <ResizablePanel defaultSize={75} minSize={60}>
+          <div className="h-full flex flex-col">
         {selectedFile ? (
           <div className="flex-1 flex flex-col">
             {/* Content Header */}
@@ -401,7 +409,9 @@ export default function CourseView() {
             <p className="text-muted-foreground">Select a file from the sidebar to begin</p>
           </div>
         )}
-      </div>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/* Fullscreen Dialog */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
