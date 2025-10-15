@@ -197,6 +197,18 @@ export default function CourseView() {
                 {currentWeek?.competencyFocus || 'Training Content'}
               </p>
 
+              {/* Objectives */}
+              {currentWeek?.objective && (
+                <div className="mt-4">
+                  <h3 className="text-sm font-semibold text-foreground mb-2">
+                    Learning Objectives
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+                    {currentWeek.objective}
+                  </p>
+                </div>
+              )}
+
               {/* Progress Bar */}
               {weekProgress && weekProgress.total > 0 && (
                 <div className="mt-4">
