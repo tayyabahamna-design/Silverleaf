@@ -40,7 +40,7 @@ export default function CourseView() {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
-  const [scale, setScale] = useState<number>(1.8); // Higher default scale for HD clarity
+  const [scale, setScale] = useState<number>(1.0); // Reasonable default scale that fits within content area
   const [viewUrl, setViewUrl] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [viewingStartTime, setViewingStartTime] = useState<number | null>(null);
@@ -190,22 +190,30 @@ export default function CourseView() {
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 Back to Weeks
               </Button>
-              <h2 className="text-xl font-bold mb-1">
+              <h2 className="text-2xl font-bold mb-2">
                 Week {currentWeek?.weekNumber}
               </h2>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-base text-muted-foreground">
                 {currentWeek?.competencyFocus || 'Training Content'}
               </p>
 
               {/* Objectives */}
               {currentWeek?.objective && (
                 <div className="mt-4">
-                  <h3 className="text-sm font-semibold text-foreground mb-2">
+                  <h3 className="text-base font-semibold text-foreground mb-3">
                     Learning Objectives
                   </h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
-                    {currentWeek.objective}
-                  </p>
+                  <div className="text-sm text-muted-foreground leading-loose space-y-2">
+                    {currentWeek.objective.split(/(?=\d+\.)/).map((line: string, idx: number) => {
+                      const trimmed = line.trim();
+                      if (!trimmed) return null;
+                      return (
+                        <p key={idx} className="pl-2">
+                          {trimmed}
+                        </p>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
@@ -213,15 +221,15 @@ export default function CourseView() {
               {weekProgress && weekProgress.total > 0 && (
                 <div className="mt-4">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-semibold text-muted-foreground">
+                    <span className="text-sm font-semibold text-muted-foreground">
                       Course Progress
                     </span>
-                    <span className="text-xs font-bold text-primary">
+                    <span className="text-sm font-bold text-primary">
                       {weekProgress.percentage}%
                     </span>
                   </div>
                   <Progress value={weekProgress.percentage} className="h-2" />
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {weekProgress.completed} of {weekProgress.total} completed
                   </p>
                 </div>
@@ -263,10 +271,10 @@ export default function CourseView() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                            <span className="font-semibold text-sm truncate">{file.fileName}</span>
+                            <FileText className="h-5 w-5 text-primary flex-shrink-0" />
+                            <span className="font-semibold text-base truncate">{file.fileName}</span>
                           </div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-sm text-muted-foreground">
                             {(file.fileSize / 1024 / 1024).toFixed(2)} MB
                           </div>
                         </div>
@@ -306,8 +314,8 @@ export default function CourseView() {
               {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                 selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                 selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                <div className="h-full flex flex-col items-center justify-center p-6">
-                  <div className="flex flex-col items-center gap-4">
+                <div className="h-full flex flex-col items-center p-8">
+                  <div className="w-full max-w-5xl flex flex-col items-center gap-6">
                     {viewUrl && (
                       <>
                         <Document
@@ -327,18 +335,16 @@ export default function CourseView() {
                             <Button
                               onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
                               variant="outline"
-                              size="sm"
                               data-testid="button-zoom-out"
                             >
                               <ZoomOut className="h-4 w-4" />
                             </Button>
-                            <span className="text-sm text-muted-foreground min-w-16 text-center">
+                            <span className="text-base text-muted-foreground min-w-20 text-center font-medium">
                               {Math.round(scale * 100)}%
                             </span>
                             <Button
                               onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
                               variant="outline"
-                              size="sm"
                               data-testid="button-zoom-in"
                             >
                               <ZoomIn className="h-4 w-4" />
@@ -349,18 +355,16 @@ export default function CourseView() {
                               onClick={() => setPageNumber(p => Math.max(1, p - 1))}
                               disabled={pageNumber <= 1}
                               variant="outline"
-                              size="sm"
                             >
                               Previous
                             </Button>
-                            <span className="text-sm text-muted-foreground min-w-24 text-center">
+                            <span className="text-base text-muted-foreground min-w-32 text-center font-medium">
                               Page {pageNumber} of {numPages}
                             </span>
                             <Button
                               onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
                               disabled={pageNumber >= numPages}
                               variant="outline"
-                              size="sm"
                             >
                               Next
                             </Button>
@@ -368,7 +372,6 @@ export default function CourseView() {
                           <Button
                             onClick={() => window.open(viewUrl, '_blank')}
                             variant="default"
-                            size="sm"
                             data-testid="button-download-file"
                           >
                             <Download className="h-4 w-4 mr-2" />
