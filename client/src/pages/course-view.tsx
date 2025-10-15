@@ -43,6 +43,8 @@ export default function CourseView() {
   const [scale, setScale] = useState<number>(1.8); // Higher default scale for HD clarity
   const [viewUrl, setViewUrl] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [viewingStartTime, setViewingStartTime] = useState<number | null>(null);
+  const [hasMarkedComplete, setHasMarkedComplete] = useState<boolean>(false);
 
   // Fetch deck files with progress
   const { data: deckFiles = [], isLoading } = useQuery<DeckFile[]>({
@@ -86,7 +88,10 @@ export default function CourseView() {
   // Auto-select first file
   useEffect(() => {
     if (deckFiles.length > 0 && !selectedFileId) {
-      setSelectedFileId(deckFiles[0].id);
+      const firstFile = deckFiles[0];
+      setSelectedFileId(firstFile.id);
+      setViewingStartTime(Date.now());
+      setHasMarkedComplete(firstFile.progress?.status === 'completed');
     }
   }, [deckFiles, selectedFileId]);
 
@@ -124,19 +129,36 @@ export default function CourseView() {
     setPageNumber(1); // Reset page number when switching files
   }, [selectedFile]);
 
-  // Handle file click - mark as completed
+  // Handle file click - start viewing timer
   const handleFileClick = (file: DeckFile) => {
     setSelectedFileId(file.id);
-    
-    // Mark as completed if not already
-    if (file.progress?.status !== 'completed') {
-      saveProgressMutation.mutate({
-        deckFileId: file.id,
-        status: 'completed',
-        completedAt: new Date(),
-      });
-    }
+    // Reset timer and completion flag for new file
+    setViewingStartTime(Date.now());
+    setHasMarkedComplete(file.progress?.status === 'completed');
   };
+
+  // Timer effect - mark as completed after 60 seconds of viewing
+  useEffect(() => {
+    if (!selectedFile || !viewingStartTime || hasMarkedComplete || selectedFile.progress?.status === 'completed') {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - viewingStartTime;
+      const REQUIRED_VIEWING_TIME = 60 * 1000; // 60 seconds
+
+      if (elapsed >= REQUIRED_VIEWING_TIME && !hasMarkedComplete) {
+        saveProgressMutation.mutate({
+          deckFileId: selectedFile.id,
+          status: 'completed',
+          completedAt: new Date(),
+        });
+        setHasMarkedComplete(true);
+      }
+    }, 1000); // Check every second
+
+    return () => clearInterval(timer);
+  }, [selectedFile, viewingStartTime, hasMarkedComplete, saveProgressMutation]);
 
   const getStatusIcon = (status?: string) => {
     switch (status) {
@@ -268,12 +290,12 @@ export default function CourseView() {
             </div>
 
             {/* Content Display */}
-            <div className="flex-1 flex flex-col bg-muted/20">
+            <div className="flex-1 overflow-auto bg-muted/20">
               {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                 selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                 selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                <div className="flex-1 flex flex-col items-center p-6">
-                  <div className="w-full max-w-6xl flex flex-col items-center">
+                <div className="h-full flex flex-col items-center justify-center p-6">
+                  <div className="flex flex-col items-center gap-4">
                     {viewUrl && (
                       <>
                         <Document
@@ -288,7 +310,7 @@ export default function CourseView() {
                             renderAnnotationLayer={true}
                           />
                         </Document>
-                        <div className="mt-4 flex items-center gap-4 flex-wrap justify-center">
+                        <div className="flex items-center gap-4 flex-wrap justify-center">
                           <div className="flex items-center gap-2">
                             <Button
                               onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
