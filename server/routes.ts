@@ -2,13 +2,16 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { randomUUID } from "crypto";
 import { promisify } from "util";
-import libre from "libreoffice-convert";
+import { exec } from "child_process";
+import { writeFile, readFile, unlink, mkdir } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertTrainingWeekSchema, updateTrainingWeekSchema } from "@shared/schema";
 import { setupAuth } from "./auth";
 
-const convertAsync = promisify(libre.convert);
+const execAsync = promisify(exec);
 
 // Middleware to check if user is authenticated
 function isAuthenticated(req: Request, res: Response, next: NextFunction) {
@@ -232,6 +235,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Convert PPTX to PDF for HD viewing (authenticated users)
   app.get("/api/files/convert-to-pdf", isAuthenticated, async (req, res) => {
+    const tempFiles: string[] = [];
+    
     try {
       const { url } = req.query;
       if (!url || typeof url !== 'string') {
@@ -242,9 +247,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const objectFile = await objectStorageService.getObjectEntityFile(url);
       const buffer = await objectStorageService.getObjectBuffer(objectFile);
 
-      // Convert to PDF with LibreOffice binary path
+      // Create temporary files for conversion
+      const tempId = randomUUID();
+      const tempDir = tmpdir();
+      const inputPath = join(tempDir, `${tempId}.pptx`);
+      const outputDir = join(tempDir, tempId);
+      const outputPath = join(outputDir, `${tempId}.pdf`);
+      
+      tempFiles.push(inputPath, outputPath);
+
+      // Write input file
+      await writeFile(inputPath, buffer);
+
+      // Create output directory
+      await mkdir(outputDir, { recursive: true });
+
+      // Convert using LibreOffice
       const libreOfficePath = '/nix/store/j261ykwr6mxvai0v22sa9y6w421p30ay-libreoffice-7.6.7.2-wrapped/bin/soffice';
-      const pdfBuffer = await convertAsync(buffer, '.pdf', libreOfficePath);
+      const command = `${libreOfficePath} --headless --convert-to pdf --outdir ${outputDir} ${inputPath}`;
+      
+      await execAsync(command, { timeout: 60000 });
+
+      // Read the converted PDF
+      const pdfBuffer = await readFile(outputPath);
 
       // Set response headers
       res.setHeader('Content-Type', 'application/pdf');
@@ -258,6 +283,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "File not found" });
       }
       return res.status(500).json({ error: "Conversion failed" });
+    } finally {
+      // Clean up temporary files
+      for (const file of tempFiles) {
+        try {
+          await unlink(file);
+        } catch (err) {
+          // Ignore cleanup errors
+        }
+      }
     }
   });
 
