@@ -242,8 +242,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const objectFile = await objectStorageService.getObjectEntityFile(url);
       const buffer = await objectStorageService.getObjectBuffer(objectFile);
 
-      // Convert to PDF
-      const pdfBuffer = await convertAsync(buffer, '.pdf', undefined);
+      // Convert to PDF with LibreOffice binary path
+      const libreOfficePath = '/nix/store/j261ykwr6mxvai0v22sa9y6w421p30ay-libreoffice-7.6.7.2-wrapped/bin/soffice';
+      const pdfBuffer = await convertAsync(buffer, '.pdf', libreOfficePath);
 
       // Set response headers
       res.setHeader('Content-Type', 'application/pdf');
