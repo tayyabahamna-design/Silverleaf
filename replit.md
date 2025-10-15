@@ -31,8 +31,10 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
 
 ### Feature Specifications
 - **Training Week Management**: Admins can add, edit, and delete training weeks, including competency focus, objectives, and presentation files.
-- **Role-Based Access Control**: Admins have full CRUD capabilities, while Teachers have view-only access. Teacher registration is public; admin accounts are created manually in the database.
+- **Role-Based Access Control**: Admins have full CRUD capabilities, while Teachers have view-only access. Teacher registration is public; admin accounts are created via initialization script.
+- **Admin Password Reset**: Admins can reset any user's password through a dedicated UI dialog with proper validation and security.
 - **File Handling**: Uploads of common presentation formats (PowerPoint, PDF, Keynote) are supported, with enhanced visual previews.
+- **Progress Tracking**: Teachers must view content for 60 seconds before it's marked complete, with automatic progress tracking.
 
 ### System Design Choices
 - **Database**: PostgreSQL is used as the primary data store, with Drizzle ORM for type-safe database interactions. Sessions are also stored in PostgreSQL.
@@ -47,3 +49,55 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
 - **UI Framework**: Shadcn UI
 - **Styling**: Tailwind CSS
 - **PDF Previews**: react-pdf library
+
+## Deployment & Database Management
+
+### Database Architecture
+- **Development vs Production**: Replit automatically manages separate databases for development and production environments
+- **Connection String**: `DATABASE_URL` environment variable automatically switches between dev/prod databases based on `NODE_ENV`
+- **Data Persistence**: All user credentials, training content, and progress data are permanently stored in PostgreSQL
+- **Multi-User Consistency**: Changes made by admins are instantly visible to all users across all sessions
+
+### Production Database Setup
+1. **Initial Deployment**: After first deployment, run the database initialization script:
+   ```bash
+   NODE_ENV=production tsx server/init-db.ts
+   ```
+2. **What It Does**:
+   - Creates/updates the admin user with email `admin@silverleaf.com` and password `admin123`
+   - Verifies database connection and environment
+   - Ensures proper password hashing with scrypt
+3. **Verification**: Login to the deployed app with admin credentials to confirm setup
+
+### Database Initialization Script
+- **Location**: `server/init-db.ts`
+- **Purpose**: Ensures admin user exists with correct credentials in production
+- **Features**:
+  - Automatically detects environment (development/production)
+  - Creates admin user if missing
+  - Updates admin password if user exists
+  - Logs database connection details for verification
+
+### Admin Credentials
+- **Email**: admin@silverleaf.com
+- **Default Password**: admin123
+- **Security Note**: Change password immediately after first login using the "Reset User Password" feature
+
+### Environment Variables (Auto-Managed by Replit)
+- `DATABASE_URL` - PostgreSQL connection (switches dev/prod automatically)
+- `DEFAULT_OBJECT_STORAGE_BUCKET_ID` - File storage bucket ID
+- `PUBLIC_OBJECT_SEARCH_PATHS` - Public file paths
+- `PRIVATE_OBJECT_DIR` - Private file directory
+- `SESSION_SECRET` - Express session encryption key
+
+### Troubleshooting
+- **Issue**: Admin login fails in production
+  - **Solution**: Run `NODE_ENV=production tsx server/init-db.ts` to initialize/fix admin user
+- **Issue**: Reset Password button not visible in deployed app
+  - **Cause**: Admin user doesn't exist in production database
+  - **Solution**: Run initialization script to create admin user
+- **Issue**: Files uploaded in development don't appear in production
+  - **Cause**: Separate databases mean separate data
+  - **Solution**: Re-upload files after deployment or use database export/import
+
+See `DEPLOYMENT.md` for complete deployment guide and best practices.

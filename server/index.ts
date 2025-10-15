@@ -37,6 +37,15 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Log database connection info
+  const dbUrl = process.env.DATABASE_URL;
+  const env = process.env.NODE_ENV || 'development';
+  if (dbUrl) {
+    log(`📊 Database: ${env.toUpperCase()} (${dbUrl.substring(0, 30)}...)`);
+  } else {
+    log('⚠️  WARNING: DATABASE_URL not set!');
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
