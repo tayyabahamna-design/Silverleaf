@@ -201,7 +201,7 @@ export default function CourseView() {
               <div className="p-6 space-y-6">
                 {/* Competency Focus */}
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#666] mb-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-[#666] mb-3">
                     Competency Focus
                   </h3>
                   <p className="text-base text-foreground leading-relaxed font-normal">
@@ -212,7 +212,7 @@ export default function CourseView() {
                 {/* Learning Objectives */}
                 {currentWeek?.objective && (
                   <div>
-                    <h3 className="text-base font-semibold text-foreground mb-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-[#666] mb-3">
                       Learning Objectives
                     </h3>
                     <div className="text-base text-foreground leading-loose space-y-2">
