@@ -191,7 +191,7 @@ export default function CourseView() {
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 Back to Weeks
               </Button>
-              <h2 className="text-2xl font-bold mb-2">
+              <h2 className="text-3xl font-bold mb-2">
                 Week {currentWeek?.weekNumber}
               </h2>
             </div>
@@ -201,10 +201,10 @@ export default function CourseView() {
               <div className="p-6 space-y-6">
                 {/* Competency Focus */}
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-[#666] mb-3">
+                  <h3 className="text-base font-semibold uppercase tracking-wider text-[#666] mb-3">
                     Competency Focus
                   </h3>
-                  <p className="text-base text-foreground leading-relaxed font-normal">
+                  <p className="text-sm text-foreground leading-relaxed font-normal">
                     {currentWeek?.competencyFocus || 'Training Content'}
                   </p>
                 </div>
@@ -212,10 +212,10 @@ export default function CourseView() {
                 {/* Learning Objectives */}
                 {currentWeek?.objective && (
                   <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-[#666] mb-3">
+                    <h3 className="text-base font-semibold uppercase tracking-wider text-[#666] mb-3">
                       Learning Objectives
                     </h3>
-                    <div className="text-base text-foreground leading-loose space-y-2">
+                    <div className="text-sm text-foreground leading-loose space-y-2">
                       {currentWeek.objective.split(/(?=\d+\.)/).map((line: string, idx: number) => {
                         const trimmed = line.trim();
                         if (!trimmed) return null;
