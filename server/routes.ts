@@ -482,6 +482,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Quiz API routes
+
+  // Generate quiz questions for a training week (authenticated users)
+  app.post("/api/training-weeks/:weekId/generate-quiz", isAuthenticated, async (req, res) => {
+    try {
+      const { weekId } = req.params;
+      
+      const week = await storage.getTrainingWeek(weekId);
+      if (!week) {
+        return res.status(404).json({ error: "Training week not found" });
+      }
+
+      if (!week.deckFiles || week.deckFiles.length === 0) {
+        return res.status(400).json({ error: "No files available for quiz generation" });
+      }
+
+      // Import the quiz service
+      const { generateQuizQuestions } = await import('./quizService');
+
+      const fileUrls = week.deckFiles.map(file => ({
+        url: file.fileUrl,
+        name: file.fileName,
+      }));
+
+      const questions = await generateQuizQuestions({
+        fileUrls,
+        competencyFocus: week.competencyFocus,
+        objective: week.objective,
+        numQuestions: 7,
+      });
+
+      res.json({ questions });
+    } catch (error) {
+      console.error("Error generating quiz:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to generate quiz" });
+    }
+  });
+
+  // Submit quiz answers and save attempt
+  app.post("/api/training-weeks/:weekId/submit-quiz", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { weekId } = req.params;
+      const { questions, answers } = req.body;
+
+      if (!questions || !Array.isArray(questions) || !answers || typeof answers !== 'object') {
+        return res.status(400).json({ error: "Invalid quiz submission" });
+      }
+
+      // Calculate score
+      let score = 0;
+      questions.forEach((q: any) => {
+        if (answers[q.id] === q.correctAnswer) {
+          score++;
+        }
+      });
+
+      const totalQuestions = questions.length;
+      const passed = score >= Math.ceil(totalQuestions * 0.7) ? "yes" : "no"; // 70% pass rate
+
+      const attempt = await storage.saveQuizAttempt({
+        userId,
+        weekId,
+        questions,
+        answers,
+        score,
+        totalQuestions,
+        passed,
+      });
+
+      res.json({ 
+        attempt,
+        score,
+        totalQuestions,
+        passed: passed === "yes",
+        percentage: Math.round((score / totalQuestions) * 100),
+      });
+    } catch (error) {
+      console.error("Error submitting quiz:", error);
+      res.status(500).json({ error: "Failed to submit quiz" });
+    }
+  });
+
+  // Get latest quiz attempt for a week
+  app.get("/api/training-weeks/:weekId/quiz-attempt", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { weekId } = req.params;
+
+      const attempt = await storage.getLatestQuizAttempt(weekId, userId);
+      res.json(attempt || null);
+    } catch (error) {
+      console.error("Error getting quiz attempt:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Check if user has passed the quiz
+  app.get("/api/training-weeks/:weekId/quiz-passed", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { weekId } = req.params;
+
+      const passed = await storage.hasPassedQuiz(weekId, userId);
+      res.json({ passed });
+    } catch (error) {
+      console.error("Error checking quiz status:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

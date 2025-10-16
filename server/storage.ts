@@ -11,11 +11,14 @@ import {
   type DeckFileProgress,
   type InsertDeckFileProgress,
   type DeckFile,
+  type QuizAttempt,
+  type InsertQuizAttempt,
   trainingWeeks,
   users,
   contentItems,
   userProgress,
-  deckFileProgress
+  deckFileProgress,
+  quizAttempts
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql as sqlOp } from "drizzle-orm";
@@ -53,6 +56,11 @@ export interface IStorage {
   getDeckFilesWithProgress(weekId: string, userId: string): Promise<(DeckFile & { progress?: DeckFileProgress })[]>;
   saveDeckFileProgress(progress: Partial<InsertDeckFileProgress>): Promise<DeckFileProgress>;
   getWeekDeckProgress(weekId: string, userId: string): Promise<{ total: number; completed: number; percentage: number }>;
+  
+  // Quiz operations
+  saveQuizAttempt(attempt: InsertQuizAttempt): Promise<QuizAttempt>;
+  getLatestQuizAttempt(weekId: string, userId: string): Promise<QuizAttempt | undefined>;
+  hasPassedQuiz(weekId: string, userId: string): Promise<boolean>;
   
   // Session store
   sessionStore: session.Store;
@@ -377,6 +385,44 @@ export class DatabaseStorage implements IStorage {
     const percentage = Math.round((completed / total) * 100);
     
     return { total, completed, percentage };
+  }
+
+  async saveQuizAttempt(attempt: InsertQuizAttempt): Promise<QuizAttempt> {
+    const [quizAttempt] = await db
+      .insert(quizAttempts)
+      .values(attempt)
+      .returning();
+    return quizAttempt;
+  }
+
+  async getLatestQuizAttempt(weekId: string, userId: string): Promise<QuizAttempt | undefined> {
+    const [attempt] = await db
+      .select()
+      .from(quizAttempts)
+      .where(
+        and(
+          eq(quizAttempts.weekId, weekId),
+          eq(quizAttempts.userId, userId)
+        )
+      )
+      .orderBy(sqlOp`${quizAttempts.completedAt} DESC`)
+      .limit(1);
+    return attempt;
+  }
+
+  async hasPassedQuiz(weekId: string, userId: string): Promise<boolean> {
+    const [attempt] = await db
+      .select()
+      .from(quizAttempts)
+      .where(
+        and(
+          eq(quizAttempts.weekId, weekId),
+          eq(quizAttempts.userId, userId),
+          eq(quizAttempts.passed, "yes")
+        )
+      )
+      .limit(1);
+    return !!attempt;
   }
 }
 

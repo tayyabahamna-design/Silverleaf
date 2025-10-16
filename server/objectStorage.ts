@@ -166,7 +166,14 @@ export class ObjectStorageService {
       });
     });
   }
+
+  async getObjectEntity(objectPath: string): Promise<Buffer> {
+    const file = await this.getObjectEntityFile(objectPath);
+    return await this.getObjectBuffer(file);
+  }
 }
+
+export const objectStorageService = new ObjectStorageService();
 
 function parseObjectPath(path: string): { bucketName: string; objectName: string } {
   if (!path.startsWith("/")) {
