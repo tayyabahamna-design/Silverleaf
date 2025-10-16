@@ -201,7 +201,10 @@ export default function CourseView() {
               <div className="p-6 space-y-6">
                 {/* Competency Focus */}
                 <div>
-                  <p className="text-base text-muted-foreground">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3">
+                    Competency Focus
+                  </h3>
+                  <p className="text-base text-foreground leading-relaxed">
                     {currentWeek?.competencyFocus || 'Training Content'}
                   </p>
                 </div>
