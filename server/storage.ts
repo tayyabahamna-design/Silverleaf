@@ -363,10 +363,11 @@ export class DatabaseStorage implements IStorage {
       return { total: 0, completed: 0, percentage: 0 };
     }
     
-    const total = week.deckFiles.length;
+    // Total includes all deck files + 1 for the quiz
+    const total = week.deckFiles.length + 1;
     
-    if (total === 0) {
-      return { total: 0, completed: 0, percentage: 0 };
+    if (total === 1) { // Only quiz, no deck files
+      return { total: 1, completed: 0, percentage: 0 };
     }
     
     // Count completed deck files
@@ -381,7 +382,14 @@ export class DatabaseStorage implements IStorage {
         )
       );
     
-    const completed = completedFiles.length;
+    let completed = completedFiles.length;
+    
+    // Check if quiz is passed
+    const quizPassed = await this.hasPassedQuiz(weekId, userId);
+    if (quizPassed) {
+      completed += 1;
+    }
+    
     const percentage = Math.round((completed / total) * 100);
     
     return { total, completed, percentage };
