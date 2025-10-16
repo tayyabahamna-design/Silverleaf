@@ -44,7 +44,7 @@ import { FilePreview } from "@/components/FilePreview";
 export default function Home() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { user, isAdmin, logoutMutation } = useAuth();
+  const { user, isAdmin, logoutMutation, isLoading: isLoadingUser } = useAuth();
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -77,7 +77,7 @@ export default function Home() {
     }
   };
 
-  const { data: weeks = [], isLoading } = useQuery<TrainingWeek[]>({
+  const { data: weeks = [], isLoading: isLoadingWeeks } = useQuery<TrainingWeek[]>({
     queryKey: ["/api/training-weeks"],
     refetchOnWindowFocus: false,
     refetchInterval: false,
@@ -415,7 +415,7 @@ export default function Home() {
           )}
         </div>
 
-        {isLoading ? (
+        {isLoadingUser || isLoadingWeeks ? (
           <div className="text-center py-12 text-muted-foreground">Loading...</div>
         ) : weeks.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
