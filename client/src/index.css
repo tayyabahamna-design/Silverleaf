@@ -16,19 +16,19 @@
 
   --background: 0 0% 98%;
 
-  --foreground: 220 15% 20%;
+  --foreground: 220 20% 15%;
 
   --border: 220 15% 88%;
 
   --card: 0 0% 100%;
 
-  --card-foreground: 220 15% 20%;
+  --card-foreground: 220 20% 15%;
 
   --card-border: 220 15% 94%;
 
   --sidebar: 220 6% 96%;
 
-  --sidebar-foreground: 220 15% 20%;
+  --sidebar-foreground: 220 20% 15%;
 
   --sidebar-border: 220 12% 90%;
 
@@ -38,13 +38,13 @@
 
   --sidebar-accent: 220 12% 92%;
 
-  --sidebar-accent-foreground: 220 15% 20%;
+  --sidebar-accent-foreground: 220 20% 15%;
 
   --sidebar-ring: 220 80% 32%;
 
   --popover: 220 6% 94%;
 
-  --popover-foreground: 220 15% 20%;
+  --popover-foreground: 220 20% 15%;
 
   --popover-border: 220 12% 88%;
 
@@ -54,15 +54,15 @@
 
   --secondary: 220 10% 90%;
 
-  --secondary-foreground: 220 15% 20%;
+  --secondary-foreground: 220 20% 15%;
 
   --muted: 220 12% 92%;
 
-  --muted-foreground: 220 10% 45%;
+  --muted-foreground: 220 15% 30%;
 
   --accent: 220 18% 88%;
 
-  --accent-foreground: 220 15% 20%;
+  --accent-foreground: 220 20% 15%;
 
   --destructive: 0 72% 51%;
 
@@ -76,7 +76,7 @@
   --chart-4: 25 95% 53%;
   --chart-5: 340 75% 55%;
 
-  --font-sans: Inter, Roboto, Open Sans, sans-serif;
+  --font-sans: 'Poppins', 'Inter', 'Roboto', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: .5rem; /* 8px */
@@ -241,6 +241,17 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  
+  h1 {
+    font-weight: 700;
   }
 }
 

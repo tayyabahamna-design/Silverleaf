@@ -178,7 +178,7 @@ export default function CourseView() {
       <ResizablePanelGroup direction="horizontal" className="flex-1">
         {/* Sidebar Panel */}
         <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
-          <div className="h-full border-r bg-card flex flex-col">
+          <div className="h-full border-r bg-card flex flex-col shadow-lg">
             {/* Fixed Header: Back Button and Week Title */}
             <div className="p-6 border-b flex-shrink-0">
               <Button

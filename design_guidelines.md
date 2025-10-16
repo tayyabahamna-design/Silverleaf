@@ -30,15 +30,23 @@
 - Text Secondary: 220 10% 70% (Light gray)
 - Border: 220 15% 25% (Subtle dark borders)
 
-### B. Typography
-- **Primary Font**: 'Inter' (professional, modern, highly readable sans-serif)
+### B. Typography (Premium Upgrade)
+- **Primary Font**: 'Poppins' (modern, professional, corporate-grade sans-serif with excellent readability)
+- **Font Weights**: 
+  - Bold/Headings: 600-700 (Semi-bold to Bold)
+  - Body Text: 400-500 (Regular to Medium)
 - **Headings**: 
-  - Page Title (H1): 2rem (32px), font-weight 700, tracking-tight
-  - Section Heading (H2): 1.5rem (24px), font-weight 600
-  - Card Title (H3): 1.125rem (18px), font-weight 600
+  - Page Title (H1): 2rem (32px), font-weight 700, letter-spacing -0.02em
+  - Section Heading (H2): 1.5rem (24px), font-weight 600, letter-spacing -0.02em
+  - Card Title (H3): 1.125rem (18px), font-weight 600, letter-spacing -0.02em
 - **Body Text**: 1rem (16px), font-weight 400, line-height 1.6
 - **Small/Meta**: 0.875rem (14px), font-weight 400
 - **Button Text**: 0.9375rem (15px), font-weight 600
+
+**Text Color Hierarchy** (Enhanced Contrast):
+- Primary Text: hsl(220 20% 15%) - Near-black for maximum readability
+- Secondary Text: hsl(220 15% 30%) - Professional dark gray for supporting content
+- Muted Text: hsl(220 10% 45%) - Lighter gray for meta information
 
 ### C. Layout System
 **Spacing Philosophy**: Generous white space for professional, uncluttered appearance
