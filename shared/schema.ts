@@ -133,3 +133,35 @@ export const insertDeckFileProgressSchema = createInsertSchema(deckFileProgress)
 
 export type InsertDeckFileProgress = z.infer<typeof insertDeckFileProgressSchema>;
 export type DeckFileProgress = typeof deckFileProgress.$inferSelect;
+
+// Quiz question type
+export const quizQuestionSchema = z.object({
+  id: z.string(),
+  question: z.string(),
+  type: z.enum(["multiple_choice", "true_false"]),
+  options: z.array(z.string()),
+  correctAnswer: z.string(),
+});
+
+export type QuizQuestion = z.infer<typeof quizQuestionSchema>;
+
+// Quiz attempts table
+export const quizAttempts = pgTable("quiz_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  weekId: varchar("week_id").notNull().references(() => trainingWeeks.id, { onDelete: "cascade" }),
+  questions: jsonb("questions").$type<QuizQuestion[]>().notNull(),
+  answers: jsonb("answers").$type<Record<string, string>>().notNull(),
+  score: integer("score").notNull(),
+  totalQuestions: integer("total_questions").notNull(),
+  passed: varchar("passed").notNull(), // 'yes' or 'no'
+  completedAt: timestamp("completed_at").defaultNow(),
+});
+
+export const insertQuizAttemptSchema = createInsertSchema(quizAttempts).omit({
+  id: true,
+  completedAt: true,
+});
+
+export type InsertQuizAttempt = z.infer<typeof insertQuizAttemptSchema>;
+export type QuizAttempt = typeof quizAttempts.$inferSelect;
