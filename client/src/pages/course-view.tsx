@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ChevronLeft, FileText, CheckCircle2, Circle, Maximize2, Download, ZoomIn, ZoomOut, X } from "lucide-react";
+import { ChevronLeft, FileText, CheckCircle2, Circle, Maximize2, Download, ZoomIn, ZoomOut, X, Award } from "lucide-react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { QuizDialog } from "@/components/QuizDialog";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -45,6 +46,7 @@ export default function CourseView() {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [viewingStartTime, setViewingStartTime] = useState<number | null>(null);
   const [hasMarkedComplete, setHasMarkedComplete] = useState<boolean>(false);
+  const [quizDialogOpen, setQuizDialogOpen] = useState<boolean>(false);
 
   // Fetch deck files with progress
   const { data: deckFiles = [], isLoading } = useQuery<DeckFile[]>({
@@ -298,6 +300,24 @@ export default function CourseView() {
                     )}
                   </div>
                 </div>
+
+                {/* Checkpoint Quiz Button */}
+                {!isLoading && deckFiles.length > 0 && (
+                  <div className="pt-4">
+                    <Button
+                      onClick={() => setQuizDialogOpen(true)}
+                      className="w-full"
+                      variant="default"
+                      data-testid="button-take-quiz"
+                    >
+                      <Award className="mr-2 h-5 w-5" />
+                      Take Checkpoint Quiz
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      Test your knowledge on this week's content
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -535,5 +555,12 @@ export default function CourseView() {
         </DialogContent>
       </Dialog>
     </div>
+
+    {/* Quiz Dialog */}
+    <QuizDialog
+      weekId={weekId || ''}
+      open={quizDialogOpen}
+      onOpenChange={setQuizDialogOpen}
+    />
   );
 }
