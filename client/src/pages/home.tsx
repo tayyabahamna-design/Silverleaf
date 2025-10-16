@@ -271,15 +271,15 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-primary shadow-md">
         <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="h-9 w-9 sm:h-10 sm:w-10 flex items-center justify-center flex-shrink-0 bg-primary rounded-sm p-1">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="h-12 w-12 sm:h-14 sm:w-14 flex items-center justify-center flex-shrink-0 bg-primary rounded-sm p-1">
               <img src={logoImage} alt="Silverleaf Academy Logo" className="w-full h-full object-contain" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-white truncate" data-testid="text-app-title">
+              <h1 className="text-xl sm:text-2xl font-bold text-white truncate" data-testid="text-app-title">
                 Silverleaf Academy
               </h1>
-              <p className="text-xs text-white/80 hidden sm:block">
+              <p className="text-xs sm:text-sm text-white/80 hidden sm:block">
                 Training Program Planner
               </p>
             </div>
