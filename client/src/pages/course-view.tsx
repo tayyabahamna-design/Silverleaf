@@ -60,6 +60,12 @@ export default function CourseView() {
     enabled: !!weekId,
   });
 
+  // Fetch quiz status
+  const { data: quizStatus } = useQuery<{ passed: boolean }>({
+    queryKey: ['/api/training-weeks', weekId, 'quiz-passed'],
+    enabled: !!weekId,
+  });
+
   // Fetch week details
   const { data: weeks = [] } = useQuery<any[]>({
     queryKey: ['/api/training-weeks'],
@@ -307,14 +313,20 @@ export default function CourseView() {
                     <Button
                       onClick={() => setQuizDialogOpen(true)}
                       className="w-full"
-                      variant="default"
+                      variant={quizStatus?.passed ? "outline" : "default"}
                       data-testid="button-take-quiz"
                     >
-                      <Award className="mr-2 h-5 w-5" />
-                      Take Checkpoint Quiz
+                      {quizStatus?.passed ? (
+                        <CheckCircle2 className="mr-2 h-5 w-5 text-green-600" />
+                      ) : (
+                        <Award className="mr-2 h-5 w-5" />
+                      )}
+                      {quizStatus?.passed ? "Quiz Passed" : "Take Checkpoint Quiz"}
                     </Button>
                     <p className="text-xs text-muted-foreground mt-2 text-center">
-                      Test your knowledge on this week's content
+                      {quizStatus?.passed 
+                        ? "You've completed this checkpoint quiz" 
+                        : "Test your knowledge on this week's content"}
                     </p>
                   </div>
                 )}
@@ -554,13 +566,13 @@ export default function CourseView() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
 
-    {/* Quiz Dialog */}
-    <QuizDialog
-      weekId={weekId || ''}
-      open={quizDialogOpen}
-      onOpenChange={setQuizDialogOpen}
-    />
+      {/* Quiz Dialog */}
+      <QuizDialog
+        weekId={weekId || ''}
+        open={quizDialogOpen}
+        onOpenChange={setQuizDialogOpen}
+      />
+    </div>
   );
 }

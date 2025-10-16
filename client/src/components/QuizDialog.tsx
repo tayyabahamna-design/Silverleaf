@@ -66,6 +66,7 @@ export function QuizDialog({ weekId, open, onOpenChange }: QuizDialogProps) {
       setResults(data);
       setQuizState('results');
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'deck-progress'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'quiz-passed'] });
     },
     onError: (error: Error) => {
       toast({
