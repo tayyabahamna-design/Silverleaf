@@ -85,16 +85,30 @@ export function QuizDialog({ weekId, open, onOpenChange }: QuizDialogProps) {
   });
 
   const handleOpenChange = (newOpen: boolean) => {
-    if (newOpen) {
-      console.log('[QUIZ-DIALOG] Dialog opening, weekId:', weekId);
+    console.log('[QUIZ-DIALOG] handleOpenChange called, newOpen:', newOpen, 'weekId:', weekId);
+    
+    // Only trigger generation when opening
+    if (newOpen && quizState !== 'loading') {
+      console.log('[QUIZ-DIALOG] Dialog opening, setting up quiz generation');
       setQuizState('loading');
       setAnswers({});
       setResults(null);
-      console.log('[QUIZ-DIALOG] Calling mutation...');
-      generateQuizMutation.mutate();
-    } else {
-      console.log('[QUIZ-DIALOG] Dialog closing');
+      
+      // Delay the mutation slightly to ensure dialog is open
+      setTimeout(() => {
+        console.log('[QUIZ-DIALOG] Calling mutation...');
+        generateQuizMutation.mutate();
+      }, 100);
     }
+    
+    if (!newOpen) {
+      console.log('[QUIZ-DIALOG] Dialog closing, resetting state');
+      setQuizState('loading');
+      setQuestions([]);
+      setAnswers({});
+      setResults(null);
+    }
+    
     onOpenChange(newOpen);
   };
 
