@@ -17,16 +17,20 @@ interface GenerateQuizOptions {
 export async function generateQuizQuestions(options: GenerateQuizOptions): Promise<QuizQuestion[]> {
   const { fileUrls, competencyFocus, objective, numQuestions = 7 } = options;
 
+  console.log('[QUIZ-SERVICE] Starting text extraction from', fileUrls.length, 'files');
+  
   // Extract text from all files
   const documentTexts: string[] = [];
   for (const file of fileUrls) {
     try {
+      console.log('[QUIZ-SERVICE] Extracting text from:', file.name);
       const text = await extractTextFromDocument(file.url, file.name);
+      console.log('[QUIZ-SERVICE] Extracted', text.length, 'characters from', file.name);
       if (text.trim()) {
         documentTexts.push(`Content from ${file.name}:\n${text}`);
       }
     } catch (error) {
-      console.error(`Error extracting text from ${file.name}:`, error);
+      console.error(`[QUIZ-SERVICE] Error extracting text from ${file.name}:`, error);
       // Continue with other files
     }
   }
@@ -36,6 +40,7 @@ export async function generateQuizQuestions(options: GenerateQuizOptions): Promi
   }
 
   const combinedText = documentTexts.join('\n\n---\n\n');
+  console.log('[QUIZ-SERVICE] Combined text length:', combinedText.length, 'characters');
 
   // Create the prompt for OpenAI
   const prompt = `You are an educational assessment expert. Based on the following training content, generate ${numQuestions} quiz questions that test understanding of the key concepts.
@@ -74,6 +79,7 @@ Return your response as a JSON array with this exact structure:
 Make sure to use "multiple_choice" or "true_false" for the type field.`;
 
   try {
+    console.log('[QUIZ-SERVICE] Calling OpenAI API...');
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -96,6 +102,8 @@ Make sure to use "multiple_choice" or "true_false" for the type field.`;
       throw new Error('No response from OpenAI');
     }
 
+    console.log('[QUIZ-SERVICE] Received response from OpenAI');
+    
     // Parse the JSON response
     const parsed = JSON.parse(responseContent);
     let questions: QuizQuestion[] = [];

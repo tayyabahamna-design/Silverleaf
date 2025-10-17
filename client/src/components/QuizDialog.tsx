@@ -35,16 +35,23 @@ export function QuizDialog({ weekId, open, onOpenChange }: QuizDialogProps) {
 
   const generateQuizMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest('POST', `/api/training-weeks/${weekId}/generate-quiz`, {});
+      console.log('[QUIZ-DIALOG] Starting quiz generation for weekId:', weekId);
+      const url = `/api/training-weeks/${weekId}/generate-quiz`;
+      console.log('[QUIZ-DIALOG] Making request to:', url);
+      const response = await apiRequest('POST', url, {});
+      console.log('[QUIZ-DIALOG] Got response, status:', response.status);
       const data = await response.json();
+      console.log('[QUIZ-DIALOG] Parsed response:', data);
       return data.questions;
     },
     onSuccess: (generatedQuestions: QuizQuestion[]) => {
+      console.log('[QUIZ-DIALOG] Success! Got', generatedQuestions.length, 'questions');
       setQuestions(generatedQuestions);
       setAnswers({});
       setQuizState('quiz');
     },
     onError: (error: Error) => {
+      console.error('[QUIZ-DIALOG] Error:', error);
       toast({
         title: "Quiz Generation Failed",
         description: error.message || "Unable to generate quiz. Please try again.",
@@ -79,10 +86,14 @@ export function QuizDialog({ weekId, open, onOpenChange }: QuizDialogProps) {
 
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen) {
+      console.log('[QUIZ-DIALOG] Dialog opening, weekId:', weekId);
       setQuizState('loading');
       setAnswers({});
       setResults(null);
+      console.log('[QUIZ-DIALOG] Calling mutation...');
       generateQuizMutation.mutate();
+    } else {
+      console.log('[QUIZ-DIALOG] Dialog closing');
     }
     onOpenChange(newOpen);
   };

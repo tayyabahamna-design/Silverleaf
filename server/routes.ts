@@ -487,16 +487,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate quiz questions for a training week (authenticated users)
   app.post("/api/training-weeks/:weekId/generate-quiz", isAuthenticated, async (req, res) => {
     try {
+      console.log("[QUIZ] Starting quiz generation for week:", req.params.weekId);
       const { weekId } = req.params;
       
       const week = await storage.getTrainingWeek(weekId);
+      console.log("[QUIZ] Retrieved week:", week ? week.id : "not found");
+      
       if (!week) {
         return res.status(404).json({ error: "Training week not found" });
       }
 
       if (!week.deckFiles || week.deckFiles.length === 0) {
+        console.log("[QUIZ] No deck files found");
         return res.status(400).json({ error: "No files available for quiz generation" });
       }
+
+      console.log("[QUIZ] Found", week.deckFiles.length, "files");
 
       // Import the quiz service
       const { generateQuizQuestions } = await import('./quizService');
@@ -506,6 +512,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         name: file.fileName,
       }));
 
+      console.log("[QUIZ] Generating questions from files:", fileUrls.map(f => f.name).join(', '));
+      
       const questions = await generateQuizQuestions({
         fileUrls,
         competencyFocus: week.competencyFocus,
@@ -513,9 +521,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         numQuestions: 7,
       });
 
+      console.log("[QUIZ] Successfully generated", questions.length, "questions");
       res.json({ questions });
     } catch (error) {
-      console.error("Error generating quiz:", error);
+      console.error("[QUIZ] Error generating quiz:", error);
       res.status(500).json({ error: error instanceof Error ? error.message : "Failed to generate quiz" });
     }
   });
