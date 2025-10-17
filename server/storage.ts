@@ -90,7 +90,7 @@ export class DatabaseStorage implements IStorage {
   async createTrainingWeek(insertWeek: InsertTrainingWeek): Promise<TrainingWeek> {
     const [week] = await db
       .insert(trainingWeeks)
-      .values(insertWeek)
+      .values(insertWeek as any)
       .returning();
     return week;
   }
@@ -99,7 +99,7 @@ export class DatabaseStorage implements IStorage {
     const { id, ...updates } = updateWeek;
     const [week] = await db
       .update(trainingWeeks)
-      .set(updates)
+      .set(updates as any)
       .where(eq(trainingWeeks.id, id))
       .returning();
     return week || undefined;
@@ -398,7 +398,7 @@ export class DatabaseStorage implements IStorage {
   async saveQuizAttempt(attempt: InsertQuizAttempt): Promise<QuizAttempt> {
     const [quizAttempt] = await db
       .insert(quizAttempts)
-      .values(attempt)
+      .values(attempt as any)
       .returning();
     return quizAttempt;
   }
