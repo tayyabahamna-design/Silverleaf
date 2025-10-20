@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ChevronLeft, FileText, CheckCircle2, Circle, Maximize2, Download, ZoomIn, ZoomOut, X, Award } from "lucide-react";
+import { ChevronLeft, FileText, CheckCircle2, Circle, Maximize2, ZoomIn, ZoomOut, X, Award } from "lucide-react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { QuizDialog } from "@/components/QuizDialog";
+import { useScreenshotProtection } from "@/hooks/use-screenshot-protection";
+import { ScreenshotWarning } from "@/components/ScreenshotWarning";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -47,6 +49,9 @@ export default function CourseView() {
   const [viewingStartTime, setViewingStartTime] = useState<number | null>(null);
   const [hasMarkedComplete, setHasMarkedComplete] = useState<boolean>(false);
   const [quizDialogOpen, setQuizDialogOpen] = useState<boolean>(false);
+
+  // Screenshot protection
+  const { showWarning, dismissWarning } = useScreenshotProtection(weekId);
 
   // Fetch deck files with progress
   const { data: deckFiles = [], isLoading } = useQuery<DeckFile[]>({
@@ -417,14 +422,6 @@ export default function CourseView() {
                               Next
                             </Button>
                           </div>
-                          <Button
-                            onClick={() => window.open(viewUrl, '_blank')}
-                            variant="default"
-                            data-testid="button-download-file"
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
-                          </Button>
                         </div>
                       </>
                     )}
@@ -438,9 +435,10 @@ export default function CourseView() {
                         <div className="w-full max-w-7xl h-full flex flex-col">
                           <iframe
                             src={viewUrl}
-                            className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0"
+                            className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0 select-none pointer-events-auto"
                             title={selectedFile.fileName}
                             data-testid="file-viewer"
+                            style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
                           />
                           <div className="mt-4 flex gap-3 justify-center">
                             <Button
@@ -451,20 +449,6 @@ export default function CourseView() {
                             >
                               <Maximize2 className="h-5 w-5 mr-2" />
                               Fullscreen View
-                            </Button>
-                            <Button
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                link.href = viewUrl;
-                                link.download = selectedFile.fileName;
-                                link.click();
-                              }}
-                              variant="outline"
-                              size="lg"
-                              data-testid="button-download-file"
-                            >
-                              <Download className="h-5 w-5 mr-2" />
-                              Download
                             </Button>
                           </div>
                         </div>
@@ -522,18 +506,20 @@ export default function CourseView() {
                  selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                  selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
                   <div className="h-full flex flex-col items-center">
-                    <Document
-                      file={viewUrl}
-                      onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-                      className="shadow-2xl"
-                    >
-                      <Page
-                        pageNumber={pageNumber}
-                        scale={2.0}
-                        renderTextLayer={true}
-                        renderAnnotationLayer={true}
-                      />
-                    </Document>
+                    <div className="select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
+                      <Document
+                        file={viewUrl}
+                        onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                        className="shadow-2xl"
+                      >
+                        <Page
+                          pageNumber={pageNumber}
+                          scale={2.0}
+                          renderTextLayer={true}
+                          renderAnnotationLayer={true}
+                        />
+                      </Document>
+                    </div>
                     <div className="mt-4 flex items-center gap-4">
                       <Button
                         onClick={() => setPageNumber(p => Math.max(1, p - 1))}
@@ -557,8 +543,9 @@ export default function CourseView() {
                 ) : (
                   <iframe
                     src={viewUrl}
-                    className="w-full h-full border-0"
+                    className="w-full h-full border-0 select-none"
                     title={selectedFile.fileName}
+                    style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
                   />
                 )
               )}
@@ -573,6 +560,9 @@ export default function CourseView() {
         open={quizDialogOpen}
         onOpenChange={setQuizDialogOpen}
       />
+
+      {/* Screenshot Warning Overlay */}
+      <ScreenshotWarning visible={showWarning} onDismiss={dismissWarning} />
     </div>
   );
 }

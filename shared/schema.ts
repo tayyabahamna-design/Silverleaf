@@ -165,3 +165,21 @@ export const insertQuizAttemptSchema = createInsertSchema(quizAttempts).omit({
 
 export type InsertQuizAttempt = z.infer<typeof insertQuizAttemptSchema>;
 export type QuizAttempt = typeof quizAttempts.$inferSelect;
+
+// Security violations table for tracking screenshot attempts and other violations
+export const securityViolations = pgTable("security_violations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  weekId: varchar("week_id").references(() => trainingWeeks.id, { onDelete: "cascade" }),
+  violationType: varchar("violation_type").notNull(), // 'screenshot_attempt', etc.
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertSecurityViolationSchema = createInsertSchema(securityViolations).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSecurityViolation = z.infer<typeof insertSecurityViolationSchema>;
+export type SecurityViolation = typeof securityViolations.$inferSelect;

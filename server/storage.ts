@@ -13,12 +13,15 @@ import {
   type DeckFile,
   type QuizAttempt,
   type InsertQuizAttempt,
+  type SecurityViolation,
+  type InsertSecurityViolation,
   trainingWeeks,
   users,
   contentItems,
   userProgress,
   deckFileProgress,
-  quizAttempts
+  quizAttempts,
+  securityViolations
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql as sqlOp } from "drizzle-orm";
@@ -61,6 +64,9 @@ export interface IStorage {
   saveQuizAttempt(attempt: InsertQuizAttempt): Promise<QuizAttempt>;
   getLatestQuizAttempt(weekId: string, userId: string): Promise<QuizAttempt | undefined>;
   hasPassedQuiz(weekId: string, userId: string): Promise<boolean>;
+  
+  // Security operations
+  logSecurityViolation(violation: InsertSecurityViolation): Promise<SecurityViolation>;
   
   // Session store
   sessionStore: session.Store;
@@ -431,6 +437,14 @@ export class DatabaseStorage implements IStorage {
       )
       .limit(1);
     return !!attempt;
+  }
+
+  async logSecurityViolation(violation: InsertSecurityViolation): Promise<SecurityViolation> {
+    const [result] = await db
+      .insert(securityViolations)
+      .values(violation as any)
+      .returning();
+    return result;
   }
 }
 

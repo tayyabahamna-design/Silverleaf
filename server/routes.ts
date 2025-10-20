@@ -482,6 +482,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Security API routes
+  
+  // Log security violations (screenshot attempts, etc.)
+  app.post("/api/security/log-violation", isAuthenticated, async (req, res) => {
+    try {
+      const { weekId, violationType, timestamp, userAgent } = req.body;
+      
+      if (!req.user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      const violation = await storage.logSecurityViolation({
+        userId: req.user.id,
+        weekId: weekId || null,
+        violationType: violationType || 'unknown',
+        userAgent: userAgent || null,
+      });
+
+      console.log(`[SECURITY] User ${req.user.username} - ${violationType} detected on week ${weekId}`);
+      
+      res.json({ success: true, id: violation.id });
+    } catch (error) {
+      console.error("Error logging security violation:", error);
+      res.status(500).json({ error: "Failed to log security violation" });
+    }
+  });
+
   // Quiz API routes
 
   // Generate quiz questions for a training week (authenticated users)
