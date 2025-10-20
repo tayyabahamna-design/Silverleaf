@@ -218,8 +218,12 @@ Make sure to use "multiple_choice" or "true_false" for the type field.`;
     }
 
     console.log('[QUIZ-SERVICE] Received response from OpenAI');
+    console.log('[QUIZ-SERVICE] Raw response content:', responseContent);
     
     const parsed = JSON.parse(responseContent);
+    console.log('[QUIZ-SERVICE] Parsed response:', JSON.stringify(parsed, null, 2));
+    console.log('[QUIZ-SERVICE] Response keys:', Object.keys(parsed));
+    
     let questions: QuizQuestion[] = [];
     
     if (Array.isArray(parsed)) {
@@ -227,6 +231,7 @@ Make sure to use "multiple_choice" or "true_false" for the type field.`;
     } else if (parsed.questions && Array.isArray(parsed.questions)) {
       questions = parsed.questions;
     } else {
+      console.log('[QUIZ-SERVICE] Neither array nor questions property found');
       throw new Error('Invalid response format from OpenAI');
     }
 
