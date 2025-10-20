@@ -37,10 +37,20 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }:
 
   const generateQuizMutation = useMutation({
     mutationFn: async () => {
-      console.log('[FILE-QUIZ-DIALOG] Generating quiz for file:', fileId, fileName);
+      console.log('[FILE-QUIZ-DIALOG] 🚀 Starting quiz generation');
+      console.log('[FILE-QUIZ-DIALOG] Week ID:', weekId);
+      console.log('[FILE-QUIZ-DIALOG] File ID:', fileId);
+      console.log('[FILE-QUIZ-DIALOG] File Name:', fileName);
+      
       const url = `/api/training-weeks/${weekId}/files/${fileId}/generate-quiz`;
+      console.log('[FILE-QUIZ-DIALOG] 📡 Making API request to:', url);
+      
       const response = await apiRequest('POST', url, {});
+      console.log('[FILE-QUIZ-DIALOG] ✅ Got response, status:', response.status);
+      
       const data = await response.json();
+      console.log('[FILE-QUIZ-DIALOG] 📦 Response data:', data);
+      
       return data.questions;
     },
     onSuccess: (generatedQuestions: QuizQuestion[]) => {
@@ -85,12 +95,16 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }:
   });
 
   const handleOpenChange = (newOpen: boolean) => {
+    console.log('[FILE-QUIZ-DIALOG] 🔔 handleOpenChange called, newOpen:', newOpen);
+    
     if (newOpen) {
+      console.log('[FILE-QUIZ-DIALOG] 📂 Opening dialog, setting loading state');
       setQuizState('loading');
       setAnswers({});
       setResults(null);
       
       setTimeout(() => {
+        console.log('[FILE-QUIZ-DIALOG] ⏰ Timeout fired, starting quiz generation');
         generateQuizMutation.mutate();
       }, 100);
     }
