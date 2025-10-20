@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, GripVertical } from "lucide-react";
+import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, GripVertical, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -406,16 +406,28 @@ export default function Home() {
               </div>
             </div>
           </AccordionTrigger>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeleteId(week.id)}
-            className="h-10 w-10 rounded-xl hover:bg-amber-500/10 transition-colors"
-            data-testid={`button-delete-${week.id}`}
-            aria-label="Delete week"
-          >
-            <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(`/edit-week/${week.id}`)}
+              className="h-10 w-10 rounded-xl hover:bg-primary/10 transition-colors"
+              data-testid={`button-edit-${week.id}`}
+              aria-label="Edit week"
+            >
+              <Edit className="h-4 w-4 text-primary" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteId(week.id)}
+              className="h-10 w-10 rounded-xl hover:bg-amber-500/10 transition-colors"
+              data-testid={`button-delete-${week.id}`}
+              aria-label="Delete week"
+            >
+              <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+            </Button>
+          </div>
         </div>
         <AccordionContent className="pt-6 sm:pt-8 pb-6 sm:pb-8 px-5 sm:px-10">
           <div className="space-y-6 sm:space-y-8">
