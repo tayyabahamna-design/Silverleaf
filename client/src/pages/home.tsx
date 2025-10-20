@@ -7,9 +7,26 @@ import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { Plus, Pencil, Trash2, Upload, ExternalLink, LogOut, ChevronDown, ChevronRight, ChevronUp, MoveUp, MoveDown } from "lucide-react";
+import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Accordion,
   AccordionContent,
@@ -201,9 +218,26 @@ export default function Home() {
     },
   });
 
-  const handleMoveWeek = (weekId: string, currentPosition: number, direction: 'up' | 'down') => {
-    const newPosition = direction === 'up' ? currentPosition - 1 : currentPosition + 1;
-    reorderWeekMutation.mutate({ weekId, newPosition });
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = weeks.findIndex((w) => w.id === active.id);
+      const newIndex = weeks.findIndex((w) => w.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const weekId = active.id as string;
+        const newPosition = newIndex + 1; // Convert to 1-based position
+        reorderWeekMutation.mutate({ weekId, newPosition });
+      }
+    }
   };
 
   const handleCellEdit = (id: string, field: string, currentValue: string) => {
@@ -288,6 +322,212 @@ export default function Home() {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
+
+  // Sortable Week Item Component for Drag and Drop
+  interface SortableWeekItemProps {
+    week: TrainingWeek;
+  }
+
+  function SortableWeekItem({ week }: SortableWeekItemProps) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: week.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    return (
+      <AccordionItem
+        ref={setNodeRef}
+        style={style}
+        value={week.id}
+        className="border-l-4 border-l-primary border-0 rounded-2xl bg-card shadow-lg hover:shadow-2xl transition-all duration-300"
+        data-testid={`card-week-${week.id}`}
+      >
+        <div className="flex items-center pr-3 sm:pr-4 gap-2">
+          <button
+            className="pl-4 cursor-grab active:cursor-grabbing hover:bg-accent/50 rounded-l-2xl py-6 sm:py-8 transition-colors"
+            {...attributes}
+            {...listeners}
+            data-testid={`drag-handle-${week.id}`}
+            aria-label="Drag to reorder"
+          >
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
+          </button>
+          <AccordionTrigger className="flex-1 pr-5 sm:pr-6 py-6 sm:py-8 hover:no-underline">
+            <div className="flex items-center gap-5 sm:gap-6 w-full min-w-0">
+              <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-md">
+                <span className="text-white font-bold text-xl sm:text-2xl">{week.weekNumber}</span>
+              </div>
+              <div className="text-left flex-1 min-w-0">
+                <h3 className="font-extrabold text-xl sm:text-2xl mb-2">Week {week.weekNumber}</h3>
+                {editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
+                  <Input
+                    ref={inputRef}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={handleInputBlur}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleCellSave();
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        handleCellCancel();
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    autoFocus
+                    disabled={updateWeekMutation.isPending}
+                    data-testid={`input-header-competency-${week.id}`}
+                    className="text-sm sm:text-base h-8"
+                  />
+                ) : (
+                  <p 
+                    className="text-sm sm:text-base text-muted-foreground/80 truncate leading-relaxed cursor-text hover:text-muted-foreground transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCellEdit(week.id, "competencyFocus", week.competencyFocus);
+                    }}
+                    data-testid={`text-header-competency-${week.id}`}
+                  >
+                    {week.competencyFocus || "Click to set competency focus"}
+                  </p>
+                )}
+              </div>
+            </div>
+          </AccordionTrigger>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDeleteId(week.id)}
+            className="h-10 w-10 rounded-xl hover:bg-amber-500/10 transition-colors"
+            data-testid={`button-delete-${week.id}`}
+            aria-label="Delete week"
+          >
+            <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+          </Button>
+        </div>
+        <AccordionContent className="pt-6 sm:pt-8 pb-6 sm:pb-8 px-5 sm:px-10">
+          <div className="space-y-6 sm:space-y-8">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
+                Objective
+              </label>
+              {editingCell?.id === week.id && editingCell?.field === "objective" ? (
+                <Input
+                  ref={inputRef}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={handleInputBlur}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleCellSave();
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      handleCellCancel();
+                    }
+                  }}
+                  autoFocus
+                  disabled={updateWeekMutation.isPending}
+                  data-testid={`input-objective-${week.id}`}
+                  className="text-base"
+                />
+              ) : (
+                <div
+                  onClick={() => handleCellEdit(week.id, "objective", week.objective)}
+                  className="p-4 rounded-lg border bg-muted/30 cursor-text hover:bg-muted/50 transition-colors"
+                  data-testid={`text-objective-${week.id}`}
+                >
+                  {week.objective ? (
+                    <p className="text-base leading-relaxed">{week.objective}</p>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">Click to edit</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60">
+                  Training Materials
+                </label>
+                <ObjectUploader
+                  onGetUploadParameters={handleGetUploadParams}
+                  onComplete={handleUploadComplete(week.id)}
+                  maxNumberOfFiles={10}
+                  key={`uploader-${week.id}`}
+                />
+              </div>
+              {week.deckFiles && week.deckFiles.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {week.deckFiles.map((file) => (
+                    <div
+                      key={file.id}
+                      className="border rounded-lg p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <FilePreview 
+                            fileName={file.fileName}
+                            fileUrl={file.fileUrl}
+                          />
+                          <p className="text-sm font-medium truncate mt-2" title={file.fileName}>
+                            {file.fileName}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatFileSize(file.fileSize)}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
+                            className="h-8 w-8"
+                            data-testid={`button-view-${file.id}`}
+                            aria-label="View file"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
+                            className="h-8 w-8 hover:bg-amber-500/10"
+                            data-testid={`button-delete-file-${file.id}`}
+                            aria-label="Delete file"
+                          >
+                            <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
+                  No training materials uploaded yet
+                </p>
+              )}
+            </div>
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -471,231 +711,28 @@ export default function Home() {
             ))}
           </div>
         ) : (
-          // Admin view: Accordion for editing
-          <Accordion type="multiple" className="space-y-5 sm:space-y-6" data-testid="accordion-training-weeks">
-            {weeks.map((week) => (
-              <AccordionItem
-                key={week.id}
-                value={week.id}
-                className="border-l-4 border-l-primary border-0 rounded-2xl bg-card shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
-                data-testid={`card-week-${week.id}`}
-              >
-                <div className="flex items-center pr-3 sm:pr-4 gap-1">
-                  <AccordionTrigger className="flex-1 px-5 sm:px-10 py-6 sm:py-8 hover:no-underline">
-                    <div className="flex items-center gap-5 sm:gap-6 w-full min-w-0">
-                      <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-md">
-                        <span className="text-white font-bold text-xl sm:text-2xl">{week.weekNumber}</span>
-                      </div>
-                      <div className="text-left flex-1 min-w-0">
-                        <h3 className="font-extrabold text-xl sm:text-2xl mb-2">Week {week.weekNumber}</h3>
-                        <p className="text-sm sm:text-base text-muted-foreground/80 truncate leading-relaxed">
-                          {week.competencyFocus || "No competency focus set"}
-                        </p>
-                      </div>
-                    </div>
-                  </AccordionTrigger>
-                  <div className="flex gap-1 flex-shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleMoveWeek(week.id, week.weekNumber, 'up')}
-                      disabled={week.weekNumber === 1 || reorderWeekMutation.isPending}
-                      className="h-10 w-10 rounded-xl hover:bg-primary/10 transition-colors disabled:opacity-50"
-                      data-testid={`button-move-up-${week.id}`}
-                      aria-label="Move week up"
-                    >
-                      <MoveUp className="h-4 w-4 text-primary" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleMoveWeek(week.id, week.weekNumber, 'down')}
-                      disabled={week.weekNumber === weeks.length || reorderWeekMutation.isPending}
-                      className="h-10 w-10 rounded-xl hover:bg-primary/10 transition-colors disabled:opacity-50"
-                      data-testid={`button-move-down-${week.id}`}
-                      aria-label="Move week down"
-                    >
-                      <MoveDown className="h-4 w-4 text-primary" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteId(week.id)}
-                      className="h-10 w-10 rounded-xl hover:bg-amber-500/10 transition-colors"
-                      data-testid={`button-delete-${week.id}`}
-                      aria-label="Delete week"
-                    >
-                      <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-                    </Button>
-                  </div>
-                </div>
-                <AccordionContent className="pt-6 sm:pt-8 pb-6 sm:pb-8 px-5 sm:px-10">
-                  <div className="space-y-6 sm:space-y-8">
-                    <div>
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
-                        Competency Focus
-                      </label>
-                      {isAdmin && editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
-                        <Input
-                          ref={inputRef}
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onBlur={handleInputBlur}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleCellSave();
-                            }
-                            if (e.key === "Escape") {
-                              e.preventDefault();
-                              handleCellCancel();
-                            }
-                          }}
-                          autoFocus
-                          disabled={updateWeekMutation.isPending}
-                          data-testid={`input-competency-${week.id}`}
-                          className="text-base"
-                        />
-                      ) : (
-                        <div
-                          onClick={isAdmin ? () => handleCellEdit(week.id, "competencyFocus", week.competencyFocus) : undefined}
-                          className={`p-4 rounded-lg border bg-muted/30 ${isAdmin ? "cursor-text hover:bg-muted/50 transition-colors" : ""}`}
-                          data-testid={`text-competency-${week.id}`}
-                        >
-                          {week.competencyFocus ? (
-                            <p className="text-base leading-relaxed">{week.competencyFocus}</p>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">{isAdmin ? "Click to edit" : "Not set"}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
-                        Objective
-                      </label>
-                      {isAdmin && editingCell?.id === week.id && editingCell?.field === "objective" ? (
-                        <Input
-                          ref={inputRef}
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onBlur={handleInputBlur}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              handleCellSave();
-                            }
-                            if (e.key === "Escape") {
-                              e.preventDefault();
-                              handleCellCancel();
-                            }
-                          }}
-                          autoFocus
-                          disabled={updateWeekMutation.isPending}
-                          data-testid={`input-objective-${week.id}`}
-                          className="text-base"
-                        />
-                      ) : (
-                        <div
-                          onClick={isAdmin ? () => handleCellEdit(week.id, "objective", week.objective) : undefined}
-                          className={`p-4 rounded-lg border bg-muted/30 ${isAdmin ? "cursor-text hover:bg-muted/50 transition-colors" : ""}`}
-                          data-testid={`text-objective-${week.id}`}
-                        >
-                          {week.objective ? (
-                            <p className="text-base leading-relaxed">{week.objective}</p>
-                          ) : (
-                            <span className="text-muted-foreground text-sm">{isAdmin ? "Click to edit" : "Not set"}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
-                        Presentation Deck
-                      </label>
-                      <div className="space-y-3">
-                        {week.deckFiles && week.deckFiles.length > 0 ? (
-                          week.deckFiles.map((file) => {
-                            // Determine if file should open in Office Online viewer
-                            const isPowerPoint = file.fileName.toLowerCase().endsWith('.pptx') || file.fileName.toLowerCase().endsWith('.ppt');
-                            const isWord = file.fileName.toLowerCase().endsWith('.docx') || file.fileName.toLowerCase().endsWith('.doc');
-                            const isExcel = file.fileName.toLowerCase().endsWith('.xlsx') || file.fileName.toLowerCase().endsWith('.xls');
-                            const shouldUseOfficeViewer = isPowerPoint || isWord || isExcel;
-                            
-                            // Create Office Online viewer URL
-                            const fileUrl = `${window.location.origin}${file.fileUrl}`;
-                            const viewerUrl = shouldUseOfficeViewer 
-                              ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`
-                              : file.fileUrl;
-                            
-                            return (
-                              <div key={file.id} className="rounded-xl border-0 overflow-hidden shadow-md hover:shadow-lg transition-all duration-200 bg-muted/20 hover:bg-muted/30">
-                                <div className="flex items-center gap-4">
-                                  <div className="flex-shrink-0 w-20 h-20 border-r border-border/50">
-                                    <FilePreview 
-                                      fileName={file.fileName} 
-                                      fileUrl={file.fileUrl} 
-                                      className="w-full h-full"
-                                    />
-                                  </div>
-                                  <button
-                                    onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
-                                    className="flex-1 min-w-0 text-left py-4 pr-2 transition-colors"
-                                    data-testid={`link-deck-${week.id}-${file.id}`}
-                                  >
-                                    <div className="flex items-start gap-3">
-                                      <ExternalLink className="h-5 w-5 flex-shrink-0 mt-0.5 text-primary" />
-                                      <div className="flex-1 min-w-0">
-                                        <div className="font-bold text-base truncate">{file.fileName}</div>
-                                        <div className="text-xs text-muted-foreground/70 mt-1.5">
-                                          {formatFileSize(file.fileSize)}
-                                          {shouldUseOfficeViewer && <span className="ml-2">• Click to view</span>}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </button>
-                                  {isAdmin && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-10 w-10 mr-3 flex-shrink-0 rounded-xl hover:bg-amber-500/10 transition-colors"
-                                      onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
-                                      disabled={deleteDeckFileMutation.isPending}
-                                      data-testid={`button-delete-deck-${week.id}-${file.id}`}
-                                    >
-                                      <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })
-                        ) : !isAdmin ? (
-                          <div className="p-4 rounded-lg border bg-muted/30">
-                            <span className="text-muted-foreground text-sm">No deck uploaded</span>
-                          </div>
-                        ) : null}
-                        {isAdmin && (
-                          <ObjectUploader
-                            key={`uploader-${week.id}`}
-                            maxNumberOfFiles={10}
-                            onGetUploadParameters={handleGetUploadParams}
-                            onComplete={handleUploadComplete(week.id)}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+          // Admin view: Drag-and-drop accordion for editing
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={weeks.map((w) => w.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <Accordion type="multiple" className="space-y-5 sm:space-y-6" data-testid="accordion-training-weeks">
+                {weeks.map((week) => (
+                  <SortableWeekItem key={week.id} week={week} />
+                ))}
+              </Accordion>
+            </SortableContext>
+          </DndContext>
         )}
       </main>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Training Week</AlertDialogTitle>
@@ -704,10 +741,15 @@ export default function Home() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteId && deleteWeekMutation.mutate(deleteId)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteId) {
+                  deleteWeekMutation.mutate(deleteId);
+                }
+              }}
+              className="bg-amber-600 hover:bg-amber-700"
+              data-testid="button-confirm-delete"
             >
               Delete
             </AlertDialogAction>
@@ -715,12 +757,13 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* File Viewer Dialog */}
       {viewingFile && (
         <PresentationViewer
           isOpen={!!viewingFile}
-          onClose={() => setViewingFile(null)}
           fileUrl={viewingFile.url}
           fileName={viewingFile.name}
+          onClose={() => setViewingFile(null)}
         />
       )}
     </div>
