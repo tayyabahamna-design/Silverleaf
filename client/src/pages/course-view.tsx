@@ -323,8 +323,10 @@ export default function CourseView() {
                               variant={hasPassedQuiz ? "outline" : "secondary"}
                               className="w-full"
                               onClick={() => {
+                                console.log('[COURSE-VIEW] 🎯 Take Quiz button clicked for file:', file.id, file.fileName);
                                 setSelectedQuizFileId(file.id);
                                 setFileQuizDialogOpen(true);
+                                console.log('[COURSE-VIEW] 📝 State updated, dialog should open');
                               }}
                               data-testid={`button-file-quiz-${file.id}`}
                             >

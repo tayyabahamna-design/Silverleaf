@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { QuizQuestion } from "@shared/schema";
@@ -24,6 +24,7 @@ interface FileQuizDialogProps {
 }
 
 export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }: FileQuizDialogProps) {
+  console.log('[FILE-QUIZ-DIALOG] 🏗️ Component mounted/updated, open:', open, 'weekId:', weekId, 'fileId:', fileId);
   const { toast } = useToast();
   const [quizState, setQuizState] = useState<'loading' | 'quiz' | 'results'>('loading');
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -34,6 +35,7 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }:
     passed: boolean;
     percentage: number;
   } | null>(null);
+  const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
 
   const generateQuizMutation = useMutation({
     mutationFn: async () => {
@@ -60,7 +62,9 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }:
       setQuizState('quiz');
     },
     onError: (error: Error) => {
-      console.error('[FILE-QUIZ-DIALOG] Error:', error);
+      console.error('[FILE-QUIZ-DIALOG] ❌ Quiz generation error:', error);
+      console.error('[FILE-QUIZ-DIALOG] Error message:', error.message);
+      console.error('[FILE-QUIZ-DIALOG] Error stack:', error.stack);
       toast({
         title: "Quiz Generation Failed",
         description: error.message || "Unable to generate quiz. Please try again.",
@@ -135,8 +139,30 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }:
     setQuizState('loading');
     setAnswers({});
     setResults(null);
-    generateQuizMutation.mutate();
+    setHasStartedGeneration(false);
   };
+
+  // Trigger quiz generation when dialog opens
+  useEffect(() => {
+    if (open && !hasStartedGeneration && quizState === 'loading') {
+      console.log('[FILE-QUIZ-DIALOG] 🎬 Dialog opened, starting quiz generation');
+      setHasStartedGeneration(true);
+      
+      setTimeout(() => {
+        console.log('[FILE-QUIZ-DIALOG] ⏰ Timeout fired, calling mutation');
+        generateQuizMutation.mutate();
+      }, 100);
+    }
+    
+    if (!open && hasStartedGeneration) {
+      console.log('[FILE-QUIZ-DIALOG] 🔄 Dialog closed, resetting state');
+      setQuizState('loading');
+      setQuestions([]);
+      setAnswers({});
+      setResults(null);
+      setHasStartedGeneration(false);
+    }
+  }, [open, hasStartedGeneration, quizState, generateQuizMutation]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

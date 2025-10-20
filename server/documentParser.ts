@@ -1,4 +1,3 @@
-const pdfParse = require('pdf-parse');
 import PizZip from 'pizzip';
 import mammoth from 'mammoth';
 import { objectStorageService } from './objectStorage';
@@ -9,6 +8,8 @@ import { objectStorageService } from './objectStorage';
 export async function extractTextFromPDF(fileUrl: string): Promise<string> {
   try {
     const buffer = await objectStorageService.getObjectEntity(fileUrl);
+    // Use dynamic import for pdf-parse (CommonJS module)
+    const pdfParse = (await import('pdf-parse')).default;
     const data = await pdfParse(buffer);
     return data.text;
   } catch (error) {
