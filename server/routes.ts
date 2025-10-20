@@ -726,6 +726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startTime = Date.now();
       console.log("[FILE-QUIZ] Starting quiz generation for file:", req.params.fileId);
       const { weekId, fileId } = req.params;
+      const { numQuestions = 5 } = req.body;
       
       const week = await storage.getTrainingWeek(weekId);
       if (!week) {
@@ -737,16 +738,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "File not found" });
       }
 
-      // 🚀 CACHE HIT: Check if quiz questions are already cached
+      // 🚀 CACHE HIT: Check if quiz questions are already cached with matching question count
       const cachedQuiz = await storage.getCachedQuiz(weekId, fileId);
-      if (cachedQuiz) {
+      if (cachedQuiz && cachedQuiz.questions.length >= numQuestions) {
         const cacheTime = Date.now() - startTime;
         console.log(`[FILE-QUIZ] 🎯 CACHE HIT! Instant retrieval in ${cacheTime}ms for ${file.fileName}`);
-        return res.json({ questions: cachedQuiz.questions, cached: true });
+        return res.json({ questions: cachedQuiz.questions.slice(0, numQuestions), cached: true });
       }
 
       // ❌ CACHE MISS: Generate quiz on-demand
-      console.log("[FILE-QUIZ] ⏳ Cache miss, generating quiz for:", file.fileName);
+      console.log("[FILE-QUIZ] ⏳ Cache miss, generating quiz for:", file.fileName, "with", numQuestions, "questions");
 
       const { generateSingleFileQuiz } = await import('./quizService');
       
@@ -755,7 +756,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileName: file.fileName,
         competencyFocus: week.competencyFocus,
         objective: week.objective,
-        numQuestions: 5,
+        numQuestions: numQuestions,
       });
 
       // Save to cache for future instant retrieval

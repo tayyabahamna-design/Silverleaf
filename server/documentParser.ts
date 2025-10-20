@@ -9,7 +9,8 @@ export async function extractTextFromPDF(fileUrl: string): Promise<string> {
   try {
     const buffer = await objectStorageService.getObjectEntity(fileUrl);
     // Use dynamic import for pdf-parse (CommonJS module)
-    const pdfParse = (await import('pdf-parse')).default;
+    const pdfParseModule = await import('pdf-parse');
+    const pdfParse = (pdfParseModule as any).default || pdfParseModule;
     const data = await pdfParse(buffer);
     return data.text;
   } catch (error) {

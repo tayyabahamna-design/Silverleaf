@@ -12,6 +12,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,7 +33,8 @@ interface FileQuizDialogProps {
 export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }: FileQuizDialogProps) {
   console.log('[FILE-QUIZ-DIALOG] 🏗️ Component mounted/updated, open:', open, 'weekId:', weekId, 'fileId:', fileId);
   const { toast } = useToast();
-  const [quizState, setQuizState] = useState<'loading' | 'quiz' | 'results'>('loading');
+  const [quizState, setQuizState] = useState<'setup' | 'loading' | 'quiz' | 'results'>('setup');
+  const [numQuestions, setNumQuestions] = useState<number>(5);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [results, setResults] = useState<{
@@ -38,16 +46,17 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }:
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
 
   const generateQuizMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (questionCount: number) => {
       console.log('[FILE-QUIZ-DIALOG] 🚀 Starting quiz generation');
       console.log('[FILE-QUIZ-DIALOG] Week ID:', weekId);
       console.log('[FILE-QUIZ-DIALOG] File ID:', fileId);
       console.log('[FILE-QUIZ-DIALOG] File Name:', fileName);
+      console.log('[FILE-QUIZ-DIALOG] Number of Questions:', questionCount);
       
       const url = `/api/training-weeks/${weekId}/files/${fileId}/generate-quiz`;
       console.log('[FILE-QUIZ-DIALOG] 📡 Making API request to:', url);
       
-      const response = await apiRequest('POST', url, {});
+      const response = await apiRequest('POST', url, { numQuestions: questionCount });
       console.log('[FILE-QUIZ-DIALOG] ✅ Got response, status:', response.status);
       
       const data = await response.json();
@@ -102,25 +111,26 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }:
     console.log('[FILE-QUIZ-DIALOG] 🔔 handleOpenChange called, newOpen:', newOpen);
     
     if (newOpen) {
-      console.log('[FILE-QUIZ-DIALOG] 📂 Opening dialog, setting loading state');
-      setQuizState('loading');
+      console.log('[FILE-QUIZ-DIALOG] 📂 Opening dialog, setting setup state');
+      setQuizState('setup');
+      setNumQuestions(5);
       setAnswers({});
       setResults(null);
-      
-      setTimeout(() => {
-        console.log('[FILE-QUIZ-DIALOG] ⏰ Timeout fired, starting quiz generation');
-        generateQuizMutation.mutate();
-      }, 100);
     }
     
     if (!newOpen) {
-      setQuizState('loading');
+      setQuizState('setup');
       setQuestions([]);
       setAnswers({});
       setResults(null);
     }
     
     onOpenChange(newOpen);
+  };
+
+  const startQuiz = () => {
+    setQuizState('loading');
+    generateQuizMutation.mutate(numQuestions);
   };
 
   const handleSubmit = () => {
@@ -136,33 +146,23 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }:
   };
 
   const handleRetake = () => {
-    setQuizState('loading');
+    setQuizState('setup');
     setAnswers({});
     setResults(null);
     setHasStartedGeneration(false);
   };
 
-  // Trigger quiz generation when dialog opens
+  // Reset state when dialog closes
   useEffect(() => {
-    if (open && !hasStartedGeneration && quizState === 'loading') {
-      console.log('[FILE-QUIZ-DIALOG] 🎬 Dialog opened, starting quiz generation');
-      setHasStartedGeneration(true);
-      
-      setTimeout(() => {
-        console.log('[FILE-QUIZ-DIALOG] ⏰ Timeout fired, calling mutation');
-        generateQuizMutation.mutate();
-      }, 100);
-    }
-    
-    if (!open && hasStartedGeneration) {
+    if (!open) {
       console.log('[FILE-QUIZ-DIALOG] 🔄 Dialog closed, resetting state');
-      setQuizState('loading');
+      setQuizState('setup');
       setQuestions([]);
       setAnswers({});
       setResults(null);
       setHasStartedGeneration(false);
     }
-  }, [open, hasStartedGeneration, quizState, generateQuizMutation]);
+  }, [open]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -170,17 +170,62 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }:
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Quiz: {fileName}</DialogTitle>
           <DialogDescription>
-            {quizState === 'quiz' && "Answer all 5 questions to complete this file's checkpoint."}
+            {quizState === 'setup' && "Choose how many questions you want for your quiz."}
+            {quizState === 'quiz' && `Answer all ${questions.length} questions to complete this file's checkpoint.`}
             {quizState === 'results' && "Review your quiz results below."}
             {quizState === 'loading' && "Generating quiz questions from this presentation..."}
           </DialogDescription>
         </DialogHeader>
 
+        {quizState === 'setup' && (
+          <div className="space-y-6 py-6" data-testid="setup-state">
+            <div className="space-y-3">
+              <Label htmlFor="num-questions" className="text-base font-medium">
+                Number of Questions
+              </Label>
+              <Select
+                value={numQuestions.toString()}
+                onValueChange={(value) => setNumQuestions(parseInt(value))}
+              >
+                <SelectTrigger id="num-questions" data-testid="select-num-questions">
+                  <SelectValue placeholder="Select number of questions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3" data-testid="option-3">3 Questions</SelectItem>
+                  <SelectItem value="5" data-testid="option-5">5 Questions</SelectItem>
+                  <SelectItem value="7" data-testid="option-7">7 Questions</SelectItem>
+                  <SelectItem value="10" data-testid="option-10">10 Questions</SelectItem>
+                  <SelectItem value="15" data-testid="option-15">15 Questions</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                More questions provide a more comprehensive assessment but will take longer to generate.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                data-testid="button-cancel-setup"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={startQuiz}
+                data-testid="button-start-quiz"
+              >
+                Generate Quiz
+              </Button>
+            </div>
+          </div>
+        )}
+
         {quizState === 'loading' && (
           <div className="flex flex-col items-center justify-center py-12" data-testid="loading-state">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
             <p className="text-sm text-muted-foreground">Analyzing presentation content...</p>
-            <p className="text-xs text-muted-foreground mt-1">This may take 10-15 seconds</p>
+            <p className="text-xs text-muted-foreground mt-1">Generating {numQuestions} questions - this may take 10-15 seconds</p>
           </div>
         )}
 
