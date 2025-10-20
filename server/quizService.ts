@@ -221,8 +221,8 @@ Make sure to use "multiple_choice" or "true_false" for the type field.`;
     console.log('[QUIZ-SERVICE] Raw response content:', responseContent);
     
     const parsed = JSON.parse(responseContent);
-    console.log('[QUIZ-SERVICE] Parsed response:', JSON.stringify(parsed, null, 2));
-    console.log('[QUIZ-SERVICE] Response keys:', Object.keys(parsed));
+    console.log('[QUIZ-SERVICE] Parsed response type:', typeof parsed, 'isArray:', Array.isArray(parsed));
+    console.log('[QUIZ-SERVICE] Response keys:', Array.isArray(parsed) ? 'Array' : Object.keys(parsed));
     
     let questions: QuizQuestion[] = [];
     
@@ -230,9 +230,19 @@ Make sure to use "multiple_choice" or "true_false" for the type field.`;
       questions = parsed;
     } else if (parsed.questions && Array.isArray(parsed.questions)) {
       questions = parsed.questions;
+    } else if (parsed.quiz && Array.isArray(parsed.quiz)) {
+      questions = parsed.quiz;
     } else {
-      console.log('[QUIZ-SERVICE] Neither array nor questions property found');
-      throw new Error('Invalid response format from OpenAI');
+      // Try to find any array property in the response
+      const arrayProp = Object.keys(parsed).find(key => Array.isArray(parsed[key]));
+      if (arrayProp) {
+        console.log('[QUIZ-SERVICE] Found array property:', arrayProp);
+        questions = parsed[arrayProp];
+      } else {
+        console.log('[QUIZ-SERVICE] No valid array found in response');
+        console.log('[QUIZ-SERVICE] Full response:', JSON.stringify(parsed, null, 2));
+        throw new Error('Invalid response format from OpenAI');
+      }
     }
 
     questions = questions.map((q, idx) => ({
