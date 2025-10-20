@@ -88,7 +88,7 @@ export function QuizDialog({ weekId, open, onOpenChange }: QuizDialogProps) {
     console.log('[QUIZ-DIALOG] handleOpenChange called, newOpen:', newOpen, 'weekId:', weekId);
     
     // Only trigger generation when opening
-    if (newOpen && quizState !== 'loading') {
+    if (newOpen) {
       console.log('[QUIZ-DIALOG] Dialog opening, setting up quiz generation');
       setQuizState('loading');
       setAnswers({});
