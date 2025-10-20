@@ -4,10 +4,11 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, GripVertical, Edit } from "lucide-react";
+import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -70,12 +71,18 @@ export default function Home() {
   const [resetUserIdentifier, setResetUserIdentifier] = useState("");
   const [resetNewPassword, setResetNewPassword] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isSavingRef = useRef(false); // Track if we're intentionally saving
 
-  // Focus input when entering edit mode
+  // Focus input/textarea when entering edit mode
   useEffect(() => {
-    if (editingCell && inputRef.current) {
-      inputRef.current.focus();
+    if (editingCell) {
+      const isTextarea = editingCell.field === "competencyFocus" || editingCell.field === "objective";
+      if (isTextarea && textareaRef.current) {
+        textareaRef.current.focus();
+      } else if (inputRef.current) {
+        inputRef.current.focus();
+      }
     }
   }, [editingCell]);
 
@@ -85,9 +92,13 @@ export default function Home() {
     if (isSavingRef.current) return;
     
     // If we're still in edit mode and blur happened unintentionally, refocus
-    if (editingCell && inputRef.current) {
+    if (editingCell) {
+      const isTextarea = editingCell.field === "competencyFocus" || editingCell.field === "objective";
       requestAnimationFrame(() => {
-        if (editingCell && inputRef.current && !isSavingRef.current) {
+        if (!editingCell || isSavingRef.current) return;
+        if (isTextarea && textareaRef.current) {
+          textareaRef.current.focus();
+        } else if (inputRef.current) {
           inputRef.current.focus();
         }
       });
@@ -368,84 +379,38 @@ export default function Home() {
                 <span className="text-white font-bold text-xl sm:text-2xl">{week.weekNumber}</span>
               </div>
               <div className="text-left flex-1 min-w-0">
-                <h3 className="font-extrabold text-xl sm:text-2xl mb-2">Week {week.weekNumber}</h3>
-                {editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
-                  <Input
-                    ref={inputRef}
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onBlur={handleInputBlur}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleCellSave();
-                      }
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        handleCellCancel();
-                      }
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    autoFocus
-                    disabled={updateWeekMutation.isPending}
-                    data-testid={`input-header-competency-${week.id}`}
-                    className="text-sm sm:text-base h-8"
-                  />
-                ) : (
-                  <p 
-                    className="text-sm sm:text-base text-muted-foreground/80 truncate leading-relaxed cursor-text hover:text-muted-foreground transition-colors"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCellEdit(week.id, "competencyFocus", week.competencyFocus);
-                    }}
-                    data-testid={`text-header-competency-${week.id}`}
-                  >
-                    {week.competencyFocus || "Click to set competency focus"}
-                  </p>
-                )}
+                <h3 className="font-extrabold text-xl sm:text-2xl">Week {week.weekNumber}</h3>
+                <p className="text-sm sm:text-base text-muted-foreground/80 truncate">
+                  {week.competencyFocus || "No competency focus set"}
+                </p>
               </div>
             </div>
           </AccordionTrigger>
-          <div className="flex gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(`/edit-week/${week.id}`)}
-              className="h-10 w-10 rounded-xl hover:bg-primary/10 transition-colors"
-              data-testid={`button-edit-${week.id}`}
-              aria-label="Edit week"
-            >
-              <Edit className="h-4 w-4 text-primary" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDeleteId(week.id)}
-              className="h-10 w-10 rounded-xl hover:bg-amber-500/10 transition-colors"
-              data-testid={`button-delete-${week.id}`}
-              aria-label="Delete week"
-            >
-              <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setDeleteId(week.id)}
+            className="h-10 w-10 rounded-xl hover:bg-amber-500/10 transition-colors"
+            data-testid={`button-delete-${week.id}`}
+            aria-label="Delete week"
+          >
+            <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+          </Button>
         </div>
         <AccordionContent className="pt-6 sm:pt-8 pb-6 sm:pb-8 px-5 sm:px-10">
           <div className="space-y-6 sm:space-y-8">
+            {/* Competency Focus Section */}
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
-                Objective
+                Competency Focus
               </label>
-              {editingCell?.id === week.id && editingCell?.field === "objective" ? (
-                <Input
-                  ref={inputRef}
+              {editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
+                <Textarea
+                  ref={textareaRef}
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
                   onBlur={handleInputBlur}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleCellSave();
-                    }
                     if (e.key === "Escape") {
                       e.preventDefault();
                       handleCellCancel();
@@ -453,29 +418,69 @@ export default function Home() {
                   }}
                   autoFocus
                   disabled={updateWeekMutation.isPending}
-                  data-testid={`input-objective-${week.id}`}
-                  className="text-base"
+                  data-testid={`textarea-competency-${week.id}`}
+                  className="min-h-[100px] resize-none"
+                  placeholder="Develop effective classroom control strategies..."
                 />
               ) : (
                 <div
-                  onClick={() => handleCellEdit(week.id, "objective", week.objective)}
-                  className="p-4 rounded-lg border bg-muted/30 cursor-text hover:bg-muted/50 transition-colors"
-                  data-testid={`text-objective-${week.id}`}
+                  onClick={() => handleCellEdit(week.id, "competencyFocus", week.competencyFocus)}
+                  className="p-4 rounded-lg border bg-muted/30 cursor-text hover:bg-muted/50 transition-colors min-h-[100px]"
+                  data-testid={`text-competency-${week.id}`}
                 >
-                  {week.objective ? (
-                    <p className="text-base leading-relaxed">{week.objective}</p>
+                  {week.competencyFocus ? (
+                    <p className="text-base leading-relaxed">{week.competencyFocus}</p>
                   ) : (
-                    <span className="text-muted-foreground text-sm">Click to edit</span>
+                    <span className="text-muted-foreground text-sm">Click to edit competency focus</span>
                   )}
                 </div>
               )}
             </div>
 
+            {/* Objective Section */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60">
-                  Training Materials
-                </label>
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
+                Objective
+              </label>
+              {editingCell?.id === week.id && editingCell?.field === "objective" ? (
+                <Textarea
+                  ref={textareaRef}
+                  value={editValue}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onBlur={handleInputBlur}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      handleCellCancel();
+                    }
+                  }}
+                  autoFocus
+                  disabled={updateWeekMutation.isPending}
+                  data-testid={`textarea-objective-${week.id}`}
+                  className="min-h-[100px] resize-none"
+                  placeholder="Enter the learning objectives for this week..."
+                />
+              ) : (
+                <div
+                  onClick={() => handleCellEdit(week.id, "objective", week.objective)}
+                  className="p-4 rounded-lg border bg-muted/30 cursor-text hover:bg-muted/50 transition-colors min-h-[100px]"
+                  data-testid={`text-objective-${week.id}`}
+                >
+                  {week.objective ? (
+                    <p className="text-base leading-relaxed">{week.objective}</p>
+                  ) : (
+                    <span className="text-muted-foreground text-sm">Click to edit objective</span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Presentation Deck Section */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
+                Presentation Deck
+              </label>
+              <div className="mb-4">
                 <ObjectUploader
                   onGetUploadParameters={handleGetUploadParams}
                   onComplete={handleUploadComplete(week.id)}
@@ -484,54 +489,57 @@ export default function Home() {
                 />
               </div>
               {week.deckFiles && week.deckFiles.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {week.deckFiles.map((file) => (
-                    <div
-                      key={file.id}
-                      className="border rounded-lg p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <FilePreview 
-                            fileName={file.fileName}
-                            fileUrl={file.fileUrl}
-                          />
-                          <p className="text-sm font-medium truncate mt-2" title={file.fileName}>
-                            {file.fileName}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formatFileSize(file.fileSize)}
-                          </p>
-                        </div>
-                        <div className="flex gap-1 flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
-                            className="h-8 w-8"
-                            data-testid={`button-view-${file.id}`}
-                            aria-label="View file"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
-                            className="h-8 w-8 hover:bg-amber-500/10"
-                            data-testid={`button-delete-file-${file.id}`}
-                            aria-label="Delete file"
-                          >
-                            <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-                          </Button>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-foreground">Uploaded Files:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {week.deckFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="border rounded-lg p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <FilePreview 
+                              fileName={file.fileName}
+                              fileUrl={file.fileUrl}
+                            />
+                            <p className="text-sm font-medium truncate mt-2" title={file.fileName}>
+                              {file.fileName}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatFileSize(file.fileSize)}
+                            </p>
+                          </div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
+                              className="h-8 w-8"
+                              data-testid={`button-view-${file.id}`}
+                              aria-label="View file"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
+                              className="h-8 w-8 hover:bg-amber-500/10"
+                              data-testid={`button-delete-file-${file.id}`}
+                              aria-label="Delete file"
+                            >
+                              <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
-                  No training materials uploaded yet
+                  No files uploaded yet
                 </p>
               )}
             </div>
