@@ -3,10 +3,8 @@ import { extractTextFromDocument } from './documentParser';
 import type { QuizQuestion } from '@shared/schema';
 
 // the newest OpenAI model is "gpt-4o" for this use case
-const apiKey = process.env.OPENAI_API_KEY;
-console.log('[QUIZ-SERVICE] 🔑 Initializing OpenAI with key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'UNDEFINED');
 const openai = new OpenAI({
-  apiKey: apiKey,
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 interface GenerateQuizOptions {
