@@ -150,6 +150,7 @@ export const quizAttempts = pgTable("quiz_attempts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   weekId: varchar("week_id").notNull().references(() => trainingWeeks.id, { onDelete: "cascade" }),
+  deckFileId: varchar("deck_file_id"), // ID from the deckFiles JSONB array (null for legacy week-level quizzes)
   questions: jsonb("questions").$type<QuizQuestion[]>().notNull(),
   answers: jsonb("answers").$type<Record<string, string>>().notNull(),
   score: integer("score").notNull(),

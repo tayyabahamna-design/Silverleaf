@@ -13,6 +13,7 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { QuizDialog } from "@/components/QuizDialog";
+import { FileQuizDialog } from "@/components/FileQuizDialog";
 import { useScreenshotProtection } from "@/hooks/use-screenshot-protection";
 import { ScreenshotWarning } from "@/components/ScreenshotWarning";
 
@@ -49,6 +50,8 @@ export default function CourseView() {
   const [viewingStartTime, setViewingStartTime] = useState<number | null>(null);
   const [hasMarkedComplete, setHasMarkedComplete] = useState<boolean>(false);
   const [quizDialogOpen, setQuizDialogOpen] = useState<boolean>(false);
+  const [fileQuizDialogOpen, setFileQuizDialogOpen] = useState<boolean>(false);
+  const [selectedQuizFileId, setSelectedQuizFileId] = useState<string | null>(null);
 
   // Screenshot protection
   const { showWarning, dismissWarning } = useScreenshotProtection(weekId);
@@ -68,6 +71,12 @@ export default function CourseView() {
   // Fetch quiz status
   const { data: quizStatus } = useQuery<{ passed: boolean }>({
     queryKey: ['/api/training-weeks', weekId, 'quiz-passed'],
+    enabled: !!weekId,
+  });
+
+  // Fetch file quiz progress
+  const { data: fileQuizProgress = [] } = useQuery<{ fileId: string; passed: boolean }[]>({
+    queryKey: ['/api/training-weeks', weekId, 'file-quiz-progress'],
     enabled: !!weekId,
   });
 
@@ -281,33 +290,59 @@ export default function CourseView() {
                         </p>
                       </div>
                     ) : (
-                      deckFiles.map((file) => (
-                        <button
-                          key={file.id}
-                          onClick={() => handleFileClick(file)}
-                          className={`w-full text-left p-3 rounded-lg transition-colors ${
-                            selectedFileId === file.id
-                              ? 'bg-primary/10 border-2 border-primary'
-                              : 'hover:bg-muted/50 border-2 border-transparent'
-                          }`}
-                          data-testid={`button-file-${file.id}`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex-shrink-0 mt-0.5">
-                              {getStatusIcon(file.progress?.status)}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <FileText className="h-5 w-5 text-primary flex-shrink-0" />
-                                <span className="font-semibold text-base truncate">{file.fileName}</span>
+                      deckFiles.map((file) => {
+                        const hasPassedQuiz = fileQuizProgress.some(p => p.fileId === file.id && p.passed);
+                        return (
+                          <div key={file.id} className="space-y-2">
+                            <button
+                              onClick={() => handleFileClick(file)}
+                              className={`w-full text-left p-3 rounded-lg transition-colors ${
+                                selectedFileId === file.id
+                                  ? 'bg-primary/10 border-2 border-primary'
+                                  : 'hover:bg-muted/50 border-2 border-transparent'
+                              }`}
+                              data-testid={`button-file-${file.id}`}
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="flex-shrink-0 mt-0.5">
+                                  {getStatusIcon(file.progress?.status)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <FileText className="h-5 w-5 text-primary flex-shrink-0" />
+                                    <span className="font-semibold text-base truncate">{file.fileName}</span>
+                                  </div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {(file.fileSize / 1024 / 1024).toFixed(2)} MB
+                                  </div>
+                                </div>
                               </div>
-                              <div className="text-sm text-muted-foreground">
-                                {(file.fileSize / 1024 / 1024).toFixed(2)} MB
-                              </div>
-                            </div>
+                            </button>
+                            <Button
+                              size="sm"
+                              variant={hasPassedQuiz ? "outline" : "secondary"}
+                              className="w-full"
+                              onClick={() => {
+                                setSelectedQuizFileId(file.id);
+                                setFileQuizDialogOpen(true);
+                              }}
+                              data-testid={`button-file-quiz-${file.id}`}
+                            >
+                              {hasPassedQuiz ? (
+                                <>
+                                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+                                  Quiz Passed
+                                </>
+                              ) : (
+                                <>
+                                  <Award className="mr-2 h-4 w-4" />
+                                  Take Quiz
+                                </>
+                              )}
+                            </Button>
                           </div>
-                        </button>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>
@@ -560,6 +595,17 @@ export default function CourseView() {
         open={quizDialogOpen}
         onOpenChange={setQuizDialogOpen}
       />
+
+      {/* File Quiz Dialog */}
+      {selectedQuizFileId && (
+        <FileQuizDialog
+          weekId={weekId || ''}
+          fileId={selectedQuizFileId}
+          fileName={deckFiles.find(f => f.id === selectedQuizFileId)?.fileName || ''}
+          open={fileQuizDialogOpen}
+          onOpenChange={setFileQuizDialogOpen}
+        />
+      )}
 
       {/* Screenshot Warning Overlay */}
       <ScreenshotWarning visible={showWarning} onDismiss={dismissWarning} />

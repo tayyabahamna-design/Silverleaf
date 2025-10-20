@@ -629,6 +629,128 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // File-level quiz endpoints (modular approach)
+
+  // Generate quiz for a specific file
+  app.post("/api/training-weeks/:weekId/files/:fileId/generate-quiz", isAuthenticated, async (req, res) => {
+    try {
+      console.log("[FILE-QUIZ] Starting quiz generation for file:", req.params.fileId);
+      const { weekId, fileId } = req.params;
+      
+      const week = await storage.getTrainingWeek(weekId);
+      if (!week) {
+        return res.status(404).json({ error: "Training week not found" });
+      }
+
+      const file = week.deckFiles?.find(f => f.id === fileId);
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+
+      console.log("[FILE-QUIZ] Generating quiz for:", file.fileName);
+
+      const { generateSingleFileQuiz } = await import('./quizService');
+      
+      const questions = await generateSingleFileQuiz({
+        fileUrl: file.fileUrl,
+        fileName: file.fileName,
+        competencyFocus: week.competencyFocus,
+        objective: week.objective,
+        numQuestions: 5,
+      });
+
+      console.log("[FILE-QUIZ] Successfully generated", questions.length, "questions for", file.fileName);
+      res.json({ questions });
+    } catch (error) {
+      console.error("[FILE-QUIZ] Error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to generate quiz" });
+    }
+  });
+
+  // Submit quiz for a specific file
+  app.post("/api/training-weeks/:weekId/files/:fileId/submit-quiz", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { weekId, fileId } = req.params;
+      const { questions, answers } = req.body;
+
+      if (!questions || !Array.isArray(questions) || !answers || typeof answers !== 'object') {
+        return res.status(400).json({ error: "Invalid quiz submission" });
+      }
+
+      // Defensive check: Verify the file belongs to this week
+      const week = await storage.getTrainingWeek(weekId);
+      if (!week) {
+        return res.status(404).json({ error: "Training week not found" });
+      }
+      const fileExists = week.deckFiles?.some(f => f.id === fileId);
+      if (!fileExists) {
+        return res.status(400).json({ error: "File does not belong to this training week" });
+      }
+
+      // Calculate score
+      let score = 0;
+      questions.forEach((q: any) => {
+        if (answers[q.id] === q.correctAnswer) {
+          score++;
+        }
+      });
+
+      const totalQuestions = questions.length;
+      const passed = score >= Math.ceil(totalQuestions * 0.7) ? "yes" : "no";
+
+      const attempt = await storage.saveQuizAttempt({
+        userId,
+        weekId,
+        deckFileId: fileId,
+        questions,
+        answers,
+        score,
+        totalQuestions,
+        passed,
+      });
+
+      res.json({ 
+        attempt,
+        score,
+        totalQuestions,
+        passed: passed === "yes",
+        percentage: Math.round((score / totalQuestions) * 100),
+      });
+    } catch (error) {
+      console.error("[FILE-QUIZ] Submission error:", error);
+      res.status(500).json({ error: "Failed to submit quiz" });
+    }
+  });
+
+  // Get quiz progress for all files in a week
+  app.get("/api/training-weeks/:weekId/file-quiz-progress", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { weekId } = req.params;
+
+      const progress = await storage.getFileQuizProgress(weekId, userId);
+      res.json(progress);
+    } catch (error) {
+      console.error("[FILE-QUIZ] Progress error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Check if user has passed quiz for a specific file
+  app.get("/api/training-weeks/:weekId/files/:fileId/quiz-passed", isAuthenticated, async (req, res) => {
+    try {
+      const userId = req.user!.id;
+      const { weekId, fileId } = req.params;
+
+      const passed = await storage.hasPassedFileQuiz(weekId, fileId, userId);
+      res.json({ passed });
+    } catch (error) {
+      console.error("[FILE-QUIZ] Check passed error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

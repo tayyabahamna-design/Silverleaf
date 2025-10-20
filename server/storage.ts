@@ -65,6 +65,11 @@ export interface IStorage {
   getLatestQuizAttempt(weekId: string, userId: string): Promise<QuizAttempt | undefined>;
   hasPassedQuiz(weekId: string, userId: string): Promise<boolean>;
   
+  // File-level quiz operations (modular approach)
+  getLatestFileQuizAttempt(weekId: string, fileId: string, userId: string): Promise<QuizAttempt | undefined>;
+  hasPassedFileQuiz(weekId: string, fileId: string, userId: string): Promise<boolean>;
+  getFileQuizProgress(weekId: string, userId: string): Promise<{ fileId: string; passed: boolean }[]>;
+  
   // Security operations
   logSecurityViolation(violation: InsertSecurityViolation): Promise<SecurityViolation>;
   
@@ -437,6 +442,57 @@ export class DatabaseStorage implements IStorage {
       )
       .limit(1);
     return !!attempt;
+  }
+
+  async getLatestFileQuizAttempt(weekId: string, fileId: string, userId: string): Promise<QuizAttempt | undefined> {
+    const [attempt] = await db
+      .select()
+      .from(quizAttempts)
+      .where(
+        and(
+          eq(quizAttempts.weekId, weekId),
+          eq(quizAttempts.deckFileId, fileId),
+          eq(quizAttempts.userId, userId)
+        )
+      )
+      .orderBy(sqlOp`${quizAttempts.completedAt} DESC`)
+      .limit(1);
+    return attempt;
+  }
+
+  async hasPassedFileQuiz(weekId: string, fileId: string, userId: string): Promise<boolean> {
+    const [attempt] = await db
+      .select()
+      .from(quizAttempts)
+      .where(
+        and(
+          eq(quizAttempts.weekId, weekId),
+          eq(quizAttempts.deckFileId, fileId),
+          eq(quizAttempts.userId, userId),
+          eq(quizAttempts.passed, "yes")
+        )
+      )
+      .limit(1);
+    return !!attempt;
+  }
+
+  async getFileQuizProgress(weekId: string, userId: string): Promise<{ fileId: string; passed: boolean }[]> {
+    const attempts = await db
+      .select()
+      .from(quizAttempts)
+      .where(
+        and(
+          eq(quizAttempts.weekId, weekId),
+          eq(quizAttempts.userId, userId),
+          eq(quizAttempts.passed, "yes"),
+          sqlOp`${quizAttempts.deckFileId} IS NOT NULL`
+        )
+      );
+    
+    return attempts.map(attempt => ({
+      fileId: attempt.deckFileId!,
+      passed: true
+    }));
   }
 
   async logSecurityViolation(violation: InsertSecurityViolation): Promise<SecurityViolation> {
