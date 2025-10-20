@@ -13,6 +13,8 @@ import {
   type DeckFile,
   type QuizAttempt,
   type InsertQuizAttempt,
+  type QuizCache,
+  type InsertQuizCache,
   type SecurityViolation,
   type InsertSecurityViolation,
   trainingWeeks,
@@ -21,6 +23,7 @@ import {
   userProgress,
   deckFileProgress,
   quizAttempts,
+  quizCache,
   securityViolations
 } from "@shared/schema";
 import { db } from "./db";
@@ -69,6 +72,12 @@ export interface IStorage {
   getLatestFileQuizAttempt(weekId: string, fileId: string, userId: string): Promise<QuizAttempt | undefined>;
   hasPassedFileQuiz(weekId: string, fileId: string, userId: string): Promise<boolean>;
   getFileQuizProgress(weekId: string, userId: string): Promise<{ fileId: string; passed: boolean }[]>;
+  
+  // Quiz cache operations (pre-caching for instant delivery)
+  getCachedQuiz(weekId: string, fileId: string): Promise<QuizCache | undefined>;
+  saveCachedQuiz(cache: InsertQuizCache): Promise<QuizCache>;
+  deleteCachedQuiz(weekId: string, fileId: string): Promise<boolean>;
+  deleteCachedQuizzesForWeek(weekId: string): Promise<boolean>;
   
   // Security operations
   logSecurityViolation(violation: InsertSecurityViolation): Promise<SecurityViolation>;
@@ -493,6 +502,48 @@ export class DatabaseStorage implements IStorage {
       fileId: attempt.deckFileId!,
       passed: true
     }));
+  }
+
+  // Quiz cache operations (pre-caching for instant delivery)
+  async getCachedQuiz(weekId: string, fileId: string): Promise<QuizCache | undefined> {
+    const [cached] = await db
+      .select()
+      .from(quizCache)
+      .where(
+        and(
+          eq(quizCache.weekId, weekId),
+          eq(quizCache.deckFileId, fileId)
+        )
+      )
+      .limit(1);
+    return cached;
+  }
+
+  async saveCachedQuiz(cache: InsertQuizCache): Promise<QuizCache> {
+    const [cached] = await db
+      .insert(quizCache)
+      .values(cache as any)
+      .returning();
+    return cached;
+  }
+
+  async deleteCachedQuiz(weekId: string, fileId: string): Promise<boolean> {
+    const result = await db
+      .delete(quizCache)
+      .where(
+        and(
+          eq(quizCache.weekId, weekId),
+          eq(quizCache.deckFileId, fileId)
+        )
+      );
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async deleteCachedQuizzesForWeek(weekId: string): Promise<boolean> {
+    const result = await db
+      .delete(quizCache)
+      .where(eq(quizCache.weekId, weekId));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 
   async logSecurityViolation(violation: InsertSecurityViolation): Promise<SecurityViolation> {

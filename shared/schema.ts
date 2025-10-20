@@ -167,6 +167,25 @@ export const insertQuizAttemptSchema = createInsertSchema(quizAttempts).omit({
 export type InsertQuizAttempt = z.infer<typeof insertQuizAttemptSchema>;
 export type QuizAttempt = typeof quizAttempts.$inferSelect;
 
+// Quiz cache table for pre-generated quiz questions
+export const quizCache = pgTable("quiz_cache", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  weekId: varchar("week_id").notNull().references(() => trainingWeeks.id, { onDelete: "cascade" }),
+  deckFileId: varchar("deck_file_id").notNull(), // ID from the deckFiles JSONB array
+  questions: jsonb("questions").$type<QuizQuestion[]>().notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_quiz_cache_week_file").on(table.weekId, table.deckFileId),
+]);
+
+export const insertQuizCacheSchema = createInsertSchema(quizCache).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertQuizCache = z.infer<typeof insertQuizCacheSchema>;
+export type QuizCache = typeof quizCache.$inferSelect;
+
 // Security violations table for tracking screenshot attempts and other violations
 export const securityViolations = pgTable("security_violations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

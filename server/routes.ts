@@ -124,6 +124,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Delete a training week (admin only)
   app.delete("/api/training-weeks/:id", isAuthenticated, isAdmin, async (req, res) => {
     try {
+      // 🗑️ CACHE INVALIDATION: Delete all cached quizzes for this week
+      await storage.deleteCachedQuizzesForWeek(req.params.id);
+      console.log(`[CACHE] Invalidated all quiz caches for week: ${req.params.id}`);
+
       const success = await storage.deleteTrainingWeek(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Training week not found" });
@@ -189,6 +193,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       console.log("[UPLOAD DEBUG] Database updated successfully");
+      
+      // 🚀 PRE-CACHE: Generate quiz questions in background (non-blocking)
+      // Admin gets instant response, students get instant quiz delivery later
+      setImmediate(async () => {
+        const { generateSingleFileQuiz } = await import('./quizService');
+        
+        for (const file of newDeckFiles) {
+          try {
+            const cacheStartTime = Date.now();
+            console.log(`[PRE-CACHE] 🔄 Starting quiz generation for: ${file.fileName}`);
+            
+            const questions = await generateSingleFileQuiz({
+              fileUrl: file.fileUrl,
+              fileName: file.fileName,
+              competencyFocus: week.competencyFocus,
+              objective: week.objective,
+              numQuestions: 5,
+            });
+
+            await storage.saveCachedQuiz({
+              weekId: req.params.id,
+              deckFileId: file.id,
+              questions
+            });
+
+            const cacheTime = Date.now() - cacheStartTime;
+            console.log(`[PRE-CACHE] ✅ Cached ${questions.length} questions for ${file.fileName} in ${cacheTime}ms`);
+          } catch (error) {
+            console.error(`[PRE-CACHE] ❌ Failed to pre-cache quiz for ${file.fileName}:`, error);
+          }
+        }
+      });
+
       res.json({ week: updatedWeek });
     } catch (error) {
       console.error("[UPLOAD ERROR] Error adding deck files:", error);
@@ -213,6 +250,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id,
         deckFiles: updatedDeckFiles,
       });
+
+      // 🗑️ CACHE INVALIDATION: Delete cached quiz for this file
+      await storage.deleteCachedQuiz(id, fileId);
+      console.log(`[CACHE] Invalidated quiz cache for file: ${fileId}`);
 
       res.json({ week: updatedWeek });
     } catch (error) {
@@ -631,9 +672,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // File-level quiz endpoints (modular approach)
 
-  // Generate quiz for a specific file
+  // Generate quiz for a specific file (with pre-caching for instant delivery)
   app.post("/api/training-weeks/:weekId/files/:fileId/generate-quiz", isAuthenticated, async (req, res) => {
     try {
+      const startTime = Date.now();
       console.log("[FILE-QUIZ] Starting quiz generation for file:", req.params.fileId);
       const { weekId, fileId } = req.params;
       
@@ -647,7 +689,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "File not found" });
       }
 
-      console.log("[FILE-QUIZ] Generating quiz for:", file.fileName);
+      // 🚀 CACHE HIT: Check if quiz questions are already cached
+      const cachedQuiz = await storage.getCachedQuiz(weekId, fileId);
+      if (cachedQuiz) {
+        const cacheTime = Date.now() - startTime;
+        console.log(`[FILE-QUIZ] 🎯 CACHE HIT! Instant retrieval in ${cacheTime}ms for ${file.fileName}`);
+        return res.json({ questions: cachedQuiz.questions, cached: true });
+      }
+
+      // ❌ CACHE MISS: Generate quiz on-demand
+      console.log("[FILE-QUIZ] ⏳ Cache miss, generating quiz for:", file.fileName);
 
       const { generateSingleFileQuiz } = await import('./quizService');
       
@@ -659,8 +710,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         numQuestions: 5,
       });
 
-      console.log("[FILE-QUIZ] Successfully generated", questions.length, "questions for", file.fileName);
-      res.json({ questions });
+      // Save to cache for future instant retrieval
+      await storage.saveCachedQuiz({
+        weekId,
+        deckFileId: fileId,
+        questions
+      });
+
+      const totalTime = Date.now() - startTime;
+      console.log(`[FILE-QUIZ] ✅ Generated and cached ${questions.length} questions in ${totalTime}ms`);
+      res.json({ questions, cached: false });
     } catch (error) {
       console.error("[FILE-QUIZ] Error:", error);
       res.status(500).json({ error: error instanceof Error ? error.message : "Failed to generate quiz" });
