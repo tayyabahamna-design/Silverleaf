@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { Plus, Pencil, Trash2, Upload, ExternalLink, LogOut, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload, ExternalLink, LogOut, ChevronDown, ChevronRight, ChevronUp, MoveUp, MoveDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -183,6 +183,28 @@ export default function Home() {
       toast({ title: "File deleted successfully" });
     },
   });
+
+  const reorderWeekMutation = useMutation({
+    mutationFn: async ({ weekId, newPosition }: { weekId: string; newPosition: number }) => {
+      return apiRequest("POST", "/api/training-weeks/reorder", { weekId, newPosition });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
+      toast({ title: "Week reordered successfully" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Reorder failed",
+        description: error.message || "Failed to reorder week. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleMoveWeek = (weekId: string, currentPosition: number, direction: 'up' | 'down') => {
+    const newPosition = direction === 'up' ? currentPosition - 1 : currentPosition + 1;
+    reorderWeekMutation.mutate({ weekId, newPosition });
+  };
 
   const handleCellEdit = (id: string, field: string, currentValue: string) => {
     setEditingCell({ id, field });
@@ -458,7 +480,7 @@ export default function Home() {
                 className="border-l-4 border-l-primary border-0 rounded-2xl bg-card shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
                 data-testid={`card-week-${week.id}`}
               >
-                <div className="flex items-center pr-3 sm:pr-4">
+                <div className="flex items-center pr-3 sm:pr-4 gap-1">
                   <AccordionTrigger className="flex-1 px-5 sm:px-10 py-6 sm:py-8 hover:no-underline">
                     <div className="flex items-center gap-5 sm:gap-6 w-full min-w-0">
                       <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-md">
@@ -472,15 +494,40 @@ export default function Home() {
                       </div>
                     </div>
                   </AccordionTrigger>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setDeleteId(week.id)}
-                    className="mr-2 sm:mr-3 h-10 w-10 flex-shrink-0 rounded-xl hover:bg-amber-500/10 transition-colors"
-                    data-testid={`button-delete-${week.id}`}
-                  >
-                    <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-                  </Button>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleMoveWeek(week.id, week.weekNumber, 'up')}
+                      disabled={week.weekNumber === 1 || reorderWeekMutation.isPending}
+                      className="h-10 w-10 rounded-xl hover:bg-primary/10 transition-colors disabled:opacity-50"
+                      data-testid={`button-move-up-${week.id}`}
+                      aria-label="Move week up"
+                    >
+                      <MoveUp className="h-4 w-4 text-primary" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleMoveWeek(week.id, week.weekNumber, 'down')}
+                      disabled={week.weekNumber === weeks.length || reorderWeekMutation.isPending}
+                      className="h-10 w-10 rounded-xl hover:bg-primary/10 transition-colors disabled:opacity-50"
+                      data-testid={`button-move-down-${week.id}`}
+                      aria-label="Move week down"
+                    >
+                      <MoveDown className="h-4 w-4 text-primary" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeleteId(week.id)}
+                      className="h-10 w-10 rounded-xl hover:bg-amber-500/10 transition-colors"
+                      data-testid={`button-delete-${week.id}`}
+                      aria-label="Delete week"
+                    >
+                      <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+                    </Button>
+                  </div>
                 </div>
                 <AccordionContent className="pt-6 sm:pt-8 pb-6 sm:pb-8 px-5 sm:px-10">
                   <div className="space-y-6 sm:space-y-8">
