@@ -635,15 +635,15 @@ export default function Home() {
                   <DialogHeader>
                     <DialogTitle>Reset User Password</DialogTitle>
                     <DialogDescription>
-                      Enter the username or email of the user whose password you want to reset.
+                      Enter the username, email, or teacher ID to reset their password.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="userIdentifier">Username or Email</Label>
+                      <Label htmlFor="userIdentifier">Username, Email, or Teacher ID</Label>
                       <Input
                         id="userIdentifier"
-                        placeholder="Enter username or email"
+                        placeholder="Enter username, email, or teacher ID"
                         value={resetUserIdentifier}
                         onChange={(e) => setResetUserIdentifier(e.target.value)}
                         data-testid="input-user-identifier"
@@ -682,7 +682,7 @@ export default function Home() {
                         } else {
                           toast({
                             title: "Validation Error",
-                            description: "Please enter a valid username/email and password (min 6 characters)",
+                            description: "Please enter a valid username, email, or teacher ID and password (min 6 characters)",
                             variant: "destructive",
                           });
                         }
