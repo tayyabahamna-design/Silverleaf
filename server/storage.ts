@@ -104,6 +104,7 @@ export interface IStorage {
   getTeacher(id: string): Promise<Teacher | undefined>;
   getTeacherByEmail(email: string): Promise<Teacher | undefined>;
   getTeacherByTeacherId(teacherId: number): Promise<Teacher | undefined>;
+  getTeacherByName(name: string): Promise<Teacher[]>;
   createTeacher(teacher: InsertTeacher): Promise<Teacher>;
   getNextTeacherId(): Promise<number>;
   updateTeacherPassword(teacherId: string, hashedPassword: string): Promise<Teacher | undefined>;
@@ -622,6 +623,14 @@ export class DatabaseStorage implements IStorage {
   async getTeacherByTeacherId(teacherId: number): Promise<Teacher | undefined> {
     const [teacher] = await db.select().from(teachers).where(eq(teachers.teacherId, teacherId));
     return teacher;
+  }
+
+  async getTeacherByName(name: string): Promise<Teacher[]> {
+    const results = await db
+      .select()
+      .from(teachers)
+      .where(sqlOp`LOWER(${teachers.name}) LIKE LOWER(${'%' + name + '%'})`);
+    return results;
   }
 
   async getNextTeacherId(): Promise<number> {
