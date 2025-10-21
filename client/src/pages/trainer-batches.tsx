@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -15,7 +15,8 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp } from "lucide-react";
+import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp, Home } from "lucide-react";
+import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 export default function TrainerBatches() {
   const [, setLocation] = useLocation();
@@ -227,26 +228,63 @@ export default function TrainerBatches() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold" data-testid="text-welcome">
-              Trainer Dashboard
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Welcome, {user?.username}
-            </p>
+      {/* Header matching Admin dashboard */}
+      <header className="sticky top-0 z-50 bg-primary shadow-md">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="h-12 w-12 sm:h-14 sm:w-14 flex items-center justify-center flex-shrink-0 bg-primary rounded-sm p-1">
+              <img src={logoImage} alt="Silverleaf Academy Logo" className="w-full h-full object-contain" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-white truncate" data-testid="text-app-title">
+                Silverleaf Academy
+              </h1>
+              <p className="text-xs sm:text-sm text-white/80 hidden sm:block">
+                Training Program Planner
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <Button variant="outline" onClick={() => logoutMutation.mutate()} data-testid="button-logout">
+          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+            <div className="text-xs sm:text-sm text-white/90 hidden md:block truncate max-w-[200px]" data-testid="text-user-info">
+              {user?.username} (Trainer)
+            </div>
+            <Link href="/">
+              <Button
+                variant="secondary"
+                size="sm"
+                data-testid="button-home"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              >
+                <Home className="mr-2 h-4 w-4" />
+                Home
+              </Button>
+            </Link>
+            <div className="text-white">
+              <ThemeToggle />
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => logoutMutation.mutate()}
+              data-testid="button-logout"
+              className="hidden sm:flex bg-white/10 hover:bg-white/20 text-white border-white/20"
+            >
               <LogOut className="mr-2 h-4 w-4" />
               Logout
             </Button>
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => logoutMutation.mutate()}
+              data-testid="button-logout-mobile"
+              className="sm:hidden h-8 w-8 bg-white/10 hover:bg-white/20 text-white border-white/20"
+              aria-label="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
       <div className="container mx-auto p-6 space-y-6">

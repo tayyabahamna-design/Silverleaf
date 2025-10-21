@@ -8,8 +8,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { queryClient } from "@/lib/queryClient";
 import { Award, BookOpen, CheckCircle, XCircle, LogOut } from "lucide-react";
+import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 export default function TeacherDashboard() {
   const [, setLocation] = useLocation();
@@ -119,21 +121,63 @@ export default function TeacherDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold" data-testid="text-welcome">
-              Welcome, {teacher?.name}
-            </h1>
-            <p className="text-muted-foreground">
-              Teacher ID: {teacher?.teacherId}
-            </p>
+    <div className="min-h-screen bg-background">
+      {/* Header matching Admin dashboard */}
+      <header className="sticky top-0 z-50 bg-primary shadow-md">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="h-12 w-12 sm:h-14 sm:w-14 flex items-center justify-center flex-shrink-0 bg-primary rounded-sm p-1">
+              <img src={logoImage} alt="Silverleaf Academy Logo" className="w-full h-full object-contain" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-white truncate" data-testid="text-app-title">
+                Silverleaf Academy
+              </h1>
+              <p className="text-xs sm:text-sm text-white/80 hidden sm:block">
+                Training Program Planner
+              </p>
+            </div>
           </div>
-          <Button variant="outline" onClick={() => logoutMutation.mutate()} data-testid="button-logout">
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
+          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+            <div className="text-xs sm:text-sm text-white/90 hidden md:block truncate max-w-[200px]" data-testid="text-user-info">
+              {teacher?.name} (Teacher ID: {teacher?.teacherId})
+            </div>
+            <div className="text-white">
+              <ThemeToggle />
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => logoutMutation.mutate()}
+              data-testid="button-logout"
+              className="hidden sm:flex bg-white/10 hover:bg-white/20 text-white border-white/20"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Logout
+            </Button>
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => logoutMutation.mutate()}
+              data-testid="button-logout-mobile"
+              className="sm:hidden h-8 w-8 bg-white/10 hover:bg-white/20 text-white border-white/20"
+              aria-label="Logout"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="container mx-auto p-4 sm:p-6 space-y-6">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold" data-testid="text-welcome">
+            Welcome, {teacher?.name}
+          </h2>
+          <p className="text-muted-foreground">
+            Your personalized learning dashboard
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

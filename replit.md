@@ -16,7 +16,13 @@ A web application designed for Silverleaf Academy to efficiently organize and ma
 The application is built with a modern web stack, emphasizing a clean UI/UX and robust backend.
 
 ### UI/UX Decisions
-- **Branding**: Utilizes Silverleaf Academy's navy blue branding (hsl(220, 80%, 32%)) as the primary color, with a professional and clean design, generous white space, and the Inter font family.
+- **Branding**: Utilizes Silverleaf Academy's navy blue branding (HSL: 220 91% 38%) as the primary color, with a professional and clean design, generous white space, and the Poppins/Inter font family. The Silverleaf Academy logo (leaf icon) is prominently displayed in all interface headers.
+- **Consistent Header Design**: All interfaces (Admin, Teacher, Trainer) feature the same branded header with:
+  - Silverleaf Academy logo and name
+  - Primary blue background (bg-primary)
+  - White text for high contrast
+  - Theme toggle and logout buttons
+  - User information display
 - **Layout**: Features a vertical collapsible accordion card interface for organizing training weeks, enhancing content readability and navigability.
 - **Visuals**: Incorporates enhanced file previews, including PDF thumbnail generation and distinct icons for PowerPoint, Word, and Excel files.
 - **Accessibility**: Designed for full keyboard navigation and includes a dark mode toggle.
@@ -31,7 +37,21 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
 
 ### Feature Specifications
 - **Training Week Management**: Admins can add, edit, and delete training weeks, including competency focus, objectives, and presentation files.
-- **Role-Based Access Control**: Admins have full CRUD capabilities, while Teachers have view-only access. Teacher registration is public; admin accounts are created via initialization script.
+- **Role-Based Access Control**: Three user roles with distinct permissions:
+  - **Admins**: Full CRUD capabilities for training content and user management
+  - **Trainers**: Can create batches, assign teachers to batches, assign quizzes, and track teacher progress
+  - **Teachers**: Can view assigned quizzes, take assessments, and track their own progress
+- **Batch Management (Trainer Feature)**: 
+  - Create and manage teacher batches for organized group training
+  - Add/remove teachers from batches using their numeric Teacher ID
+  - Assign AI-generated quizzes to entire batches
+  - View detailed progress reports for all teachers in a batch
+  - Track quiz completion rates, average scores, and skill levels
+- **Teacher Dashboard**:
+  - View assigned quizzes with detailed descriptions
+  - Take quizzes with multiple-choice and true/false questions
+  - Track personal progress with skill level badges (Beginner, Intermediate, Advanced)
+  - View quiz history and performance statistics
 - **Admin Password Reset**: Admins can reset any user's password through a dedicated UI dialog with proper validation and security.
 - **File Handling**: Uploads of common presentation formats (PowerPoint, PDF, Keynote) are supported, with enhanced visual previews.
 - **Progress Tracking**: Teachers must view content for 60 seconds before it's marked complete, with automatic progress tracking.
