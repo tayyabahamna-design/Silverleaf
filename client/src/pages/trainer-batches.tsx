@@ -29,8 +29,11 @@ export default function TrainerBatches() {
   const [viewProgressOpen, setViewProgressOpen] = useState(false);
   const [viewBatchDetailsOpen, setViewBatchDetailsOpen] = useState(false);
   const [viewQuizDetailsOpen, setViewQuizDetailsOpen] = useState(false);
+  const [viewTeacherAttemptsOpen, setViewTeacherAttemptsOpen] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
   const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
+  const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
   const [batchName, setBatchName] = useState("");
   const [batchDescription, setBatchDescription] = useState("");
@@ -77,6 +80,12 @@ export default function TrainerBatches() {
   const { data: quizDetails } = useQuery<any>({
     queryKey: ["/api/trainer/quizzes", selectedQuizId],
     enabled: !!selectedQuizId && viewQuizDetailsOpen,
+  });
+
+  // Fetch teacher quiz attempts
+  const { data: teacherAttempts = [] } = useQuery<any[]>({
+    queryKey: ["/api/batches", selectedBatch?.id, "teachers", selectedTeacher?.id, "quiz-attempts"],
+    enabled: !!selectedBatch?.id && !!selectedTeacher?.id && viewTeacherAttemptsOpen,
   });
 
   const createBatchMutation = useMutation({
@@ -682,6 +691,21 @@ export default function TrainerBatches() {
                             </div>
                           </div>
                         )}
+                        <div className="pt-3 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              setSelectedTeacher(item.teacher);
+                              setViewTeacherAttemptsOpen(true);
+                            }}
+                            data-testid={`button-view-attempts-${item.teacher.id}`}
+                          >
+                            <Award className="mr-2 h-4 w-4" />
+                            View Quiz Attempts
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -962,6 +986,199 @@ export default function TrainerBatches() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* View Teacher Quiz Attempts Dialog */}
+      <Dialog open={viewTeacherAttemptsOpen} onOpenChange={setViewTeacherAttemptsOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Quiz Attempts - {selectedTeacher?.name}</DialogTitle>
+            <DialogDescription>
+              Review all quiz attempts by this teacher (Teacher ID: {selectedTeacher?.teacherId})
+            </DialogDescription>
+          </DialogHeader>
+
+          {teacherAttempts.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">
+              No quiz attempts yet from this teacher
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {teacherAttempts.sort((a: any, b: any) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()).map((attempt: any) => {
+                const weekInfo = weeks.find((w: any) => w.id === attempt.quiz?.weekId);
+                const displayTitle = attempt.quiz?.fileName 
+                  ? `Week ${weekInfo?.weekNumber || '?'} – ${attempt.quiz.fileName.replace(/\.[^/.]+$/, '')} Quiz`
+                  : attempt.quiz?.title || 'Quiz';
+                
+                const percentage = Math.round((attempt.score / attempt.totalQuestions) * 100);
+                const isPassed = attempt.passed === 'yes';
+                
+                return (
+                  <Card key={attempt.id}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <CardTitle className="text-base">{displayTitle}</CardTitle>
+                          <CardDescription>
+                            Completed: {new Date(attempt.completedAt).toLocaleString()}
+                          </CardDescription>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <Badge variant={isPassed ? "default" : "destructive"}>
+                            {percentage}% - {isPassed ? "Passed" : "Failed"}
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Score</p>
+                          <p className="text-lg font-bold">{attempt.score}/{attempt.totalQuestions}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Status</p>
+                          <p className="text-lg font-bold">{isPassed ? "✓ Passed" : "✗ Failed"}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedAttempt(attempt);
+                        }}
+                        data-testid={`button-view-attempt-${attempt.id}`}
+                      >
+                        <BookOpen className="mr-2 h-4 w-4" />
+                        View Submitted Answers
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Attempt Details Dialog */}
+      {selectedAttempt && (
+        <Dialog open={!!selectedAttempt} onOpenChange={() => setSelectedAttempt(null)}>
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Quiz Attempt Details</DialogTitle>
+              <DialogDescription>
+                {selectedTeacher?.name}'s answers - Score: {selectedAttempt.score}/{selectedAttempt.totalQuestions} ({Math.round((selectedAttempt.score / selectedAttempt.totalQuestions) * 100)}%)
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {selectedAttempt.quiz?.questions?.map((question: any, index: number) => {
+                const teacherAnswer = selectedAttempt.answers[question.id];
+                const isCorrect = teacherAnswer === question.correctAnswer;
+                
+                return (
+                  <Card key={question.id} className={`border-l-4 ${isCorrect ? 'border-l-green-500' : 'border-l-red-500'}`}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <CardTitle className="text-base">
+                            Question {index + 1}
+                          </CardTitle>
+                          <CardDescription className="text-base font-medium text-foreground mt-2">
+                            {question.question}
+                          </CardDescription>
+                        </div>
+                        <Badge variant={isCorrect ? "default" : "destructive"}>
+                          {isCorrect ? "✓ Correct" : "✗ Wrong"}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {question.type === "multiple_choice" && (
+                        <div className="space-y-2">
+                          {question.options?.map((option: string, optIndex: number) => {
+                            const isTeacherChoice = option === teacherAnswer;
+                            const isCorrectAnswer = option === question.correctAnswer;
+                            
+                            return (
+                              <div
+                                key={optIndex}
+                                className={`flex items-center gap-3 p-3 rounded-md border ${
+                                  isCorrectAnswer
+                                    ? 'bg-green-50 dark:bg-green-950 border-green-500 dark:border-green-700'
+                                    : isTeacherChoice
+                                    ? 'bg-red-50 dark:bg-red-950 border-red-500 dark:border-red-700'
+                                    : 'bg-muted/50'
+                                }`}
+                                data-testid={`attempt-option-${index}-${optIndex}`}
+                              >
+                                {isCorrectAnswer && (
+                                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                )}
+                                {isTeacherChoice && !isCorrectAnswer && (
+                                  <span className="text-red-600 dark:text-red-400 font-bold flex-shrink-0">✗</span>
+                                )}
+                                <span className={isCorrectAnswer ? 'font-semibold text-green-900 dark:text-green-100' : isTeacherChoice ? 'font-semibold text-red-900 dark:text-red-100' : ''}>
+                                  {String.fromCharCode(65 + optIndex)}. {option}
+                                  {isTeacherChoice && <span className="ml-2 text-sm">(Teacher's Answer)</span>}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {question.type === "true_false" && (
+                        <div className="space-y-2">
+                          {['True', 'False'].map((option: string, optIndex: number) => {
+                            const isTeacherChoice = option === teacherAnswer;
+                            const isCorrectAnswer = option === question.correctAnswer;
+                            
+                            return (
+                              <div
+                                key={optIndex}
+                                className={`flex items-center gap-3 p-3 rounded-md border ${
+                                  isCorrectAnswer
+                                    ? 'bg-green-50 dark:bg-green-950 border-green-500 dark:border-green-700'
+                                    : isTeacherChoice
+                                    ? 'bg-red-50 dark:bg-red-950 border-red-500 dark:border-red-700'
+                                    : 'bg-muted/50'
+                                }`}
+                                data-testid={`attempt-option-${index}-${optIndex}`}
+                              >
+                                {isCorrectAnswer && (
+                                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                )}
+                                {isTeacherChoice && !isCorrectAnswer && (
+                                  <span className="text-red-600 dark:text-red-400 font-bold flex-shrink-0">✗</span>
+                                )}
+                                <span className={isCorrectAnswer ? 'font-semibold text-green-900 dark:text-green-100' : isTeacherChoice ? 'font-semibold text-red-900 dark:text-red-100' : ''}>
+                                  {option}
+                                  {isTeacherChoice && <span className="ml-2 text-sm">(Teacher's Answer)</span>}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="pt-2 border-t">
+                        <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                          Correct Answer: {question.correctAnswer}
+                        </p>
+                        {!isCorrect && (
+                          <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                            Teacher's Answer: {teacherAnswer || 'Not answered'}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

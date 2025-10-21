@@ -1352,6 +1352,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get teacher quiz attempts for trainer to review
+  app.get("/api/batches/:batchId/teachers/:teacherId/quiz-attempts", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      // Verify ownership
+      if (req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Get all attempts for this teacher
+      const attempts = await storage.getAllTeacherQuizAttempts(req.params.teacherId);
+      
+      // Enrich attempts with quiz details
+      const enrichedAttempts = await Promise.all(
+        attempts.map(async (attempt) => {
+          const quiz = await storage.getAssignedQuiz(attempt.assignedQuizId);
+          return {
+            ...attempt,
+            quiz: quiz || null,
+          };
+        })
+      );
+      
+      // Filter to only show attempts for quizzes in this batch
+      const batchAttempts = enrichedAttempts.filter(a => a.quiz && a.quiz.batchId === req.params.batchId);
+      
+      res.json(batchAttempts);
+    } catch (error) {
+      console.error("Error fetching teacher quiz attempts:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
