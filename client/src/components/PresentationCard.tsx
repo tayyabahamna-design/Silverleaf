@@ -25,7 +25,7 @@ const getFileTypeColor = (type: string): string => {
   const ext = type.toLowerCase();
   if (ext.includes('powerpoint') || ext === '.ppt' || ext === '.pptx') return 'bg-orange-500/10 text-orange-700 dark:text-orange-400';
   if (ext.includes('pdf') || ext === '.pdf') return 'bg-red-500/10 text-red-700 dark:text-red-400';
-  if (ext.includes('keynote') || ext === '.key') return 'bg-blue-500/10 text-blue-700 dark:text-blue-400';
+  if (ext.includes('keynote') || ext === '.key') return 'bg-primary/10 text-primary dark:text-primary';
   return 'bg-gray-500/10 text-gray-700 dark:text-gray-400';
 };
 

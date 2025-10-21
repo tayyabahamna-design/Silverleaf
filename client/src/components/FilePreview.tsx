@@ -56,8 +56,8 @@ export function FilePreview({ fileName, fileUrl, className = "" }: FilePreviewPr
   
   if (isWord) {
     return (
-      <div className={`flex items-center justify-center bg-blue-50 dark:bg-blue-950/20 ${className}`}>
-        <FileText className={iconClassName} style={{ color: '#2B579A' }} />
+      <div className={`flex items-center justify-center bg-primary/10 dark:bg-primary/20 ${className}`}>
+        <FileText className={`${iconClassName} text-primary`} />
       </div>
     );
   }

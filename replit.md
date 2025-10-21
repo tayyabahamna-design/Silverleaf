@@ -16,7 +16,7 @@ A web application designed for Silverleaf Academy to efficiently organize and ma
 The application is built with a modern web stack, emphasizing a clean UI/UX and robust backend.
 
 ### UI/UX Decisions
-- **Branding**: Utilizes Silverleaf Academy's navy blue branding (HSL: 220 91% 38%) as the primary color, with a professional and clean design, generous white space, and the Poppins/Inter font family. The Silverleaf Academy logo (leaf icon) is prominently displayed in all interface headers.
+- **Branding**: Utilizes Silverleaf Academy's official logo blue (#0A48A5 / HSL: 216 89% 34% in light mode, 216 89% 45% in dark mode) as the primary color throughout the entire application. Features a professional and clean design, generous white space, and the Poppins/Inter font family. The Silverleaf Academy logo (leaf icon) is prominently displayed in all interface headers. All backgrounds, navigation bars, buttons, accents, borders, shadows, and UI elements consistently use this unified blue palette.
 - **Consistent Header Design**: All interfaces (Admin, Teacher, Trainer) feature the same branded header with:
   - Silverleaf Academy logo and name
   - Primary blue background (bg-primary)
