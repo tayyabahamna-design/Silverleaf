@@ -8,34 +8,13 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { Shield, GraduationCap, Users, Mail, Lock, Sparkles } from "lucide-react";
+import logoImage from "@assets/image_1761029179748.png";
 
 type Role = "admin" | "teacher" | "trainer";
 type AccountType = "teacher" | "trainer";
 
 const SilverleafLogo = ({ className = "w-12 h-12" }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="100" height="100" rx="18" fill="currentColor" className="text-primary" />
-    <g transform="translate(50, 12)">
-      {/* Center vertical stem */}
-      <line x1="0" y1="0" x2="0" y2="76" stroke="white" strokeWidth="4" strokeLinecap="round" />
-      
-      {/* Top V-shaped leaves */}
-      <path d="M 0,8 L -16,22 L 0,22 Z" fill="white" />
-      <path d="M 0,8 L 16,22 L 0,22 Z" fill="white" />
-      
-      {/* Second row V-shaped leaves */}
-      <path d="M 0,28 L -16,42 L 0,42 Z" fill="white" />
-      <path d="M 0,28 L 16,42 L 0,42 Z" fill="white" />
-      
-      {/* Third row V-shaped leaves */}
-      <path d="M 0,48 L -16,62 L 0,62 Z" fill="white" />
-      <path d="M 0,48 L 16,62 L 0,62 Z" fill="white" />
-      
-      {/* Bottom V-shaped leaves */}
-      <path d="M 0,68 L -12,76 L 0,76 Z" fill="white" />
-      <path d="M 0,68 L 12,76 L 0,76 Z" fill="white" />
-    </g>
-  </svg>
+  <img src={logoImage} alt="Silverleaf Academy" className={className} />
 );
 
 export default function UnifiedAuth() {
