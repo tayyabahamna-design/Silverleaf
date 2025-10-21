@@ -661,36 +661,24 @@ export default function TrainerBatches() {
                       <CardContent className="space-y-3">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <p className="text-sm text-muted-foreground">Weeks Completed</p>
-                            <p className="text-2xl font-bold">{item.weeksCompleted}/{item.totalWeeks}</p>
-                          </div>
-                          <div>
                             <p className="text-sm text-muted-foreground">Quizzes Taken</p>
-                            <p className="text-2xl font-bold">{item.quizzesTaken}</p>
+                            <p className="text-2xl font-bold">{item.reportCard?.totalQuizzesTaken || 0}</p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Avg Quiz Score</p>
-                            <p className="text-2xl font-bold">{item.avgQuizScore ? `${item.avgQuizScore.toFixed(1)}%` : "N/A"}</p>
+                            <p className="text-sm text-muted-foreground">Quizzes Passed</p>
+                            <p className="text-2xl font-bold">{item.reportCard?.totalQuizzesPassed || 0}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Average Score</p>
+                            <p className="text-2xl font-bold">{item.reportCard?.averageScore ? `${item.reportCard.averageScore}%` : "N/A"}</p>
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Current Level</p>
-                            <Badge variant={getLevelBadgeVariant(item.currentLevel)}>
-                              {item.currentLevel || "Not Started"}
+                            <Badge variant={getLevelBadgeVariant(item.reportCard?.level)}>
+                              {item.reportCard?.level || "Not Started"}
                             </Badge>
                           </div>
                         </div>
-                        {item.recentQuizzes && item.recentQuizzes.length > 0 && (
-                          <div className="pt-3 border-t">
-                            <p className="text-sm font-semibold mb-2">Recent Quiz Scores</p>
-                            <div className="flex gap-2 flex-wrap">
-                              {item.recentQuizzes.map((quiz: any, idx: number) => (
-                                <Badge key={idx} variant="outline">
-                                  {quiz.title}: {quiz.score}%
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                         <div className="pt-3 border-t">
                           <Button
                             variant="outline"
