@@ -114,7 +114,12 @@ export default function UnifiedAuth() {
           });
           
           // Force full page reload to ensure auth state is updated
-          window.location.href = "/";
+          // Redirect based on role
+          if (user.role === "trainer") {
+            window.location.href = "/trainer/batches";
+          } else {
+            window.location.href = "/";
+          }
         } else {
           toast({
             variant: "destructive",
