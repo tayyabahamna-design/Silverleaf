@@ -380,18 +380,17 @@ export default function Home() {
           {/* Card Content */}
           <div className="flex-1 min-w-0">
             <AccordionTrigger className="w-full px-5 sm:px-7 py-5 sm:py-6 hover:no-underline hover-elevate group [&>svg]:data-[state=open]:rotate-180">
-              <div className="flex items-center gap-4 sm:gap-5 w-full min-w-0 pr-2">
-                {/* Week Number Badge */}
-                <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-xl bg-primary/10 dark:bg-primary/20 border-2 border-primary/30 flex items-center justify-center flex-shrink-0 shadow-sm">
-                  <span className="text-primary font-bold text-xl sm:text-2xl">{week.weekNumber}</span>
+              <div className="flex flex-col gap-2.5 w-full min-w-0 pr-2">
+                {/* Week Label - Styled as Primary Visual Anchor */}
+                <div className="inline-flex items-center gap-2">
+                  <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-primary/10 dark:bg-primary/15 border border-primary/30 shadow-sm">
+                    <span className="text-primary font-bold text-base sm:text-lg">Week {week.weekNumber}</span>
+                  </span>
                 </div>
 
-                {/* Week Info */}
+                {/* Competency Focus */}
                 <div className="flex-1 min-w-0 text-left">
-                  <h3 className="font-semibold text-lg sm:text-xl leading-tight mb-1.5">
-                    Week {week.weekNumber}
-                  </h3>
-                  <p className="text-sm sm:text-base text-muted-foreground truncate">
+                  <p className="text-sm sm:text-base text-muted-foreground truncate leading-relaxed">
                     {week.competencyFocus || "No competency focus set"}
                   </p>
                 </div>
