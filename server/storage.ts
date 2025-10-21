@@ -640,11 +640,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Batch operations
-  async getAllBatches(createdBy?: string): Promise<Batch[]> {
+  async getAllBatches(createdBy?: string): Promise<any[]> {
+    const query = db
+      .select({
+        id: batches.id,
+        name: batches.name,
+        description: batches.description,
+        createdBy: batches.createdBy,
+        createdAt: batches.createdAt,
+        teacherCount: sqlOp`COUNT(DISTINCT ${batchTeachers.teacherId})::int`,
+      })
+      .from(batches)
+      .leftJoin(batchTeachers, eq(batches.id, batchTeachers.batchId))
+      .groupBy(batches.id);
+    
     if (createdBy) {
-      return await db.select().from(batches).where(eq(batches.createdBy, createdBy));
+      return await query.where(eq(batches.createdBy, createdBy));
     }
-    return await db.select().from(batches);
+    return await query;
   }
 
   async getBatch(id: string): Promise<Batch | undefined> {
