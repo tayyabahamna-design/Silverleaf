@@ -50,7 +50,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin password reset endpoint
   const resetPasswordSchema = z.object({
-    userIdentifier: z.string().trim().min(1, "Username or email required"),
+    userIdentifier: z.string().trim().min(1, "Username, email, or teacher ID required"),
     newPassword: z.string().trim().min(6, "Password must be at least 6 characters"),
   });
 
@@ -58,29 +58,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userIdentifier, newPassword } = resetPasswordSchema.parse(req.body);
       
-      // Try to find user by username or email
+      // Hash the new password
+      const hashedPassword = await hashPassword(newPassword);
+      
+      // Try to find user by username or email (trainers/admins)
       let user = await storage.getUserByUsername(userIdentifier);
       if (!user) {
         user = await storage.getUserByEmail(userIdentifier);
       }
       
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
+      if (user) {
+        // Update user's password
+        const updatedUser = await storage.updateUserPassword(user.id, hashedPassword);
+        
+        if (!updatedUser) {
+          return res.status(500).json({ error: "Failed to update password" });
+        }
+        
+        return res.json({ 
+          success: true, 
+          message: `Password reset successful for user: ${updatedUser.username}` 
+        });
       }
       
-      // Hash the new password
-      const hashedPassword = await hashPassword(newPassword);
+      // If not found as user, try to find as teacher
+      let teacher;
       
-      // Update user's password
-      const updatedUser = await storage.updateUserPassword(user.id, hashedPassword);
+      // Try parsing as numeric teacher ID
+      const numericId = parseInt(userIdentifier);
+      if (!isNaN(numericId)) {
+        teacher = await storage.getTeacherByTeacherId(numericId);
+      }
       
-      if (!updatedUser) {
+      // If not found by teacher ID, try email
+      if (!teacher) {
+        teacher = await storage.getTeacherByEmail(userIdentifier);
+      }
+      
+      if (!teacher) {
+        return res.status(404).json({ error: "User or teacher not found" });
+      }
+      
+      // Update teacher's password
+      const updatedTeacher = await storage.updateTeacherPassword(teacher.id, hashedPassword);
+      
+      if (!updatedTeacher) {
         return res.status(500).json({ error: "Failed to update password" });
       }
       
       res.json({ 
         success: true, 
-        message: `Password reset successful for user: ${updatedUser.username}` 
+        message: `Password reset successful for teacher: ${updatedTeacher.name} (ID: ${updatedTeacher.teacherId})` 
       });
     } catch (error) {
       console.error("Error resetting password:", error);
