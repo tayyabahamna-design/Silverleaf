@@ -87,7 +87,11 @@ Return your response as a JSON array with this exact structure:
 Make sure to use "multiple_choice" or "true_false" for the type field.`;
 
   try {
-    console.log('[QUIZ-SERVICE] Calling OpenAI API...');
+    // Calculate dynamic token budget based on number of questions
+    // ~200 tokens per question (covers question, 4 options, and answer with buffer)
+    const tokenBudget = Math.min(4000, 300 + numQuestions * 200);
+    console.log('[QUIZ-SERVICE] Calling OpenAI API with token budget:', tokenBudget);
+    
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -102,7 +106,7 @@ Make sure to use "multiple_choice" or "true_false" for the type field.`;
       ],
       response_format: { type: 'json_object' },
       temperature: 0.7,
-      max_tokens: 2000,
+      max_tokens: tokenBudget,
     });
 
     const responseContent = completion.choices[0]?.message?.content;
@@ -125,13 +129,36 @@ Make sure to use "multiple_choice" or "true_false" for the type field.`;
       throw new Error('Invalid response format from OpenAI');
     }
 
-    // Validate and ensure IDs
-    questions = questions.map((q, idx) => ({
+    // Validate and filter invalid questions
+    const validQuestions = questions.filter((q, idx) => {
+      const isValid = 
+        q.question && 
+        typeof q.question === 'string' &&
+        q.type && 
+        (q.type === 'multiple_choice' || q.type === 'true_false') &&
+        Array.isArray(q.options) && 
+        q.options.length >= 2 &&
+        q.correctAnswer &&
+        q.options.includes(q.correctAnswer);
+      
+      if (!isValid) {
+        console.warn(`[QUIZ-SERVICE] Invalid question filtered at index ${idx}:`, q);
+      }
+      
+      return isValid;
+    });
+
+    // Ensure IDs
+    const finalQuestions = validQuestions.map((q, idx) => ({
       ...q,
       id: q.id || `q${idx + 1}`,
     }));
 
-    return questions.slice(0, numQuestions);
+    if (finalQuestions.length < numQuestions) {
+      console.warn(`[QUIZ-SERVICE] Generated ${finalQuestions.length} valid questions, requested ${numQuestions}`);
+    }
+
+    return finalQuestions.slice(0, numQuestions);
   } catch (error) {
     console.error('Error generating quiz questions:', error);
     throw new Error('Failed to generate quiz questions. Please try again.');
@@ -194,7 +221,11 @@ Return your response as a JSON array with this exact structure:
 
 Make sure to use "multiple_choice" or "true_false" for the type field.`;
 
-    console.log('[QUIZ-SERVICE] Calling OpenAI API for single file quiz...');
+    // Calculate dynamic token budget based on number of questions
+    // ~200 tokens per question (covers question, 4 options, and answer with buffer)
+    const tokenBudget = Math.min(4000, 300 + numQuestions * 200);
+    console.log('[QUIZ-SERVICE] Calling OpenAI API for single file quiz with token budget:', tokenBudget);
+    
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -209,7 +240,7 @@ Make sure to use "multiple_choice" or "true_false" for the type field.`;
       ],
       response_format: { type: 'json_object' },
       temperature: 0.7,
-      max_tokens: 1500,
+      max_tokens: tokenBudget,
     });
 
     const responseContent = completion.choices[0]?.message?.content;
@@ -245,13 +276,37 @@ Make sure to use "multiple_choice" or "true_false" for the type field.`;
       }
     }
 
-    questions = questions.map((q, idx) => ({
+    // Validate and filter invalid questions
+    const validQuestions = questions.filter((q, idx) => {
+      const isValid = 
+        q.question && 
+        typeof q.question === 'string' &&
+        q.type && 
+        (q.type === 'multiple_choice' || q.type === 'true_false') &&
+        Array.isArray(q.options) && 
+        q.options.length >= 2 &&
+        q.correctAnswer &&
+        q.options.includes(q.correctAnswer);
+      
+      if (!isValid) {
+        console.warn(`[QUIZ-SERVICE] Invalid question filtered at index ${idx}:`, q);
+      }
+      
+      return isValid;
+    });
+
+    // Ensure IDs
+    const finalQuestions = validQuestions.map((q, idx) => ({
       ...q,
       id: q.id || `q${idx + 1}`,
     }));
 
-    console.log('[QUIZ-SERVICE] Generated', questions.length, 'questions for', fileName);
-    return questions.slice(0, numQuestions);
+    if (finalQuestions.length < numQuestions) {
+      console.warn(`[QUIZ-SERVICE] Generated ${finalQuestions.length} valid questions, requested ${numQuestions}`);
+    }
+
+    console.log('[QUIZ-SERVICE] Generated', finalQuestions.length, 'valid questions for', fileName);
+    return finalQuestions.slice(0, numQuestions);
   } catch (error) {
     console.error('[QUIZ-SERVICE] Error generating quiz for file:', error);
     throw new Error(`Failed to generate quiz for ${fileName}. Please try again.`);
