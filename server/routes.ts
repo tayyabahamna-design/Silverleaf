@@ -1314,6 +1314,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get teacher's own quiz attempts history
+  app.get("/api/teacher/quiz-attempts", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const attempts = await storage.getAllTeacherQuizAttempts(req.teacherId!);
+      
+      // Enrich with quiz details
+      const enrichedAttempts = await Promise.all(
+        attempts.map(async (attempt) => {
+          const quiz = await storage.getAssignedQuiz(attempt.assignedQuizId);
+          return {
+            ...attempt,
+            quiz: quiz || null,
+          };
+        })
+      );
+      
+      res.json(enrichedAttempts);
+    } catch (error) {
+      console.error("Error fetching teacher quiz attempts:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get progress for all teachers in a batch (trainer view)
   app.get("/api/batches/:batchId/progress", isAuthenticated, isTrainer, async (req, res) => {
     try {

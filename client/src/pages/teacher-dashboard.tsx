@@ -19,6 +19,7 @@ export default function TeacherDashboard() {
   const [selectedQuiz, setSelectedQuiz] = useState<any>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
+  const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
 
   const { data: teacher } = useQuery<any>({
     queryKey: ["/api/teacher/me"],
@@ -30,6 +31,10 @@ export default function TeacherDashboard() {
 
   const { data: reportCard } = useQuery<any>({
     queryKey: ["/api/teacher/report-card"],
+  });
+
+  const { data: quizAttempts = [] } = useQuery<any[]>({
+    queryKey: ["/api/teacher/quiz-attempts"],
   });
 
   const logoutMutation = useMutation({
@@ -62,6 +67,7 @@ export default function TeacherDashboard() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/teacher/quizzes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teacher/report-card"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/teacher/quiz-attempts"] });
       toast({
         title: data.passed ? "Quiz Passed!" : "Quiz Completed",
         description: `Score: ${data.score}/${data.totalQuestions} (${data.percentage}%)`,
@@ -254,6 +260,67 @@ export default function TeacherDashboard() {
             )}
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Quiz History</CardTitle>
+            <CardDescription>View your past quiz attempts and results</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {quizAttempts.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                No quiz attempts yet
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {[...quizAttempts].sort((a: any, b: any) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()).map((attempt: any) => {
+                  const percentage = Math.round((attempt.score / attempt.totalQuestions) * 100);
+                  const isPassed = attempt.passed === 'yes';
+                  
+                  return (
+                    <Card key={attempt.id} data-testid={`card-attempt-${attempt.id}`}>
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <CardTitle className="text-base">{attempt.quiz?.title}</CardTitle>
+                            <CardDescription>
+                              {new Date(attempt.completedAt).toLocaleString()}
+                            </CardDescription>
+                          </div>
+                          <Badge variant={isPassed ? "default" : "destructive"}>
+                            {percentage}% - {isPassed ? "Passed" : "Failed"}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Score</p>
+                            <p className="text-lg font-bold">{attempt.score}/{attempt.totalQuestions}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Status</p>
+                            <p className="text-lg font-bold">{isPassed ? "✓ Passed" : "✗ Failed"}</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => setSelectedAttempt(attempt)}
+                          data-testid={`button-view-attempt-${attempt.id}`}
+                        >
+                          <BookOpen className="mr-2 h-4 w-4" />
+                          Review My Answers
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <Dialog open={quizDialogOpen} onOpenChange={setQuizDialogOpen}>
@@ -302,6 +369,125 @@ export default function TeacherDashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* View Attempt Details Dialog */}
+      {selectedAttempt && (
+        <Dialog open={!!selectedAttempt} onOpenChange={() => setSelectedAttempt(null)}>
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Quiz Review - {selectedAttempt.quiz?.title}</DialogTitle>
+              <DialogDescription>
+                Your score: {selectedAttempt.score}/{selectedAttempt.totalQuestions} ({Math.round((selectedAttempt.score / selectedAttempt.totalQuestions) * 100)}%) - {selectedAttempt.passed === 'yes' ? 'Passed' : 'Failed'}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6">
+              {selectedAttempt.quiz?.questions?.map((question: any, index: number) => {
+                const myAnswer = selectedAttempt.answers[question.id];
+                const isCorrect = myAnswer === question.correctAnswer;
+                
+                return (
+                  <Card key={question.id} className={`border-l-4 ${isCorrect ? 'border-l-green-500' : 'border-l-red-500'}`}>
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <CardTitle className="text-base">
+                            Question {index + 1}
+                          </CardTitle>
+                          <CardDescription className="text-base font-medium text-foreground mt-2">
+                            {question.question}
+                          </CardDescription>
+                        </div>
+                        <Badge variant={isCorrect ? "default" : "destructive"}>
+                          {isCorrect ? "✓ Correct" : "✗ Wrong"}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {question.type === "multiple_choice" && (
+                        <div className="space-y-2">
+                          {question.options?.map((option: string, optIndex: number) => {
+                            const isMyChoice = option === myAnswer;
+                            const isCorrectAnswer = option === question.correctAnswer;
+                            
+                            return (
+                              <div
+                                key={optIndex}
+                                className={`flex items-center gap-3 p-3 rounded-md border ${
+                                  isCorrectAnswer
+                                    ? 'bg-green-50 dark:bg-green-950 border-green-500 dark:border-green-700'
+                                    : isMyChoice
+                                    ? 'bg-red-50 dark:bg-red-950 border-red-500 dark:border-red-700'
+                                    : 'bg-muted/50'
+                                }`}
+                                data-testid={`attempt-option-${index}-${optIndex}`}
+                              >
+                                {isCorrectAnswer && (
+                                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                )}
+                                {isMyChoice && !isCorrectAnswer && (
+                                  <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                                )}
+                                <span className={isCorrectAnswer ? 'font-semibold text-green-900 dark:text-green-100' : isMyChoice ? 'font-semibold text-red-900 dark:text-red-100' : ''}>
+                                  {String.fromCharCode(65 + optIndex)}. {option}
+                                  {isMyChoice && <span className="ml-2 text-sm">(Your Answer)</span>}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {question.type === "true_false" && (
+                        <div className="space-y-2">
+                          {['True', 'False'].map((option: string, optIndex: number) => {
+                            const isMyChoice = option === myAnswer;
+                            const isCorrectAnswer = option === question.correctAnswer;
+                            
+                            return (
+                              <div
+                                key={optIndex}
+                                className={`flex items-center gap-3 p-3 rounded-md border ${
+                                  isCorrectAnswer
+                                    ? 'bg-green-50 dark:bg-green-950 border-green-500 dark:border-green-700'
+                                    : isMyChoice
+                                    ? 'bg-red-50 dark:bg-red-950 border-red-500 dark:border-red-700'
+                                    : 'bg-muted/50'
+                                }`}
+                                data-testid={`attempt-option-${index}-${optIndex}`}
+                              >
+                                {isCorrectAnswer && (
+                                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                )}
+                                {isMyChoice && !isCorrectAnswer && (
+                                  <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 flex-shrink-0" />
+                                )}
+                                <span className={isCorrectAnswer ? 'font-semibold text-green-900 dark:text-green-100' : isMyChoice ? 'font-semibold text-red-900 dark:text-red-100' : ''}>
+                                  {option}
+                                  {isMyChoice && <span className="ml-2 text-sm">(Your Answer)</span>}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="pt-2 border-t">
+                        <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                          Correct Answer: {question.correctAnswer}
+                        </p>
+                        {!isCorrect && (
+                          <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                            Your Answer: {myAnswer || 'Not answered'}
+                          </p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
