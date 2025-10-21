@@ -51,7 +51,11 @@ export function setupAuth(app: Express) {
     new LocalStrategy(async (username, password, done) => {
       try {
         console.log('[AUTH] Login attempt for username:', username);
-        const user = await storage.getUserByUsername(username);
+        // UPDATED: Try both username and email for login
+        let user = await storage.getUserByUsername(username);
+        if (!user) {
+          user = await storage.getUserByEmail(username);
+        }
         console.log('[AUTH] User found:', !!user);
         
         if (!user) {
