@@ -7,10 +7,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { Shield, GraduationCap, Users, Mail, Lock, Sparkles, BookOpen } from "lucide-react";
+import { Shield, GraduationCap, Users, Mail, Lock, Sparkles } from "lucide-react";
 
 type Role = "admin" | "teacher" | "trainer";
 type AccountType = "teacher" | "trainer";
+
+const SilverleafLogo = ({ className = "w-12 h-12" }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" rx="20" fill="currentColor" className="text-primary" />
+    <g transform="translate(30, 20)">
+      <path
+        d="M20 10 L20 60 M20 15 Q30 15 30 25 L30 35 M20 35 Q10 35 10 45 L10 55"
+        stroke="white"
+        strokeWidth="4"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M20 20 Q10 20 10 30 L10 40 M20 40 Q30 40 30 50 L30 60"
+        stroke="white"
+        strokeWidth="4"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </g>
+  </svg>
+);
 
 export default function UnifiedAuth() {
   const { toast } = useToast();
@@ -224,21 +246,21 @@ export default function UnifiedAuth() {
       icon: Shield,
       title: "Admin",
       description: "System administrator",
-      gradient: "from-blue-500 to-indigo-600"
+      gradient: "from-primary to-blue-600"
     },
     {
       value: "teacher",
       icon: GraduationCap,
       title: "Teacher",
       description: "Taking courses",
-      gradient: "from-emerald-500 to-teal-600"
+      gradient: "from-primary to-blue-600"
     },
     {
       value: "trainer",
       icon: Users,
       title: "Trainer",
       description: "Managing courses",
-      gradient: "from-purple-500 to-pink-600"
+      gradient: "from-primary to-blue-600"
     }
   ];
 
@@ -253,25 +275,23 @@ export default function UnifiedAuth() {
   const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-950 dark:to-indigo-950 relative overflow-hidden">
+    <div className="min-h-screen flex bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 dark:from-gray-900 dark:via-blue-950 dark:to-blue-900 relative overflow-hidden">
       {/* Decorative background shapes */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-300/20 dark:bg-blue-600/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-300/20 dark:bg-purple-600/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-indigo-300/20 dark:bg-indigo-600/10 rounded-full blur-3xl" />
+        <div className="absolute top-20 left-10 w-72 h-72 bg-blue-400/20 dark:bg-blue-600/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500/20 dark:bg-blue-700/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-blue-300/20 dark:bg-blue-600/10 rounded-full blur-3xl" />
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4 md:p-8 relative z-10">
         <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-8 lg:gap-12 items-center">
           {/* Left side - Welcome section (hidden on mobile in login, shown in register) */}
           <div className="hidden lg:flex flex-1 flex-col justify-center space-y-6 text-center lg:text-left">
-            <div className="flex items-center justify-center lg:justify-start gap-3 mb-4">
-              <div className="p-3 bg-primary/10 rounded-xl">
-                <BookOpen className="w-10 h-10 text-primary" />
-              </div>
+            <div className="flex items-center justify-center lg:justify-start gap-4 mb-4">
+              <SilverleafLogo className="w-16 h-16" />
               <div>
                 <h1 className="text-4xl font-bold text-foreground">Silverleaf Academy</h1>
-                <p className="text-sm text-muted-foreground mt-1">Training Excellence</p>
+                <p className="text-sm text-muted-foreground mt-1">Training Program Planner</p>
               </div>
             </div>
             
@@ -312,9 +332,7 @@ export default function UnifiedAuth() {
             <Card className="backdrop-blur-sm bg-card/95 shadow-2xl border-border/50">
               <CardHeader className="text-center space-y-2 pb-6">
                 <div className="flex justify-center lg:hidden mb-4">
-                  <div className="p-3 bg-primary/10 rounded-xl">
-                    <BookOpen className="w-10 h-10 text-primary" />
-                  </div>
+                  <SilverleafLogo className="w-14 h-14" />
                 </div>
                 <CardTitle className="text-3xl font-bold">Welcome Back</CardTitle>
                 <CardDescription className="text-base">Sign in to continue your learning journey</CardDescription>
@@ -413,7 +431,7 @@ export default function UnifiedAuth() {
                             {loginRole === "teacher" ? "Teacher ID" : "Email Address"}
                           </Label>
                         </div>
-                        <div className={`h-0.5 bg-gradient-to-r from-primary to-purple-500 transition-all duration-300 ${emailFocused ? 'w-full' : 'w-0'}`} />
+                        <div className={`h-0.5 bg-primary transition-all duration-300 ${emailFocused ? 'w-full' : 'w-0'}`} />
                       </div>
 
                       {/* Password Input with floating label */}
@@ -445,14 +463,14 @@ export default function UnifiedAuth() {
                             Password
                           </Label>
                         </div>
-                        <div className={`h-0.5 bg-gradient-to-r from-primary to-purple-500 transition-all duration-300 ${passwordFocused ? 'w-full' : 'w-0'}`} />
+                        <div className={`h-0.5 bg-primary transition-all duration-300 ${passwordFocused ? 'w-full' : 'w-0'}`} />
                       </div>
 
                       {/* Login Button */}
                       <Button 
                         type="submit" 
                         size="lg"
-                        className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-primary to-purple-600 hover:from-primary/90 hover:to-purple-600/90 shadow-lg shadow-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98]" 
+                        className="w-full h-14 text-lg font-semibold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98]" 
                         disabled={loginLoading}
                         data-testid="button-login"
                       >
