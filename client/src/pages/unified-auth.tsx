@@ -8,7 +8,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { Shield, GraduationCap, Users, Mail, Lock, Sparkles } from "lucide-react";
-import logoImage from "@assets/image_1761029179748.png";
+import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 type Role = "admin" | "teacher" | "trainer";
 type AccountType = "teacher" | "trainer";
