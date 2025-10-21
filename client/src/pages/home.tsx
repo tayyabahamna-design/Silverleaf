@@ -362,10 +362,10 @@ export default function Home() {
         ref={setNodeRef}
         style={style}
         value={week.id}
-        className="border rounded-lg bg-card shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
+        className="mb-4 border-0 rounded-lg bg-card shadow-md hover:shadow-lg transition-all duration-300 overflow-visible"
         data-testid={`card-week-${week.id}`}
       >
-        <div className="flex items-stretch">
+        <div className="flex items-stretch rounded-lg overflow-hidden border border-border">
           {/* Drag Handle */}
           <button
             className="flex items-center px-3 cursor-grab active:cursor-grabbing hover-elevate active-elevate-2 bg-muted/30 border-r transition-colors"
@@ -374,16 +374,16 @@ export default function Home() {
             data-testid={`drag-handle-${week.id}`}
             aria-label="Drag to reorder"
           >
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
           </button>
 
           {/* Card Content */}
           <div className="flex-1 min-w-0">
-            <AccordionTrigger className="w-full px-4 py-4 hover:no-underline hover-elevate [&[data-state=open]>div>svg]:rotate-180">
-              <div className="flex items-center gap-4 w-full min-w-0">
+            <AccordionTrigger className="w-full px-4 sm:px-6 py-4 hover:no-underline hover-elevate group [&>svg]:data-[state=open]:rotate-180">
+              <div className="flex items-center gap-3 sm:gap-4 w-full min-w-0 pr-2">
                 {/* Week Number Badge */}
-                <div className="h-12 w-12 rounded-lg bg-primary/10 dark:bg-primary/20 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-primary font-bold text-lg">{week.weekNumber}</span>
+                <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-lg bg-primary/10 dark:bg-primary/20 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-primary font-bold text-lg sm:text-xl">{week.weekNumber}</span>
                 </div>
 
                 {/* Week Info */}
@@ -395,19 +395,19 @@ export default function Home() {
                     {week.competencyFocus || "No competency focus set"}
                   </p>
                 </div>
-
-                {/* Chevron Icon */}
-                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 flex-shrink-0" />
               </div>
             </AccordionTrigger>
           </div>
 
-          {/* Delete Button */}
-          <div className="flex items-center pr-3 border-l">
+          {/* Action Buttons */}
+          <div className="flex items-center px-2 sm:px-3 border-l bg-muted/20 dark:bg-muted/10">
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setDeleteId(week.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeleteId(week.id);
+              }}
               className="h-9 w-9 hover:bg-destructive/10 hover:text-destructive transition-colors"
               data-testid={`button-delete-${week.id}`}
               aria-label="Delete week"
