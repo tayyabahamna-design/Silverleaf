@@ -268,6 +268,8 @@ export const assignedQuizzes = pgTable("assigned_quizzes", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   batchId: varchar("batch_id").notNull().references(() => batches.id, { onDelete: "cascade" }),
   weekId: varchar("week_id").notNull().references(() => trainingWeeks.id, { onDelete: "cascade" }),
+  deckFileId: varchar("deck_file_id"),
+  fileName: varchar("file_name"),
   title: varchar("title").notNull(),
   description: text("description"),
   numQuestions: integer("num_questions").notNull().default(5),

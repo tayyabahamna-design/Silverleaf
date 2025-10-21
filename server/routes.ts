@@ -1103,10 +1103,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         numQuestions,
       });
 
-      // Create assigned quiz
+      // Create assigned quiz with file information
       const assignedQuiz = await storage.createAssignedQuiz({
         batchId: req.params.batchId,
         weekId,
+        deckFileId: fileId,
+        fileName: selectedFile.fileName,
         title,
         description,
         numQuestions,

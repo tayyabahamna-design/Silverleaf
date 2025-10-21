@@ -28,7 +28,9 @@ export default function TrainerBatches() {
   const [assignFileQuizOpen, setAssignFileQuizOpen] = useState(false);
   const [viewProgressOpen, setViewProgressOpen] = useState(false);
   const [viewBatchDetailsOpen, setViewBatchDetailsOpen] = useState(false);
+  const [viewQuizDetailsOpen, setViewQuizDetailsOpen] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
+  const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
 
   const [batchName, setBatchName] = useState("");
   const [batchDescription, setBatchDescription] = useState("");
@@ -69,6 +71,12 @@ export default function TrainerBatches() {
   const { data: weekFiles = [] } = useQuery<any[]>({
     queryKey: ["/api/training-weeks", selectedWeek, "deck-files"],
     enabled: !!selectedWeek && assignFileQuizOpen,
+  });
+
+  // Fetch quiz details for viewing
+  const { data: quizDetails } = useQuery<any>({
+    queryKey: ["/api/assigned-quizzes", selectedQuizId],
+    enabled: !!selectedQuizId && viewQuizDetailsOpen,
   });
 
   const createBatchMutation = useMutation({
@@ -555,32 +563,60 @@ export default function TrainerBatches() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {assignedQuizzes.map((quiz: any) => (
-                    <Card key={quiz.id}>
-                      <CardContent className="flex items-center justify-between py-4">
-                        <div className="flex-1">
-                          <p className="font-semibold">{quiz.title}</p>
-                          {quiz.description && (
-                            <p className="text-sm text-muted-foreground">{quiz.description}</p>
-                          )}
-                          <Badge variant="outline" className="mt-2">
-                            {quiz.numQuestions} Questions
-                          </Badge>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (confirm(`Delete quiz "${quiz.title}"?`)) {
-                              deleteQuizMutation.mutate(quiz.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
+                  {assignedQuizzes.map((quiz: any) => {
+                    const weekInfo = weeks.find((w: any) => w.id === quiz.weekId);
+                    const displayTitle = quiz.fileName 
+                      ? `Week ${weekInfo?.weekNumber || '?'} – ${quiz.fileName.replace(/\.[^/.]+$/, '')} Quiz`
+                      : quiz.title;
+                    
+                    return (
+                      <Card key={quiz.id}>
+                        <CardContent className="flex items-center justify-between py-4">
+                          <div className="flex-1">
+                            <p className="font-semibold">{displayTitle}</p>
+                            {quiz.description && (
+                              <p className="text-sm text-muted-foreground">{quiz.description}</p>
+                            )}
+                            <div className="flex gap-2 mt-2">
+                              <Badge variant="outline">
+                                {quiz.numQuestions} Questions
+                              </Badge>
+                              {weekInfo && (
+                                <Badge variant="secondary">
+                                  Week {weekInfo.weekNumber}: {weekInfo.competencyFocus}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedQuizId(quiz.id);
+                                setViewQuizDetailsOpen(true);
+                              }}
+                              data-testid={`button-view-quiz-${quiz.id}`}
+                            >
+                              <BookOpen className="mr-2 h-4 w-4" />
+                              View Details
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (confirm(`Delete quiz "${displayTitle}"?`)) {
+                                  deleteQuizMutation.mutate(quiz.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
@@ -808,6 +844,122 @@ export default function TrainerBatches() {
               {assignFileQuizMutation.isPending ? "Generating & Assigning..." : "Generate & Assign File Quiz"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Quiz Details Dialog */}
+      <Dialog open={viewQuizDetailsOpen} onOpenChange={setViewQuizDetailsOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {quizDetails?.fileName 
+                ? `Week ${weeks.find((w: any) => w.id === quizDetails.weekId)?.weekNumber || '?'} – ${quizDetails.fileName.replace(/\.[^/.]+$/, '')} Quiz`
+                : quizDetails?.title || 'Quiz Details'}
+            </DialogTitle>
+            <DialogDescription>
+              {quizDetails?.description || 'Review all questions and correct answers below'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {quizDetails && (
+            <div className="space-y-6">
+              {/* Quiz Metadata */}
+              <div className="flex flex-wrap gap-2 pb-4 border-b">
+                <Badge variant="outline">
+                  {quizDetails.numQuestions} Questions
+                </Badge>
+                {weeks.find((w: any) => w.id === quizDetails.weekId) && (
+                  <Badge variant="secondary">
+                    Week {weeks.find((w: any) => w.id === quizDetails.weekId)?.weekNumber}: {weeks.find((w: any) => w.id === quizDetails.weekId)?.competencyFocus}
+                  </Badge>
+                )}
+                {quizDetails.fileName && (
+                  <Badge variant="outline">
+                    File: {quizDetails.fileName}
+                  </Badge>
+                )}
+              </div>
+
+              {/* Questions List */}
+              <div className="space-y-6">
+                {quizDetails.questions?.map((question: any, index: number) => (
+                  <Card key={question.id} className="border-l-4 border-l-primary">
+                    <CardHeader>
+                      <CardTitle className="text-base">
+                        Question {index + 1}
+                      </CardTitle>
+                      <CardDescription className="text-base font-medium text-foreground">
+                        {question.question}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {question.type === "multiple_choice" && (
+                        <div className="space-y-2">
+                          {question.options?.map((option: string, optIndex: number) => {
+                            const isCorrect = option === question.correctAnswer;
+                            return (
+                              <div
+                                key={optIndex}
+                                className={`flex items-center gap-3 p-3 rounded-md border ${
+                                  isCorrect 
+                                    ? 'bg-green-50 dark:bg-green-950 border-green-500 dark:border-green-700' 
+                                    : 'bg-muted/50'
+                                }`}
+                                data-testid={`option-${index}-${optIndex}`}
+                              >
+                                {isCorrect && (
+                                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                )}
+                                <span className={isCorrect ? 'font-semibold text-green-900 dark:text-green-100' : ''}>
+                                  {String.fromCharCode(65 + optIndex)}. {option}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {question.type === "true_false" && (
+                        <div className="space-y-2">
+                          {['True', 'False'].map((option: string, optIndex: number) => {
+                            const isCorrect = option === question.correctAnswer;
+                            return (
+                              <div
+                                key={optIndex}
+                                className={`flex items-center gap-3 p-3 rounded-md border ${
+                                  isCorrect 
+                                    ? 'bg-green-50 dark:bg-green-950 border-green-500 dark:border-green-700' 
+                                    : 'bg-muted/50'
+                                }`}
+                                data-testid={`option-${index}-${optIndex}`}
+                              >
+                                {isCorrect && (
+                                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                )}
+                                <span className={isCorrect ? 'font-semibold text-green-900 dark:text-green-100' : ''}>
+                                  {option}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="pt-2 border-t">
+                        <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                          Correct Answer: {question.correctAnswer}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!quizDetails && (
+            <div className="py-8 text-center text-muted-foreground">
+              Loading quiz details...
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
