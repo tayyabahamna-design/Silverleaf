@@ -15,21 +15,27 @@ type AccountType = "teacher" | "trainer";
 const SilverleafLogo = ({ className = "w-12 h-12" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect width="100" height="100" rx="20" fill="currentColor" className="text-primary" />
-    <g transform="translate(30, 20)">
-      <path
-        d="M20 10 L20 60 M20 15 Q30 15 30 25 L30 35 M20 35 Q10 35 10 45 L10 55"
-        stroke="white"
-        strokeWidth="4"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path
-        d="M20 20 Q10 20 10 30 L10 40 M20 40 Q30 40 30 50 L30 60"
-        stroke="white"
-        strokeWidth="4"
-        strokeLinecap="round"
-        fill="none"
-      />
+    <g transform="translate(50, 50)">
+      {/* Center vertical line */}
+      <path d="M 0,-35 L 0,35" stroke="white" strokeWidth="3.5" strokeLinecap="round" />
+      
+      {/* Top left leaf */}
+      <path d="M 0,-35 L -18,-20 L 0,-15" fill="white" />
+      
+      {/* Top right leaf */}
+      <path d="M 0,-35 L 18,-20 L 0,-15" fill="white" />
+      
+      {/* Middle left leaf */}
+      <path d="M 0,-5 L -18,10 L 0,15" fill="white" />
+      
+      {/* Middle right leaf */}
+      <path d="M 0,-5 L 18,10 L 0,15" fill="white" />
+      
+      {/* Bottom left leaf */}
+      <path d="M 0,25 L -15,35 L 0,35" fill="white" />
+      
+      {/* Bottom right leaf */}
+      <path d="M 0,25 L 15,35 L 0,35" fill="white" />
     </g>
   </svg>
 );
