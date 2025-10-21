@@ -7,11 +7,23 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { CheckCircle, Copy } from "lucide-react";
 
 export default function TeacherAuth() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>("login");
+  const [showTeacherIdDialog, setShowTeacherIdDialog] = useState(false);
+  const [newTeacherId, setNewTeacherId] = useState<number | null>(null);
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState("");
@@ -62,11 +74,8 @@ export default function TeacherAuth() {
       return response.json();
     },
     onSuccess: (data) => {
-      toast({
-        title: "Welcome!",
-        description: `Your Teacher ID is ${data.teacherId}. Please save it for future reference.`,
-      });
-      setLocation("/teacher/dashboard");
+      setNewTeacherId(data.teacherId);
+      setShowTeacherIdDialog(true);
     },
     onError: (error: Error) => {
       toast({
@@ -76,6 +85,25 @@ export default function TeacherAuth() {
       });
     },
   });
+
+  const handleCopyTeacherId = () => {
+    if (newTeacherId) {
+      navigator.clipboard.writeText(newTeacherId.toString());
+      toast({
+        title: "Copied!",
+        description: "Teacher ID copied to clipboard",
+      });
+    }
+  };
+
+  const handleContinueToDashboard = () => {
+    setShowTeacherIdDialog(false);
+    toast({
+      title: "Welcome!",
+      description: "Registration successful",
+    });
+    setLocation("/teacher/dashboard");
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,109 +120,163 @@ export default function TeacherAuth() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Teacher Portal</CardTitle>
-          <CardDescription>Login or register as a teacher</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
-              <TabsTrigger value="register" data-testid="tab-register">Register</TabsTrigger>
-            </TabsList>
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    data-testid="input-login-email"
-                    placeholder="your@email.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    required
-                  />
+    <>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Teacher Portal</CardTitle>
+            <CardDescription>Login or register as a teacher</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="login" data-testid="tab-login">Login</TabsTrigger>
+                <TabsTrigger value="register" data-testid="tab-register">Register</TabsTrigger>
+              </TabsList>
+              <TabsContent value="login">
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email">Email</Label>
+                    <Input
+                      id="login-email"
+                      type="email"
+                      data-testid="input-login-email"
+                      placeholder="your@email.com"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="login-password">Password</Label>
+                    <Input
+                      id="login-password"
+                      type="password"
+                      data-testid="input-login-password"
+                      placeholder="••••••••"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    data-testid="button-login"
+                    disabled={loginMutation.isPending}
+                  >
+                    {loginMutation.isPending ? "Logging in..." : "Login"}
+                  </Button>
+                </form>
+              </TabsContent>
+              <TabsContent value="register">
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="register-name">Full Name</Label>
+                    <Input
+                      id="register-name"
+                      type="text"
+                      data-testid="input-register-name"
+                      placeholder="John Doe"
+                      value={registerName}
+                      onChange={(e) => setRegisterName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-email">Email</Label>
+                    <Input
+                      id="register-email"
+                      type="email"
+                      data-testid="input-register-email"
+                      placeholder="your@email.com"
+                      value={registerEmail}
+                      onChange={(e) => setRegisterEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="register-password">Password</Label>
+                    <Input
+                      id="register-password"
+                      type="password"
+                      data-testid="input-register-password"
+                      placeholder="••••••••"
+                      value={registerPassword}
+                      onChange={(e) => setRegisterPassword(e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    data-testid="button-register"
+                    disabled={registerMutation.isPending}
+                  >
+                    {registerMutation.isPending ? "Registering..." : "Register"}
+                  </Button>
+                  <p className="text-sm text-muted-foreground text-center">
+                    You will receive a unique Teacher ID upon registration
+                  </p>
+                </form>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
+
+      <AlertDialog open={showTeacherIdDialog} onOpenChange={setShowTeacherIdDialog}>
+        <AlertDialogContent data-testid="dialog-teacher-id-success">
+          <AlertDialogHeader>
+            <div className="flex justify-center mb-4">
+              <div className="rounded-full bg-green-100 dark:bg-green-900/20 p-3">
+                <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-500" />
+              </div>
+            </div>
+            <AlertDialogTitle className="text-center text-2xl">
+              Registration Successful!
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center space-y-4">
+              <p className="text-base">
+                Your account has been created successfully. Please save your Teacher ID:
+              </p>
+              <div className="bg-primary/10 border-2 border-primary rounded-lg p-6 space-y-3">
+                <p className="text-sm font-medium text-muted-foreground">Your Teacher ID</p>
+                <div className="flex items-center justify-center gap-3">
+                  <p className="text-4xl font-bold text-primary" data-testid="text-teacher-id-display">
+                    {newTeacherId}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleCopyTeacherId}
+                    data-testid="button-copy-teacher-id"
+                    aria-label="Copy Teacher ID"
+                  >
+                    <Copy className="h-5 w-5" />
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Password</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    data-testid="input-login-password"
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  data-testid="button-login"
-                  disabled={loginMutation.isPending}
-                >
-                  {loginMutation.isPending ? "Logging in..." : "Login"}
-                </Button>
-              </form>
-            </TabsContent>
-            <TabsContent value="register">
-              <form onSubmit={handleRegister} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="register-name">Full Name</Label>
-                  <Input
-                    id="register-name"
-                    type="text"
-                    data-testid="input-register-name"
-                    placeholder="John Doe"
-                    value={registerName}
-                    onChange={(e) => setRegisterName(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
-                  <Input
-                    id="register-email"
-                    type="email"
-                    data-testid="input-register-email"
-                    placeholder="your@email.com"
-                    value={registerEmail}
-                    onChange={(e) => setRegisterEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Password</Label>
-                  <Input
-                    id="register-password"
-                    type="password"
-                    data-testid="input-register-password"
-                    placeholder="••••••••"
-                    value={registerPassword}
-                    onChange={(e) => setRegisterPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  data-testid="button-register"
-                  disabled={registerMutation.isPending}
-                >
-                  {registerMutation.isPending ? "Registering..." : "Register"}
-                </Button>
-                <p className="text-sm text-muted-foreground text-center">
-                  You will receive a unique Teacher ID upon registration
+                <p className="text-xs text-muted-foreground">
+                  Trainers will use this ID to add you to training batches
                 </p>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Please save this ID in a safe place. You will need it for future reference.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={handleContinueToDashboard}
+              data-testid="button-continue-dashboard"
+              className="w-full"
+            >
+              Continue to Dashboard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
