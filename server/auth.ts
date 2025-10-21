@@ -82,7 +82,7 @@ export function setupAuth(app: Express) {
     done(null, user);
   });
 
-  // Register new teacher account (public)
+  // Register new trainer account (public)
   app.post("/api/register", async (req, res, next) => {
     try {
       const existingUser = await storage.getUserByUsername(req.body.username);

@@ -17,6 +17,18 @@ import {
   type InsertQuizCache,
   type SecurityViolation,
   type InsertSecurityViolation,
+  type Teacher,
+  type InsertTeacher,
+  type Batch,
+  type InsertBatch,
+  type BatchTeacher,
+  type InsertBatchTeacher,
+  type AssignedQuiz,
+  type InsertAssignedQuiz,
+  type TeacherQuizAttempt,
+  type InsertTeacherQuizAttempt,
+  type TeacherReportCard,
+  type InsertTeacherReportCard,
   trainingWeeks,
   users,
   contentItems,
@@ -24,7 +36,13 @@ import {
   deckFileProgress,
   quizAttempts,
   quizCache,
-  securityViolations
+  securityViolations,
+  teachers,
+  batches,
+  batchTeachers,
+  assignedQuizzes,
+  teacherQuizAttempts,
+  teacherReportCards
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql as sqlOp } from "drizzle-orm";
@@ -81,6 +99,41 @@ export interface IStorage {
   
   // Security operations
   logSecurityViolation(violation: InsertSecurityViolation): Promise<SecurityViolation>;
+  
+  // Teacher operations (new user type separate from trainer/admin)
+  getTeacher(id: string): Promise<Teacher | undefined>;
+  getTeacherByEmail(email: string): Promise<Teacher | undefined>;
+  getTeacherByTeacherId(teacherId: number): Promise<Teacher | undefined>;
+  createTeacher(teacher: InsertTeacher): Promise<Teacher>;
+  getNextTeacherId(): Promise<number>;
+  
+  // Batch operations
+  getAllBatches(createdBy?: string): Promise<Batch[]>;
+  getBatch(id: string): Promise<Batch | undefined>;
+  createBatch(batch: InsertBatch): Promise<Batch>;
+  deleteBatch(id: string): Promise<boolean>;
+  
+  // Batch teacher operations
+  addTeacherToBatch(batchTeacher: InsertBatchTeacher): Promise<BatchTeacher>;
+  removeTeacherFromBatch(batchId: string, teacherId: string): Promise<boolean>;
+  getTeachersInBatch(batchId: string): Promise<Teacher[]>;
+  getBatchesForTeacher(teacherId: string): Promise<Batch[]>;
+  
+  // Assigned quiz operations
+  createAssignedQuiz(quiz: InsertAssignedQuiz): Promise<AssignedQuiz>;
+  getAssignedQuizzesForBatch(batchId: string): Promise<AssignedQuiz[]>;
+  getAssignedQuizzesForTeacher(teacherId: string): Promise<AssignedQuiz[]>;
+  getAssignedQuiz(id: string): Promise<AssignedQuiz | undefined>;
+  deleteAssignedQuiz(id: string): Promise<boolean>;
+  
+  // Teacher quiz attempt operations
+  saveTeacherQuizAttempt(attempt: InsertTeacherQuizAttempt): Promise<TeacherQuizAttempt>;
+  getTeacherQuizAttempt(teacherId: string, assignedQuizId: string): Promise<TeacherQuizAttempt | undefined>;
+  getAllTeacherQuizAttempts(teacherId: string): Promise<TeacherQuizAttempt[]>;
+  
+  // Teacher report card operations
+  getTeacherReportCard(teacherId: string): Promise<TeacherReportCard | undefined>;
+  upsertTeacherReportCard(reportCard: Partial<InsertTeacherReportCard> & { teacherId: string }): Promise<TeacherReportCard>;
   
   // Session store
   sessionStore: session.Store;
@@ -149,7 +202,7 @@ export class DatabaseStorage implements IStorage {
   async createUser(userData: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
-      .values({ ...userData, role: "teacher" }) // Always create teachers, never admins
+      .values({ ...userData, role: "trainer" }) // Always create trainers, never admins
       .returning();
     return user;
   }
@@ -552,6 +605,220 @@ export class DatabaseStorage implements IStorage {
       .values(violation as any)
       .returning();
     return result;
+  }
+
+  // Teacher operations (new user type)
+  async getTeacher(id: string): Promise<Teacher | undefined> {
+    const [teacher] = await db.select().from(teachers).where(eq(teachers.id, id));
+    return teacher;
+  }
+
+  async getTeacherByEmail(email: string): Promise<Teacher | undefined> {
+    const [teacher] = await db.select().from(teachers).where(eq(teachers.email, email));
+    return teacher;
+  }
+
+  async getTeacherByTeacherId(teacherId: number): Promise<Teacher | undefined> {
+    const [teacher] = await db.select().from(teachers).where(eq(teachers.teacherId, teacherId));
+    return teacher;
+  }
+
+  async getNextTeacherId(): Promise<number> {
+    const [result] = await db
+      .select({ maxId: sqlOp`COALESCE(MAX(${teachers.teacherId}), 7099)` })
+      .from(teachers);
+    return (result?.maxId as number) + 1;
+  }
+
+  async createTeacher(teacherData: InsertTeacher): Promise<Teacher> {
+    const nextId = await this.getNextTeacherId();
+    const [teacher] = await db
+      .insert(teachers)
+      .values({ ...teacherData, teacherId: nextId })
+      .returning();
+    return teacher;
+  }
+
+  // Batch operations
+  async getAllBatches(createdBy?: string): Promise<Batch[]> {
+    if (createdBy) {
+      return await db.select().from(batches).where(eq(batches.createdBy, createdBy));
+    }
+    return await db.select().from(batches);
+  }
+
+  async getBatch(id: string): Promise<Batch | undefined> {
+    const [batch] = await db.select().from(batches).where(eq(batches.id, id));
+    return batch;
+  }
+
+  async createBatch(batchData: InsertBatch): Promise<Batch> {
+    const [batch] = await db
+      .insert(batches)
+      .values(batchData)
+      .returning();
+    return batch;
+  }
+
+  async deleteBatch(id: string): Promise<boolean> {
+    const result = await db.delete(batches).where(eq(batches.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Batch teacher operations
+  async addTeacherToBatch(batchTeacher: InsertBatchTeacher): Promise<BatchTeacher> {
+    const [result] = await db
+      .insert(batchTeachers)
+      .values(batchTeacher)
+      .returning();
+    return result;
+  }
+
+  async removeTeacherFromBatch(batchId: string, teacherId: string): Promise<boolean> {
+    const result = await db
+      .delete(batchTeachers)
+      .where(
+        and(
+          eq(batchTeachers.batchId, batchId),
+          eq(batchTeachers.teacherId, teacherId)
+        )
+      );
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getTeachersInBatch(batchId: string): Promise<Teacher[]> {
+    const results = await db
+      .select({
+        teacher: teachers
+      })
+      .from(batchTeachers)
+      .innerJoin(teachers, eq(batchTeachers.teacherId, teachers.id))
+      .where(eq(batchTeachers.batchId, batchId));
+    
+    return results.map(r => r.teacher);
+  }
+
+  async getBatchesForTeacher(teacherId: string): Promise<Batch[]> {
+    const results = await db
+      .select({
+        batch: batches
+      })
+      .from(batchTeachers)
+      .innerJoin(batches, eq(batchTeachers.batchId, batches.id))
+      .where(eq(batchTeachers.teacherId, teacherId));
+    
+    return results.map(r => r.batch);
+  }
+
+  // Assigned quiz operations
+  async createAssignedQuiz(quiz: InsertAssignedQuiz): Promise<AssignedQuiz> {
+    const [result] = await db
+      .insert(assignedQuizzes)
+      .values(quiz as any)
+      .returning();
+    return result;
+  }
+
+  async getAssignedQuizzesForBatch(batchId: string): Promise<AssignedQuiz[]> {
+    return await db
+      .select()
+      .from(assignedQuizzes)
+      .where(eq(assignedQuizzes.batchId, batchId))
+      .orderBy(sqlOp`${assignedQuizzes.assignedAt} DESC`);
+  }
+
+  async getAssignedQuizzesForTeacher(teacherId: string): Promise<AssignedQuiz[]> {
+    const batches = await this.getBatchesForTeacher(teacherId);
+    const batchIds = batches.map(b => b.id);
+    
+    if (batchIds.length === 0) {
+      return [];
+    }
+
+    const allQuizzes = await Promise.all(
+      batchIds.map(batchId => this.getAssignedQuizzesForBatch(batchId))
+    );
+
+    return allQuizzes.flat();
+  }
+
+  async getAssignedQuiz(id: string): Promise<AssignedQuiz | undefined> {
+    const [quiz] = await db.select().from(assignedQuizzes).where(eq(assignedQuizzes.id, id));
+    return quiz;
+  }
+
+  async deleteAssignedQuiz(id: string): Promise<boolean> {
+    const result = await db.delete(assignedQuizzes).where(eq(assignedQuizzes.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  // Teacher quiz attempt operations
+  async saveTeacherQuizAttempt(attempt: InsertTeacherQuizAttempt): Promise<TeacherQuizAttempt> {
+    const [result] = await db
+      .insert(teacherQuizAttempts)
+      .values(attempt as any)
+      .returning();
+    return result;
+  }
+
+  async getTeacherQuizAttempt(teacherId: string, assignedQuizId: string): Promise<TeacherQuizAttempt | undefined> {
+    const [attempt] = await db
+      .select()
+      .from(teacherQuizAttempts)
+      .where(
+        and(
+          eq(teacherQuizAttempts.teacherId, teacherId),
+          eq(teacherQuizAttempts.assignedQuizId, assignedQuizId)
+        )
+      )
+      .orderBy(sqlOp`${teacherQuizAttempts.completedAt} DESC`)
+      .limit(1);
+    return attempt;
+  }
+
+  async getAllTeacherQuizAttempts(teacherId: string): Promise<TeacherQuizAttempt[]> {
+    return await db
+      .select()
+      .from(teacherQuizAttempts)
+      .where(eq(teacherQuizAttempts.teacherId, teacherId))
+      .orderBy(sqlOp`${teacherQuizAttempts.completedAt} DESC`);
+  }
+
+  // Teacher report card operations
+  async getTeacherReportCard(teacherId: string): Promise<TeacherReportCard | undefined> {
+    const [reportCard] = await db
+      .select()
+      .from(teacherReportCards)
+      .where(eq(teacherReportCards.teacherId, teacherId));
+    return reportCard;
+  }
+
+  async upsertTeacherReportCard(reportCard: Partial<InsertTeacherReportCard> & { teacherId: string }): Promise<TeacherReportCard> {
+    const existing = await this.getTeacherReportCard(reportCard.teacherId);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(teacherReportCards)
+        .set({
+          ...reportCard,
+          updatedAt: new Date(),
+        })
+        .where(eq(teacherReportCards.teacherId, reportCard.teacherId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(teacherReportCards)
+        .values({
+          teacherId: reportCard.teacherId,
+          level: reportCard.level || "Beginner",
+          totalQuizzesTaken: reportCard.totalQuizzesTaken || 0,
+          totalQuizzesPassed: reportCard.totalQuizzesPassed || 0,
+          averageScore: reportCard.averageScore || 0,
+        })
+        .returning();
+      return created;
+    }
   }
 }
 

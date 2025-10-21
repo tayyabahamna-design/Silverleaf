@@ -11,6 +11,8 @@ import { PresentationViewer } from "@/components/PresentationViewer";
 import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
+import { Link } from "wouter";
+import { Users } from "lucide-react";
 import {
   DndContext,
   closestCenter,

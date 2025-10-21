@@ -10,6 +10,7 @@ import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertTrainingWeekSchema, updateTrainingWeekSchema } from "@shared/schema";
 import { setupAuth, hashPassword } from "./auth";
+import { setupTeacherAuth, isTeacherAuthenticated } from "./teacherAuth";
 import { z } from "zod";
 
 const execAsync = promisify(exec);
@@ -30,12 +31,22 @@ function isAdmin(req: Request, res: Response, next: NextFunction) {
   res.status(403).json({ message: "Forbidden: Admin access required" });
 }
 
+// Middleware to check if user is admin or trainer
+function isTrainer(req: Request, res: Response, next: NextFunction) {
+  if (req.user && (req.user.role === "admin" || req.user.role === "trainer")) {
+    return next();
+  }
+  res.status(403).json({ message: "Forbidden: Trainer access required" });
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const objectStorageService = new ObjectStorageService();
 
   // Setup authentication (username/password)
   setupAuth(app);
+  setupTeacherAuth(app);
   // Note: /api/register, /api/login, /api/logout, /api/user are now in auth.ts
+  // Note: /api/teacher/* routes are in teacherAuth.ts
 
   // Admin password reset endpoint
   const resetPasswordSchema = z.object({
@@ -855,6 +866,404 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ passed });
     } catch (error) {
       console.error("[FILE-QUIZ] Check passed error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ============================================================================
+  // BATCH MANAGEMENT ROUTES (Trainer only)
+  // ============================================================================
+
+  // Get all batches (optionally filter by creator)
+  app.get("/api/batches", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      // Admins can see all batches, trainers only see their own
+      const batches = req.user!.role === "admin" 
+        ? await storage.getAllBatches() 
+        : await storage.getAllBatches(req.user!.id);
+      res.json(batches);
+    } catch (error) {
+      console.error("Error fetching batches:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Create a new batch
+  app.post("/api/batches", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batch = await storage.createBatch({
+        name: req.body.name,
+        description: req.body.description,
+        createdBy: req.user!.id,
+      });
+      res.status(201).json(batch);
+    } catch (error) {
+      console.error("Error creating batch:", error);
+      res.status(500).json({ error: "Failed to create batch" });
+    }
+  });
+
+  // Get a specific batch with teachers
+  app.get("/api/batches/:batchId", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      // Verify ownership - only admins can access any batch, trainers only their own
+      if (req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const teachers = await storage.getTeachersInBatch(req.params.batchId);
+      res.json({ ...batch, teachers });
+    } catch (error) {
+      console.error("Error fetching batch:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete a batch
+  app.delete("/api/batches/:batchId", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      // Verify ownership - only admins can delete any batch, trainers only their own
+      if (req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const deleted = await storage.deleteBatch(req.params.batchId);
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Error deleting batch:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Add teacher to batch by teacherId
+  app.post("/api/batches/:batchId/teachers", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      // Verify ownership
+      if (req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { teacherId } = req.body; // Numeric teacher ID
+      
+      // Find teacher by numeric ID
+      const teacher = await storage.getTeacherByTeacherId(teacherId);
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found with that ID" });
+      }
+
+      await storage.addTeacherToBatch({
+        batchId: req.params.batchId,
+        teacherId: teacher.id,
+      });
+
+      res.status(201).json({ message: "Teacher added to batch" });
+    } catch (error) {
+      console.error("Error adding teacher to batch:", error);
+      res.status(500).json({ error: "Failed to add teacher to batch" });
+    }
+  });
+
+  // Remove teacher from batch
+  app.delete("/api/batches/:batchId/teachers/:teacherId", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      // Verify ownership
+      if (req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const deleted = await storage.removeTeacherFromBatch(
+        req.params.batchId,
+        req.params.teacherId
+      );
+      if (!deleted) {
+        return res.status(404).json({ error: "Teacher not in batch" });
+      }
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Error removing teacher from batch:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ============================================================================
+  // QUIZ ASSIGNMENT ROUTES (Trainer only)
+  // ============================================================================
+
+  // Generate and assign quiz to a batch
+  app.post("/api/batches/:batchId/assign-quiz", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      // Verify ownership
+      if (req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { weekId, title, description, numQuestions = 5 } = req.body;
+      
+      const week = await storage.getTrainingWeek(weekId);
+      if (!week) {
+        return res.status(404).json({ error: "Training week not found" });
+      }
+
+      if (!week.deckFiles || week.deckFiles.length === 0) {
+        return res.status(400).json({ error: "No files available for quiz generation" });
+      }
+
+      // Generate quiz using the quiz service
+      const { generateQuizQuestions } = await import('./quizService');
+
+      const fileUrls = week.deckFiles.map(file => ({
+        url: file.fileUrl,
+        name: file.fileName,
+      }));
+
+      const questions = await generateQuizQuestions({
+        fileUrls,
+        competencyFocus: week.competencyFocus,
+        objective: week.objective,
+        numQuestions,
+      });
+
+      // Create assigned quiz
+      const assignedQuiz = await storage.createAssignedQuiz({
+        batchId: req.params.batchId,
+        weekId,
+        title,
+        description,
+        numQuestions,
+        questions,
+        assignedBy: req.user!.id,
+      });
+
+      res.status(201).json(assignedQuiz);
+    } catch (error) {
+      console.error("Error assigning quiz:", error);
+      res.status(500).json({ error: "Failed to assign quiz" });
+    }
+  });
+
+  // Get assigned quizzes for a batch
+  app.get("/api/batches/:batchId/quizzes", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      // Verify ownership
+      if (req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const quizzes = await storage.getAssignedQuizzesForBatch(req.params.batchId);
+      res.json(quizzes);
+    } catch (error) {
+      console.error("Error fetching assigned quizzes:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete an assigned quiz
+  app.delete("/api/assigned-quizzes/:quizId", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const quiz = await storage.getAssignedQuiz(req.params.quizId);
+      if (!quiz) {
+        return res.status(404).json({ error: "Quiz not found" });
+      }
+      // Verify ownership through batch
+      const batch = await storage.getBatch(quiz.batchId);
+      if (batch && req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const deleted = await storage.deleteAssignedQuiz(req.params.quizId);
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Error deleting quiz:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ============================================================================
+  // TEACHER QUIZ ROUTES (Teacher only)
+  // ============================================================================
+
+  // Get all quizzes assigned to teacher
+  app.get("/api/teacher/quizzes", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const quizzes = await storage.getAssignedQuizzesForTeacher(req.teacherId!);
+      res.json(quizzes);
+    } catch (error) {
+      console.error("Error fetching teacher quizzes:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get a specific assigned quiz
+  app.get("/api/assigned-quizzes/:quizId", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const quiz = await storage.getAssignedQuiz(req.params.quizId);
+      if (!quiz) {
+        return res.status(404).json({ error: "Quiz not found" });
+      }
+      res.json(quiz);
+    } catch (error) {
+      console.error("Error fetching quiz:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Submit quiz attempt (teacher)
+  app.post("/api/assigned-quizzes/:quizId/submit", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const { answers } = req.body;
+      const quiz = await storage.getAssignedQuiz(req.params.quizId);
+      
+      if (!quiz) {
+        return res.status(404).json({ error: "Quiz not found" });
+      }
+
+      // Check if teacher already attempted this quiz
+      const existingAttempt = await storage.getTeacherQuizAttempt(
+        req.teacherId!,
+        req.params.quizId
+      );
+
+      if (existingAttempt) {
+        return res.status(400).json({ error: "Quiz already attempted" });
+      }
+
+      // Calculate score
+      let score = 0;
+      quiz.questions.forEach((q: any) => {
+        if (answers[q.id] === q.correctAnswer) {
+          score++;
+        }
+      });
+
+      const totalQuestions = quiz.questions.length;
+      const percentage = Math.round((score / totalQuestions) * 100);
+      const passed = percentage >= 70 ? "yes" : "no";
+
+      // Save attempt
+      const attempt = await storage.saveTeacherQuizAttempt({
+        teacherId: req.teacherId!,
+        assignedQuizId: req.params.quizId,
+        answers,
+        score,
+        totalQuestions,
+        passed,
+      });
+
+      // Update report card
+      const allAttempts = await storage.getAllTeacherQuizAttempts(req.teacherId!);
+      const totalTaken = allAttempts.length;
+      const totalPassed = allAttempts.filter(a => a.passed === "yes").length;
+      const avgScore = Math.round(
+        allAttempts.reduce((sum, a) => sum + (a.score / a.totalQuestions) * 100, 0) / totalTaken
+      );
+
+      let level = "Beginner";
+      if (avgScore >= 85) level = "Advanced";
+      else if (avgScore >= 70) level = "Intermediate";
+
+      await storage.upsertTeacherReportCard({
+        teacherId: req.teacherId!,
+        level,
+        totalQuizzesTaken: totalTaken,
+        totalQuizzesPassed: totalPassed,
+        averageScore: avgScore,
+      });
+
+      res.json({
+        score,
+        totalQuestions,
+        passed: passed === "yes",
+        percentage,
+      });
+    } catch (error) {
+      console.error("Error submitting quiz:", error);
+      res.status(500).json({ error: "Failed to submit quiz" });
+    }
+  });
+
+  // Get teacher's quiz attempt for a specific quiz
+  app.get("/api/assigned-quizzes/:quizId/attempt", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const attempt = await storage.getTeacherQuizAttempt(
+        req.teacherId!,
+        req.params.quizId
+      );
+      res.json(attempt || null);
+    } catch (error) {
+      console.error("Error fetching attempt:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get teacher report card
+  app.get("/api/teacher/report-card", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const reportCard = await storage.getTeacherReportCard(req.teacherId!);
+      res.json(reportCard || {
+        level: "Beginner",
+        totalQuizzesTaken: 0,
+        totalQuizzesPassed: 0,
+        averageScore: 0,
+      });
+    } catch (error) {
+      console.error("Error fetching report card:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get progress for all teachers in a batch (trainer view)
+  app.get("/api/batches/:batchId/progress", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      // Verify ownership
+      if (req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const teachers = await storage.getTeachersInBatch(req.params.batchId);
+      const progress = await Promise.all(
+        teachers.map(async (teacher) => {
+          const reportCard = await storage.getTeacherReportCard(teacher.id);
+          return {
+            teacher: {
+              id: teacher.id,
+              teacherId: teacher.teacherId,
+              name: teacher.name,
+              email: teacher.email,
+            },
+            reportCard: reportCard || {
+              level: "Beginner",
+              totalQuizzesTaken: 0,
+              totalQuizzesPassed: 0,
+              averageScore: 0,
+            },
+          };
+        })
+      );
+      res.json(progress);
+    } catch (error) {
+      console.error("Error fetching batch progress:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
