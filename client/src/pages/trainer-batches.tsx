@@ -143,7 +143,7 @@ export default function TrainerBatches() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/batches", selectedBatch?.id, "quizzes"] });
-      toast({ title: "Success", description: "Quiz assigned successfully" });
+      toast({ title: "Success", description: "Quiz generated and assigned successfully" });
       setAssignQuizOpen(false);
       setQuizTitle("");
       setQuizDescription("");
@@ -291,7 +291,7 @@ export default function TrainerBatches() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold">Batch Management</h2>
-            <p className="text-muted-foreground">Manage teacher batches, assign quizzes, and track progress</p>
+            <p className="text-muted-foreground">Manage teacher batches, generate quizzes, and track progress</p>
           </div>
           <Dialog open={createBatchOpen} onOpenChange={setCreateBatchOpen}>
             <DialogTrigger asChild>
@@ -303,7 +303,7 @@ export default function TrainerBatches() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create New Batch</DialogTitle>
-                <DialogDescription>Create a batch to group teachers and assign quizzes</DialogDescription>
+                <DialogDescription>Create a batch to group teachers and generate quizzes for them</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -340,7 +340,7 @@ export default function TrainerBatches() {
               <Users className="h-16 w-16 text-muted-foreground mb-4" />
               <h3 className="text-xl font-semibold mb-2">No Batches Yet</h3>
               <p className="text-muted-foreground text-center mb-4">
-                Create your first batch to start managing teachers and assigning quizzes
+                Create your first batch to start managing teachers and generating quizzes
               </p>
             </CardContent>
           </Card>
@@ -452,19 +452,19 @@ export default function TrainerBatches() {
             {/* Quizzes Tab */}
             <TabsContent value="quizzes" className="space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Assigned Quizzes</h3>
+                <h3 className="text-lg font-semibold">Generated Quizzes</h3>
                 <Button
                   size="sm"
                   onClick={() => setAssignQuizOpen(true)}
-                  data-testid="button-assign-quiz"
+                  data-testid="button-generate-quiz"
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Assign Quiz
+                  Generate Quiz
                 </Button>
               </div>
               {assignedQuizzes.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No quizzes assigned to this batch yet
+                  No quizzes generated for this batch yet
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -599,8 +599,8 @@ export default function TrainerBatches() {
       <Dialog open={assignQuizOpen} onOpenChange={setAssignQuizOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Assign Quiz to {selectedBatch?.name}</DialogTitle>
-            <DialogDescription>Generate and assign a quiz from a training week</DialogDescription>
+            <DialogTitle>Generate Quiz for {selectedBatch?.name}</DialogTitle>
+            <DialogDescription>Create an AI-generated quiz from training materials and assign it to this batch</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -655,7 +655,7 @@ export default function TrainerBatches() {
               disabled={!quizTitle || !selectedWeek || assignQuizMutation.isPending}
               data-testid="button-submit-quiz"
             >
-              {assignQuizMutation.isPending ? "Assigning..." : "Assign Quiz"}
+              {assignQuizMutation.isPending ? "Generating & Assigning..." : "Generate & Assign Quiz"}
             </Button>
           </div>
         </DialogContent>
