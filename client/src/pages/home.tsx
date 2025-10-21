@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, GripVertical } from "lucide-react";
+import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
@@ -362,42 +362,59 @@ export default function Home() {
         ref={setNodeRef}
         style={style}
         value={week.id}
-        className="border-l-4 border-l-primary border-0 rounded-2xl bg-card shadow-lg hover:shadow-2xl transition-all duration-300"
+        className="border rounded-lg bg-card shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
         data-testid={`card-week-${week.id}`}
       >
-        <div className="flex items-center pr-3 sm:pr-4 gap-2">
+        <div className="flex items-stretch">
+          {/* Drag Handle */}
           <button
-            className="pl-4 cursor-grab active:cursor-grabbing hover:bg-accent/50 rounded-l-2xl py-6 sm:py-8 transition-colors"
+            className="flex items-center px-3 cursor-grab active:cursor-grabbing hover-elevate active-elevate-2 bg-muted/30 border-r transition-colors"
             {...attributes}
             {...listeners}
             data-testid={`drag-handle-${week.id}`}
             aria-label="Drag to reorder"
           >
-            <GripVertical className="h-5 w-5 text-muted-foreground" />
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
           </button>
-          <AccordionTrigger className="flex-1 pr-5 sm:pr-6 py-6 sm:py-8 hover:no-underline">
-            <div className="flex items-center gap-5 sm:gap-6 w-full min-w-0">
-              <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-md">
-                <span className="text-white font-bold text-xl sm:text-2xl">{week.weekNumber}</span>
+
+          {/* Card Content */}
+          <div className="flex-1 min-w-0">
+            <AccordionTrigger className="w-full px-4 py-4 hover:no-underline hover-elevate [&[data-state=open]>div>svg]:rotate-180">
+              <div className="flex items-center gap-4 w-full min-w-0">
+                {/* Week Number Badge */}
+                <div className="h-12 w-12 rounded-lg bg-primary/10 dark:bg-primary/20 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-primary font-bold text-lg">{week.weekNumber}</span>
+                </div>
+
+                {/* Week Info */}
+                <div className="flex-1 min-w-0 text-left">
+                  <h3 className="font-semibold text-base sm:text-lg leading-tight mb-1">
+                    Week {week.weekNumber}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                    {week.competencyFocus || "No competency focus set"}
+                  </p>
+                </div>
+
+                {/* Chevron Icon */}
+                <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform duration-200 flex-shrink-0" />
               </div>
-              <div className="text-left flex-1 min-w-0">
-                <h3 className="font-extrabold text-xl sm:text-2xl">Week {week.weekNumber}</h3>
-                <p className="text-sm sm:text-base text-muted-foreground/80 truncate">
-                  {week.competencyFocus || "No competency focus set"}
-                </p>
-              </div>
-            </div>
-          </AccordionTrigger>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setDeleteId(week.id)}
-            className="h-10 w-10 rounded-xl hover:bg-amber-500/10 transition-colors"
-            data-testid={`button-delete-${week.id}`}
-            aria-label="Delete week"
-          >
-            <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-          </Button>
+            </AccordionTrigger>
+          </div>
+
+          {/* Delete Button */}
+          <div className="flex items-center pr-3 border-l">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDeleteId(week.id)}
+              className="h-9 w-9 hover:bg-destructive/10 hover:text-destructive transition-colors"
+              data-testid={`button-delete-${week.id}`}
+              aria-label="Delete week"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <AccordionContent className="pt-6 sm:pt-8 pb-6 sm:pb-8 px-5 sm:px-10">
           <div className="space-y-6 sm:space-y-8">
