@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,12 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
 
 type Role = "admin" | "teacher" | "trainer";
 type AccountType = "teacher" | "trainer";
 
 export default function UnifiedAuth() {
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
   
   // Login state
@@ -55,11 +54,13 @@ export default function UnifiedAuth() {
         });
 
         if (response.ok) {
+          const teacherData = await response.json();
           toast({
             title: "Welcome!",
             description: "Successfully logged in as Teacher",
           });
-          setLocation("/teacher-dashboard");
+          // Force full page reload to ensure auth state is updated
+          window.location.href = "/teacher/dashboard";
         } else {
           const error = await response.text();
           toast({
@@ -94,17 +95,16 @@ export default function UnifiedAuth() {
             return;
           }
 
+          // Update the auth context's query cache
+          queryClient.setQueryData(["/api/user"], user);
+
           toast({
             title: "Welcome!",
             description: `Successfully logged in as ${user.role}`,
           });
           
-          // Route based on role
-          if (user.role === "admin") {
-            setLocation("/");
-          } else if (user.role === "trainer") {
-            setLocation("/");
-          }
+          // Force full page reload to ensure auth state is updated
+          window.location.href = "/";
         } else {
           toast({
             variant: "destructive",
