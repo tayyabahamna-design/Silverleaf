@@ -65,18 +65,20 @@ export function setupTeacherAuth(app: Express) {
   });
 
   // Teacher login
+  // UPDATED: Accept teacherId (numeric ID) instead of email for login
   app.post("/api/teacher/login", async (req, res) => {
     try {
-      const { email, password } = req.body;
+      const { teacherId, password } = req.body;
       
-      const teacher = await storage.getTeacherByEmail(email);
+      // Find teacher by numeric teacher ID
+      const teacher = await storage.getTeacherByTeacherId(teacherId);
       if (!teacher) {
-        return res.status(401).json({ message: "Invalid email or password" });
+        return res.status(401).json({ message: "Invalid Teacher ID or password" });
       }
 
       const passwordMatch = await comparePasswords(password, teacher.password);
       if (!passwordMatch) {
-        return res.status(401).json({ message: "Invalid email or password" });
+        return res.status(401).json({ message: "Invalid Teacher ID or password" });
       }
 
       // Store teacher session
