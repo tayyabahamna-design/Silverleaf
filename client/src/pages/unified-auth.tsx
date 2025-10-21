@@ -15,27 +15,25 @@ type AccountType = "teacher" | "trainer";
 const SilverleafLogo = ({ className = "w-12 h-12" }: { className?: string }) => (
   <svg className={className} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
     <rect width="100" height="100" rx="18" fill="currentColor" className="text-primary" />
-    <g transform="translate(50, 15)">
+    <g transform="translate(50, 12)">
       {/* Center vertical stem */}
-      <rect x="-2.5" y="0" width="5" height="70" fill="white" rx="2" />
+      <line x1="0" y1="0" x2="0" y2="76" stroke="white" strokeWidth="4" strokeLinecap="round" />
       
-      {/* Top left leaf */}
-      <path d="M 0,8 L -20,8 L 0,20 Z" fill="white" />
+      {/* Top V-shaped leaves */}
+      <path d="M 0,8 L -16,22 L 0,22 Z" fill="white" />
+      <path d="M 0,8 L 16,22 L 0,22 Z" fill="white" />
       
-      {/* Top right leaf */}
-      <path d="M 0,8 L 20,8 L 0,20 Z" fill="white" />
+      {/* Second row V-shaped leaves */}
+      <path d="M 0,28 L -16,42 L 0,42 Z" fill="white" />
+      <path d="M 0,28 L 16,42 L 0,42 Z" fill="white" />
       
-      {/* Middle left leaf */}
-      <path d="M 0,28 L -20,28 L 0,40 Z" fill="white" />
+      {/* Third row V-shaped leaves */}
+      <path d="M 0,48 L -16,62 L 0,62 Z" fill="white" />
+      <path d="M 0,48 L 16,62 L 0,62 Z" fill="white" />
       
-      {/* Middle right leaf */}
-      <path d="M 0,28 L 20,28 L 0,40 Z" fill="white" />
-      
-      {/* Bottom left leaf */}
-      <path d="M 0,48 L -20,48 L 0,60 Z" fill="white" />
-      
-      {/* Bottom right leaf */}
-      <path d="M 0,48 L 20,48 L 0,60 Z" fill="white" />
+      {/* Bottom V-shaped leaves */}
+      <path d="M 0,68 L -12,76 L 0,76 Z" fill="white" />
+      <path d="M 0,68 L 12,76 L 0,76 Z" fill="white" />
     </g>
   </svg>
 );
