@@ -424,9 +424,9 @@ export default function TrainerBatches() {
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {batches.map((batch: any) => (
-            <Card key={batch.id} className="hover-elevate active-elevate-2 cursor-pointer" onClick={() => {
+            <Card key={batch.id} className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl cursor-pointer" onClick={() => {
               setSelectedBatch(batch);
               setViewBatchDetailsOpen(true);
             }}>
@@ -445,7 +445,7 @@ export default function TrainerBatches() {
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Users className="h-4 w-4" />
+                  <Users className="h-5 w-5" />
                   <span>{batch.teacherCount || 0} enrolled</span>
                 </div>
               </CardContent>

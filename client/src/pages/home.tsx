@@ -362,36 +362,36 @@ export default function Home() {
         ref={setNodeRef}
         style={style}
         value={week.id}
-        className="mb-4 border-0 rounded-lg bg-card shadow-md hover:shadow-lg transition-all duration-300 overflow-visible"
+        className="mb-6 border-0 rounded-xl bg-card shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-visible"
         data-testid={`card-week-${week.id}`}
       >
-        <div className="flex items-stretch rounded-lg overflow-hidden border border-border">
+        <div className="flex items-stretch rounded-xl overflow-hidden border border-border/50">
           {/* Drag Handle */}
           <button
-            className="flex items-center px-3 cursor-grab active:cursor-grabbing hover-elevate active-elevate-2 bg-muted/30 border-r transition-colors"
+            className="flex items-center px-3 sm:px-4 cursor-grab active:cursor-grabbing hover-elevate active-elevate-2 bg-muted/30 dark:bg-muted/20 border-r border-border/50 transition-all"
             {...attributes}
             {...listeners}
             data-testid={`drag-handle-${week.id}`}
             aria-label="Drag to reorder"
           >
-            <GripVertical className="h-5 w-5 text-muted-foreground" />
+            <GripVertical className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
           </button>
 
           {/* Card Content */}
           <div className="flex-1 min-w-0">
-            <AccordionTrigger className="w-full px-4 sm:px-6 py-4 hover:no-underline hover-elevate group [&>svg]:data-[state=open]:rotate-180">
-              <div className="flex items-center gap-3 sm:gap-4 w-full min-w-0 pr-2">
+            <AccordionTrigger className="w-full px-5 sm:px-7 py-5 sm:py-6 hover:no-underline hover-elevate group [&>svg]:data-[state=open]:rotate-180">
+              <div className="flex items-center gap-4 sm:gap-5 w-full min-w-0 pr-2">
                 {/* Week Number Badge */}
-                <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-lg bg-primary/10 dark:bg-primary/20 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-primary font-bold text-lg sm:text-xl">{week.weekNumber}</span>
+                <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-xl bg-primary/10 dark:bg-primary/20 border-2 border-primary/30 flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <span className="text-primary font-bold text-xl sm:text-2xl">{week.weekNumber}</span>
                 </div>
 
                 {/* Week Info */}
                 <div className="flex-1 min-w-0 text-left">
-                  <h3 className="font-semibold text-base sm:text-lg leading-tight mb-1">
+                  <h3 className="font-semibold text-lg sm:text-xl leading-tight mb-1.5">
                     Week {week.weekNumber}
                   </h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                  <p className="text-sm sm:text-base text-muted-foreground truncate">
                     {week.competencyFocus || "No competency focus set"}
                   </p>
                 </div>
@@ -400,7 +400,7 @@ export default function Home() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center px-2 sm:px-3 border-l bg-muted/20 dark:bg-muted/10">
+          <div className="flex items-center px-3 sm:px-4 border-l border-border/50 bg-muted/10 dark:bg-muted/5">
             <Button
               variant="ghost"
               size="icon"
@@ -408,11 +408,11 @@ export default function Home() {
                 e.stopPropagation();
                 setDeleteId(week.id);
               }}
-              className="h-9 w-9 hover:bg-destructive/10 hover:text-destructive transition-colors"
+              className="h-11 w-11 hover:bg-destructive/10 hover:text-destructive transition-colors"
               data-testid={`button-delete-${week.id}`}
               aria-label="Delete week"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-5 w-5" />
             </Button>
           </div>
         </div>

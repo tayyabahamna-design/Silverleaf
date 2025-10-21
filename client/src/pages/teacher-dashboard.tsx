@@ -186,11 +186,11 @@ export default function TeacherDashboard() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Current Level</CardTitle>
-              <Award className="h-4 w-4 text-muted-foreground" />
+              <Award className="h-5 w-5 text-primary/60" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-level">
@@ -201,10 +201,10 @@ export default function TeacherDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Quizzes Taken</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              <BookOpen className="h-5 w-5 text-primary/60" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-quizzes-taken">
@@ -213,10 +213,10 @@ export default function TeacherDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Average Score</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              <CheckCircle className="h-5 w-5 text-primary/60" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold" data-testid="text-average-score">
@@ -226,7 +226,7 @@ export default function TeacherDashboard() {
           </Card>
         </div>
 
-        <Card>
+        <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
           <CardHeader>
             <CardTitle>Assigned Quizzes</CardTitle>
             <CardDescription>Complete quizzes to improve your level</CardDescription>
@@ -239,18 +239,18 @@ export default function TeacherDashboard() {
             ) : (
               <div className="space-y-4">
                 {quizzes.map((quiz: any) => (
-                  <Card key={quiz.id} data-testid={`card-quiz-${quiz.id}`}>
+                  <Card key={quiz.id} data-testid={`card-quiz-${quiz.id}`} className="shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border-border/50 rounded-lg">
                     <CardHeader>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-3">
                         <CardTitle className="text-lg">{quiz.title}</CardTitle>
-                        <Badge variant="outline">{quiz.numQuestions} Questions</Badge>
+                        <Badge variant="outline" className="flex-shrink-0">{quiz.numQuestions} Questions</Badge>
                       </div>
                       {quiz.description && (
                         <CardDescription>{quiz.description}</CardDescription>
                       )}
                     </CardHeader>
                     <CardContent>
-                      <Button onClick={() => openQuiz(quiz)} data-testid={`button-take-quiz-${quiz.id}`}>
+                      <Button onClick={() => openQuiz(quiz)} data-testid={`button-take-quiz-${quiz.id}`} className="min-h-11">
                         Take Quiz
                       </Button>
                     </CardContent>
@@ -261,7 +261,7 @@ export default function TeacherDashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
           <CardHeader>
             <CardTitle>Quiz History</CardTitle>
             <CardDescription>View your past quiz attempts and results</CardDescription>
@@ -278,7 +278,7 @@ export default function TeacherDashboard() {
                   const isPassed = attempt.passed === 'yes';
                   
                   return (
-                    <Card key={attempt.id} data-testid={`card-attempt-${attempt.id}`}>
+                    <Card key={attempt.id} data-testid={`card-attempt-${attempt.id}`} className="shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border-border/50 rounded-lg">
                       <CardHeader>
                         <div className="flex items-center justify-between">
                           <div>
