@@ -741,16 +741,6 @@ export default function TrainerBatches() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="file-quiz-description">Description (Optional)</Label>
-              <Textarea
-                id="file-quiz-description"
-                data-testid="input-file-quiz-description"
-                placeholder="Quiz description..."
-                value={quizDescription}
-                onChange={(e) => setQuizDescription(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
               <Label htmlFor="file-training-week">Training Week</Label>
               <Select value={selectedWeek} onValueChange={setSelectedWeek}>
                 <SelectTrigger data-testid="select-file-week">
@@ -773,15 +763,31 @@ export default function TrainerBatches() {
                     <SelectValue placeholder="Select a file" />
                   </SelectTrigger>
                   <SelectContent>
-                    {weekFiles.map((file: any) => (
-                      <SelectItem key={file.id} value={file.id}>
-                        {file.fileName}
+                    {weekFiles.length > 0 ? (
+                      weekFiles.map((file: any) => (
+                        <SelectItem key={file.id} value={file.id}>
+                          {file.fileName}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="no-files" disabled>
+                        No files uploaded for this week
                       </SelectItem>
-                    ))}
+                    )}
                   </SelectContent>
                 </Select>
               </div>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="file-quiz-description">Description (Optional)</Label>
+              <Textarea
+                id="file-quiz-description"
+                data-testid="input-file-quiz-description"
+                placeholder="Quiz description..."
+                value={quizDescription}
+                onChange={(e) => setQuizDescription(e.target.value)}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="file-num-questions">Number of Questions</Label>
               <Input
