@@ -416,7 +416,7 @@ export default function Home() {
             </Button>
           </div>
         </div>
-        <AccordionContent className="px-4 pb-6 pt-2 border-t bg-muted/20">
+        <AccordionContent className="px-4 sm:px-6 pb-6 pt-4 border-t bg-muted/10 dark:bg-muted/5">
           <div className="space-y-6">
             {/* Competency Focus Section */}
             <div>
