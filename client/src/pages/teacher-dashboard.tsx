@@ -40,7 +40,7 @@ export default function TeacherDashboard() {
       }
     },
     onSuccess: () => {
-      setLocation("/teacher/auth");
+      setLocation("/auth");
     },
   });
 
