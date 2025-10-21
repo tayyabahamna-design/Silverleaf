@@ -106,6 +106,7 @@ export interface IStorage {
   getTeacherByTeacherId(teacherId: number): Promise<Teacher | undefined>;
   createTeacher(teacher: InsertTeacher): Promise<Teacher>;
   getNextTeacherId(): Promise<number>;
+  updateTeacherPassword(teacherId: string, hashedPassword: string): Promise<Teacher | undefined>;
   
   // Batch operations
   getAllBatches(createdBy?: string): Promise<Batch[]>;
@@ -635,6 +636,15 @@ export class DatabaseStorage implements IStorage {
     const [teacher] = await db
       .insert(teachers)
       .values({ ...teacherData, teacherId: nextId })
+      .returning();
+    return teacher;
+  }
+
+  async updateTeacherPassword(teacherId: string, hashedPassword: string): Promise<Teacher | undefined> {
+    const [teacher] = await db
+      .update(teachers)
+      .set({ password: hashedPassword })
+      .where(eq(teachers.id, teacherId))
       .returning();
     return teacher;
   }
