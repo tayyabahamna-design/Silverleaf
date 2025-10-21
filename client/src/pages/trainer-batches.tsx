@@ -303,36 +303,71 @@ export default function TrainerBatches() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b sticky top-0 bg-background z-50">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <img src={logoImage} alt="Silverleaf Academy Logo" className="h-10" />
-            <div>
-              <h1 className="text-xl font-bold">Silverleaf Academy - Trainer Portal</h1>
-              <p className="text-sm text-muted-foreground">Manage Training Batches</p>
+      <header className="sticky top-0 z-50 bg-primary shadow-md">
+        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="h-12 w-12 sm:h-14 sm:w-14 flex items-center justify-center flex-shrink-0 bg-primary rounded-sm p-1">
+              <img src={logoImage} alt="Silverleaf Academy Logo" className="w-full h-full object-contain" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-white truncate" data-testid="text-app-title">
+                Silverleaf Academy
+              </h1>
+              <p className="text-xs sm:text-sm text-white/80 hidden sm:block">
+                Trainer Portal
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+            <div className="text-xs sm:text-sm text-white/90 hidden md:block truncate max-w-[200px]" data-testid="text-user-info">
+              {user?.username}
+            </div>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               asChild
               data-testid="button-home"
+              className="hidden sm:flex bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
               <Link href="/">
                 <Home className="mr-2 h-4 w-4" />
                 Home
               </Link>
             </Button>
-            <ThemeToggle />
             <Button
-              variant="outline"
+              variant="secondary"
+              size="icon"
+              asChild
+              data-testid="button-home-mobile"
+              className="sm:hidden h-8 w-8 bg-white/10 hover:bg-white/20 text-white border-white/20"
+              aria-label="Home"
+            >
+              <Link href="/">
+                <Home className="h-4 w-4" />
+              </Link>
+            </Button>
+            <div className="text-white">
+              <ThemeToggle />
+            </div>
+            <Button
+              variant="secondary"
               size="sm"
               onClick={() => logoutMutation.mutate()}
               data-testid="button-logout"
+              className="hidden sm:flex bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Logout
+            </Button>
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => logoutMutation.mutate()}
+              data-testid="button-logout-mobile"
+              className="sm:hidden h-8 w-8 bg-white/10 hover:bg-white/20 text-white border-white/20"
+              aria-label="Logout"
+            >
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
