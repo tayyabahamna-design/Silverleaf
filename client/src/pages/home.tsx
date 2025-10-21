@@ -416,8 +416,8 @@ export default function Home() {
             </Button>
           </div>
         </div>
-        <AccordionContent className="pt-6 sm:pt-8 pb-6 sm:pb-8 px-5 sm:px-10">
-          <div className="space-y-6 sm:space-y-8">
+        <AccordionContent className="px-4 pb-6 pt-2 border-t bg-muted/20">
+          <div className="space-y-6">
             {/* Competency Focus Section */}
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
@@ -737,27 +737,32 @@ export default function Home() {
           </div>
         ) : !isAdmin ? (
           // Teacher view: Clickable cards that navigate to course view
-          <div className="space-y-5 sm:space-y-6">
+          <div className="space-y-4">
             {weeks.map((week) => (
               <button
                 key={week.id}
                 onClick={() => navigate(`/course/${week.id}`)}
-                className="w-full border-l-4 border-l-primary border-0 rounded-2xl bg-card shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 text-left"
+                className="w-full border rounded-lg bg-card shadow-sm hover:shadow-md transition-all duration-200 text-left hover-elevate active-elevate-2 group"
                 data-testid={`card-week-${week.id}`}
               >
-                <div className="flex items-center justify-between px-5 sm:px-10 py-6 sm:py-8">
-                  <div className="flex items-center gap-5 sm:gap-6 flex-1 min-w-0">
-                    <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-primary flex items-center justify-center flex-shrink-0 shadow-md">
-                      <span className="text-white font-bold text-xl sm:text-2xl">{week.weekNumber}</span>
-                    </div>
-                    <div className="text-left flex-1 min-w-0">
-                      <h3 className="font-extrabold text-xl sm:text-2xl mb-2">Week {week.weekNumber}</h3>
-                      <p className="text-sm sm:text-base text-muted-foreground/80 truncate leading-relaxed">
-                        {week.competencyFocus || "No competency focus set"}
-                      </p>
-                    </div>
+                <div className="flex items-center gap-4 px-4 py-4">
+                  {/* Week Number Badge */}
+                  <div className="h-12 w-12 rounded-lg bg-primary/10 dark:bg-primary/20 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-primary font-bold text-lg">{week.weekNumber}</span>
                   </div>
-                  <ChevronRight className="h-6 w-6 text-muted-foreground flex-shrink-0" />
+
+                  {/* Week Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-base sm:text-lg leading-tight mb-1">
+                      Week {week.weekNumber}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                      {week.competencyFocus || "No competency focus set"}
+                    </p>
+                  </div>
+
+                  {/* Arrow Icon */}
+                  <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform duration-200 group-hover:translate-x-1 flex-shrink-0" />
                 </div>
               </button>
             ))}
@@ -773,7 +778,7 @@ export default function Home() {
               items={weeks.map((w) => w.id)}
               strategy={verticalListSortingStrategy}
             >
-              <Accordion type="multiple" className="space-y-5 sm:space-y-6" data-testid="accordion-training-weeks">
+              <Accordion type="multiple" className="space-y-4" data-testid="accordion-training-weeks">
                 {weeks.map((week) => (
                   <SortableWeekItem key={week.id} week={week} />
                 ))}
