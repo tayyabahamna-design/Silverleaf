@@ -1058,6 +1058,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Generate and assign file quiz to a batch
+  app.post("/api/batches/:batchId/assign-file-quiz", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      // Verify ownership
+      if (req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { weekId, fileId, title, description, numQuestions = 5 } = req.body;
+      
+      const week = await storage.getTrainingWeek(weekId);
+      if (!week) {
+        return res.status(404).json({ error: "Training week not found" });
+      }
+
+      if (!week.deckFiles || week.deckFiles.length === 0) {
+        return res.status(400).json({ error: "No files available for quiz generation" });
+      }
+
+      // Find the specific file
+      const selectedFile = week.deckFiles.find(file => file.id === fileId);
+      if (!selectedFile) {
+        return res.status(404).json({ error: "File not found in this training week" });
+      }
+
+      // Generate quiz using the quiz service
+      const { generateQuizQuestions } = await import('./quizService');
+
+      // Use only the selected file for quiz generation
+      const fileUrls = [{
+        url: selectedFile.fileUrl,
+        name: selectedFile.fileName,
+      }];
+
+      const questions = await generateQuizQuestions({
+        fileUrls,
+        competencyFocus: week.competencyFocus,
+        objective: week.objective,
+        numQuestions,
+      });
+
+      // Create assigned quiz
+      const assignedQuiz = await storage.createAssignedQuiz({
+        batchId: req.params.batchId,
+        weekId,
+        title,
+        description,
+        numQuestions,
+        questions,
+        assignedBy: req.user!.id,
+      });
+
+      res.status(201).json(assignedQuiz);
+    } catch (error) {
+      console.error("Error assigning file quiz:", error);
+      res.status(500).json({ error: "Failed to assign file quiz" });
+    }
+  });
+
   // Get assigned quizzes for a batch
   app.get("/api/batches/:batchId/quizzes", isAuthenticated, isTrainer, async (req, res) => {
     try {

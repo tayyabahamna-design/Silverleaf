@@ -24,7 +24,8 @@ export default function TrainerBatches() {
   const { user, logoutMutation } = useAuth();
   const [createBatchOpen, setCreateBatchOpen] = useState(false);
   const [addTeacherOpen, setAddTeacherOpen] = useState(false);
-  const [assignQuizOpen, setAssignQuizOpen] = useState(false);
+  const [assignCheckpointQuizOpen, setAssignCheckpointQuizOpen] = useState(false);
+  const [assignFileQuizOpen, setAssignFileQuizOpen] = useState(false);
   const [viewProgressOpen, setViewProgressOpen] = useState(false);
   const [viewBatchDetailsOpen, setViewBatchDetailsOpen] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
@@ -35,6 +36,7 @@ export default function TrainerBatches() {
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
+  const [selectedFileId, setSelectedFileId] = useState("");
   const [numQuestions, setNumQuestions] = useState("5");
 
   const { data: batches = [] } = useQuery<any[]>({
@@ -61,6 +63,12 @@ export default function TrainerBatches() {
   const { data: batchProgress = [] } = useQuery<any[]>({
     queryKey: ["/api/batches", selectedBatch?.id, "progress"],
     enabled: !!selectedBatch?.id && viewProgressOpen,
+  });
+
+  // Fetch files for selected week (for file quiz generation)
+  const { data: weekFiles = [] } = useQuery<any[]>({
+    queryKey: ["/api/training-weeks", selectedWeek, "deck-files"],
+    enabled: !!selectedWeek && assignFileQuizOpen,
   });
 
   const createBatchMutation = useMutation({
@@ -143,11 +151,48 @@ export default function TrainerBatches() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/batches", selectedBatch?.id, "quizzes"] });
-      toast({ title: "Success", description: "Quiz generated and assigned successfully" });
-      setAssignQuizOpen(false);
+      toast({ title: "Success", description: "Checkpoint quiz generated and assigned successfully" });
+      setAssignCheckpointQuizOpen(false);
       setQuizTitle("");
       setQuizDescription("");
       setSelectedWeek("");
+      setNumQuestions("5");
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const assignFileQuizMutation = useMutation({
+    mutationFn: async (data: {
+      batchId: string;
+      weekId: string;
+      fileId: string;
+      title: string;
+      description: string;
+      numQuestions: number;
+    }) => {
+      const response = await apiRequest("POST", `/api/batches/${data.batchId}/assign-file-quiz`, {
+        weekId: data.weekId,
+        fileId: data.fileId,
+        title: data.title,
+        description: data.description,
+        numQuestions: data.numQuestions,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", selectedBatch?.id, "quizzes"] });
+      toast({ title: "Success", description: "File quiz generated and assigned successfully" });
+      setAssignFileQuizOpen(false);
+      setQuizTitle("");
+      setQuizDescription("");
+      setSelectedWeek("");
+      setSelectedFileId("");
       setNumQuestions("5");
     },
     onError: (error: Error) => {
@@ -208,11 +253,24 @@ export default function TrainerBatches() {
     }
   };
 
-  const handleAssignQuiz = () => {
+  const handleAssignCheckpointQuiz = () => {
     if (selectedBatch && selectedWeek && quizTitle) {
       assignQuizMutation.mutate({
         batchId: selectedBatch.id,
         weekId: selectedWeek,
+        title: quizTitle,
+        description: quizDescription,
+        numQuestions: parseInt(numQuestions),
+      });
+    }
+  };
+
+  const handleAssignFileQuiz = () => {
+    if (selectedBatch && selectedWeek && selectedFileId && quizTitle) {
+      assignFileQuizMutation.mutate({
+        batchId: selectedBatch.id,
+        weekId: selectedWeek,
+        fileId: selectedFileId,
         title: quizTitle,
         description: quizDescription,
         numQuestions: parseInt(numQuestions),
@@ -228,70 +286,46 @@ export default function TrainerBatches() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header matching Admin dashboard */}
-      <header className="sticky top-0 z-50 bg-primary shadow-md">
-        <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-            <div className="h-12 w-12 sm:h-14 sm:w-14 flex items-center justify-center flex-shrink-0 bg-primary rounded-sm p-1">
-              <img src={logoImage} alt="Silverleaf Academy Logo" className="w-full h-full object-contain" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-white truncate" data-testid="text-app-title">
-                Silverleaf Academy
-              </h1>
-              <p className="text-xs sm:text-sm text-white/80 hidden sm:block">
-                Training Program Planner
-              </p>
+      <header className="border-b sticky top-0 bg-background z-50">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <img src={logoImage} alt="Silverleaf Academy Logo" className="h-10" />
+            <div>
+              <h1 className="text-xl font-bold">Silverleaf Academy - Trainer Portal</h1>
+              <p className="text-sm text-muted-foreground">Manage Training Batches</p>
             </div>
           </div>
-          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
-            <div className="text-xs sm:text-sm text-white/90 hidden md:block truncate max-w-[200px]" data-testid="text-user-info">
-              {user?.username} (Trainer)
-            </div>
-            <Link href="/">
-              <Button
-                variant="secondary"
-                size="sm"
-                data-testid="button-home"
-                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              >
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              data-testid="button-home"
+            >
+              <Link href="/">
                 <Home className="mr-2 h-4 w-4" />
                 Home
-              </Button>
-            </Link>
-            <div className="text-white">
-              <ThemeToggle />
-            </div>
+              </Link>
+            </Button>
+            <ThemeToggle />
             <Button
-              variant="secondary"
+              variant="outline"
               size="sm"
               onClick={() => logoutMutation.mutate()}
               data-testid="button-logout"
-              className="hidden sm:flex bg-white/10 hover:bg-white/20 text-white border-white/20"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Logout
-            </Button>
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={() => logoutMutation.mutate()}
-              data-testid="button-logout-mobile"
-              className="sm:hidden h-8 w-8 bg-white/10 hover:bg-white/20 text-white border-white/20"
-              aria-label="Logout"
-            >
-              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <main className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-6">
           <div>
-            <h2 className="text-3xl font-bold">Batch Management</h2>
-            <p className="text-muted-foreground">Manage teacher batches, generate quizzes, and track progress</p>
+            <h2 className="text-3xl font-bold">Training Batches</h2>
+            <p className="text-muted-foreground mt-1">Create and manage training batches, assign quizzes, and track progress</p>
           </div>
           <Dialog open={createBatchOpen} onOpenChange={setCreateBatchOpen}>
             <DialogTrigger asChild>
@@ -303,7 +337,7 @@ export default function TrainerBatches() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Create New Batch</DialogTitle>
-                <DialogDescription>Create a batch to group teachers and generate quizzes for them</DialogDescription>
+                <DialogDescription>Create a new training batch to organize teachers</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -311,7 +345,7 @@ export default function TrainerBatches() {
                   <Input
                     id="batch-name"
                     data-testid="input-batch-name"
-                    placeholder="e.g., Batch 2024-A"
+                    placeholder="e.g., Fall 2024 - Cohort A"
                     value={batchName}
                     onChange={(e) => setBatchName(e.target.value)}
                   />
@@ -326,7 +360,11 @@ export default function TrainerBatches() {
                     onChange={(e) => setBatchDescription(e.target.value)}
                   />
                 </div>
-                <Button onClick={handleCreateBatch} disabled={!batchName || createBatchMutation.isPending} data-testid="button-submit-batch">
+                <Button
+                  onClick={handleCreateBatch}
+                  disabled={!batchName || createBatchMutation.isPending}
+                  data-testid="button-submit-batch"
+                >
                   {createBatchMutation.isPending ? "Creating..." : "Create Batch"}
                 </Button>
               </div>
@@ -334,88 +372,126 @@ export default function TrainerBatches() {
           </Dialog>
         </div>
 
-        {batches.length === 0 ? (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Users className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No Batches Yet</h3>
-              <p className="text-muted-foreground text-center mb-4">
-                Create your first batch to start managing teachers and generating quizzes
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {batches.map((batch: any) => (
-              <Card key={batch.id} data-testid={`card-batch-${batch.id}`} className="hover-elevate cursor-pointer" onClick={() => {
-                setSelectedBatch(batch);
-                setViewBatchDetailsOpen(true);
-              }}>
-                <CardHeader>
-                  <CardTitle>{batch.name}</CardTitle>
-                  {batch.description && <CardDescription>{batch.description}</CardDescription>}
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm text-muted-foreground">
-                    Click to view details
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {batches.map((batch: any) => (
+            <Card key={batch.id} className="hover-elevate active-elevate-2 cursor-pointer" onClick={() => {
+              setSelectedBatch(batch);
+              setViewBatchDetailsOpen(true);
+            }}>
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <CardTitle data-testid={`text-batch-name-${batch.id}`}>{batch.name}</CardTitle>
+                    {batch.description && (
+                      <CardDescription className="mt-1">{batch.description}</CardDescription>
+                    )}
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                  <Badge variant="outline" data-testid={`badge-teacher-count-${batch.id}`}>
+                    {batch.teacherCount || 0} Teachers
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="h-4 w-4" />
+                  <span>{batch.teacherCount || 0} enrolled</span>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {batches.length === 0 && (
+          <div className="text-center py-12">
+            <Users className="mx-auto h-12 w-12 text-muted-foreground" />
+            <h3 className="mt-4 text-lg font-semibold">No batches yet</h3>
+            <p className="text-muted-foreground mt-2">Create your first training batch to get started</p>
           </div>
         )}
-      </div>
+      </main>
 
-      {/* Batch Details Dialog */}
-      <Dialog open={viewBatchDetailsOpen} onOpenChange={(open) => {
-        setViewBatchDetailsOpen(open);
-        if (!open) setSelectedBatch(null);
-      }}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      {/* View Batch Details Dialog */}
+      <Dialog open={viewBatchDetailsOpen} onOpenChange={setViewBatchDetailsOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>{selectedBatch?.name}</span>
+            <div className="flex justify-between items-start">
+              <div>
+                <DialogTitle>{selectedBatch?.name}</DialogTitle>
+                <DialogDescription>{selectedBatch?.description || "No description"}</DialogDescription>
+              </div>
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={() => {
-                  if (confirm("Are you sure you want to delete this batch?")) {
+                  if (confirm(`Are you sure you want to delete the batch "${selectedBatch?.name}"? This will remove all teachers and quizzes.`)) {
                     deleteBatchMutation.mutate(selectedBatch.id);
                   }
                 }}
               >
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Trash2 className="mr-2 h-4 w-4" />
                 Delete Batch
               </Button>
-            </DialogTitle>
-            {selectedBatch?.description && (
-              <DialogDescription>{selectedBatch.description}</DialogDescription>
-            )}
+            </div>
           </DialogHeader>
 
           <Tabs defaultValue="teachers" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="teachers">Teachers</TabsTrigger>
-              <TabsTrigger value="quizzes">Assigned Quizzes</TabsTrigger>
-              <TabsTrigger value="progress">Progress</TabsTrigger>
+              <TabsTrigger value="teachers" data-testid="tab-teachers">
+                <Users className="mr-2 h-4 w-4" />
+                Teachers
+              </TabsTrigger>
+              <TabsTrigger value="quizzes" data-testid="tab-quizzes">
+                <Award className="mr-2 h-4 w-4" />
+                Quizzes
+              </TabsTrigger>
+              <TabsTrigger value="progress" data-testid="tab-progress">
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Progress
+              </TabsTrigger>
             </TabsList>
 
             {/* Teachers Tab */}
             <TabsContent value="teachers" className="space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Teachers in Batch</h3>
-                <Button
-                  size="sm"
-                  onClick={() => setAddTeacherOpen(true)}
-                  data-testid="button-add-teacher"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Teacher
-                </Button>
+                <h3 className="text-lg font-semibold">Enrolled Teachers</h3>
+                <Dialog open={addTeacherOpen} onOpenChange={setAddTeacherOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" data-testid="button-add-teacher">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Teacher
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add Teacher to {selectedBatch?.name}</DialogTitle>
+                      <DialogDescription>Enter the teacher ID to add them to this batch</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="teacher-id">Teacher ID</Label>
+                        <Input
+                          id="teacher-id"
+                          data-testid="input-teacher-id"
+                          type="number"
+                          placeholder="e.g., 101"
+                          value={teacherId}
+                          onChange={(e) => setTeacherId(e.target.value)}
+                        />
+                      </div>
+                      <Button
+                        onClick={handleAddTeacher}
+                        disabled={!teacherId || addTeacherMutation.isPending}
+                        data-testid="button-submit-teacher"
+                      >
+                        {addTeacherMutation.isPending ? "Adding..." : "Add Teacher"}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
               {batchDetails?.teachers?.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  No teachers in this batch yet
+                  No teachers enrolled in this batch yet
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -453,14 +529,25 @@ export default function TrainerBatches() {
             <TabsContent value="quizzes" className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Generated Quizzes</h3>
-                <Button
-                  size="sm"
-                  onClick={() => setAssignQuizOpen(true)}
-                  data-testid="button-generate-quiz"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Generate Quiz
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => setAssignCheckpointQuizOpen(true)}
+                    data-testid="button-generate-checkpoint-quiz"
+                  >
+                    <Award className="mr-2 h-4 w-4" />
+                    Generate Checkpoint Quiz
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setAssignFileQuizOpen(true)}
+                    data-testid="button-generate-file-quiz"
+                  >
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Generate File Quiz
+                  </Button>
+                </div>
               </div>
               {assignedQuizzes.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
@@ -523,42 +610,42 @@ export default function TrainerBatches() {
                   {batchProgress.map((item: any) => (
                     <Card key={item.teacher.id}>
                       <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle className="text-lg">{item.teacher.name}</CardTitle>
-                            <CardDescription>
-                              Teacher ID: {item.teacher.teacherId} • {item.teacher.email}
-                            </CardDescription>
-                          </div>
-                          <Badge variant={getLevelBadgeVariant(item.reportCard.level)}>
-                            {item.reportCard.level}
-                          </Badge>
-                        </div>
+                        <CardTitle className="text-base">{item.teacher.name}</CardTitle>
+                        <CardDescription>Teacher ID: {item.teacher.teacherId}</CardDescription>
                       </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-3 gap-4">
-                          <div className="text-center">
-                            <div className="flex items-center justify-center mb-1">
-                              <BookOpen className="h-4 w-4 text-muted-foreground mr-1" />
-                            </div>
-                            <p className="text-2xl font-bold">{item.reportCard.totalQuizzesTaken}</p>
-                            <p className="text-xs text-muted-foreground">Quizzes Taken</p>
+                      <CardContent className="space-y-3">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Weeks Completed</p>
+                            <p className="text-2xl font-bold">{item.weeksCompleted}/{item.totalWeeks}</p>
                           </div>
-                          <div className="text-center">
-                            <div className="flex items-center justify-center mb-1">
-                              <CheckCircle className="h-4 w-4 text-muted-foreground mr-1" />
-                            </div>
-                            <p className="text-2xl font-bold">{item.reportCard.totalQuizzesPassed}</p>
-                            <p className="text-xs text-muted-foreground">Passed</p>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Quizzes Taken</p>
+                            <p className="text-2xl font-bold">{item.quizzesTaken}</p>
                           </div>
-                          <div className="text-center">
-                            <div className="flex items-center justify-center mb-1">
-                              <Award className="h-4 w-4 text-muted-foreground mr-1" />
-                            </div>
-                            <p className="text-2xl font-bold">{item.reportCard.averageScore}%</p>
-                            <p className="text-xs text-muted-foreground">Average Score</p>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Avg Quiz Score</p>
+                            <p className="text-2xl font-bold">{item.avgQuizScore ? `${item.avgQuizScore.toFixed(1)}%` : "N/A"}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Current Level</p>
+                            <Badge variant={getLevelBadgeVariant(item.currentLevel)}>
+                              {item.currentLevel || "Not Started"}
+                            </Badge>
                           </div>
                         </div>
+                        {item.recentQuizzes && item.recentQuizzes.length > 0 && (
+                          <div className="pt-3 border-t">
+                            <p className="text-sm font-semibold mb-2">Recent Quiz Scores</p>
+                            <div className="flex gap-2 flex-wrap">
+                              {item.recentQuizzes.map((quiz: any, idx: number) => (
+                                <Badge key={idx} variant="outline">
+                                  {quiz.title}: {quiz.score}%
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -569,38 +656,12 @@ export default function TrainerBatches() {
         </DialogContent>
       </Dialog>
 
-      {/* Add Teacher Dialog */}
-      <Dialog open={addTeacherOpen} onOpenChange={setAddTeacherOpen}>
+      {/* Assign Checkpoint Quiz Dialog */}
+      <Dialog open={assignCheckpointQuizOpen} onOpenChange={setAssignCheckpointQuizOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Teacher to {selectedBatch?.name}</DialogTitle>
-            <DialogDescription>Enter the teacher's numeric ID</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="teacher-id">Teacher ID</Label>
-              <Input
-                id="teacher-id"
-                type="number"
-                data-testid="input-teacher-id"
-                placeholder="e.g., 7100"
-                value={teacherId}
-                onChange={(e) => setTeacherId(e.target.value)}
-              />
-            </div>
-            <Button onClick={handleAddTeacher} disabled={!teacherId || addTeacherMutation.isPending} data-testid="button-submit-teacher">
-              {addTeacherMutation.isPending ? "Adding..." : "Add Teacher"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Assign Quiz Dialog */}
-      <Dialog open={assignQuizOpen} onOpenChange={setAssignQuizOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Generate Quiz for {selectedBatch?.name}</DialogTitle>
-            <DialogDescription>Create an AI-generated quiz from training materials and assign it to this batch</DialogDescription>
+            <DialogTitle>Generate Checkpoint Quiz for {selectedBatch?.name}</DialogTitle>
+            <DialogDescription>Create an AI-generated quiz from ALL files in a training week and assign it to this batch</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -651,11 +712,94 @@ export default function TrainerBatches() {
               />
             </div>
             <Button
-              onClick={handleAssignQuiz}
+              onClick={handleAssignCheckpointQuiz}
               disabled={!quizTitle || !selectedWeek || assignQuizMutation.isPending}
-              data-testid="button-submit-quiz"
+              data-testid="button-submit-checkpoint-quiz"
             >
-              {assignQuizMutation.isPending ? "Generating & Assigning..." : "Generate & Assign Quiz"}
+              {assignQuizMutation.isPending ? "Generating & Assigning..." : "Generate & Assign Checkpoint Quiz"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign File Quiz Dialog */}
+      <Dialog open={assignFileQuizOpen} onOpenChange={setAssignFileQuizOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Generate File Quiz for {selectedBatch?.name}</DialogTitle>
+            <DialogDescription>Create an AI-generated quiz from a SPECIFIC file in a training week and assign it to this batch</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="file-quiz-title">Quiz Title</Label>
+              <Input
+                id="file-quiz-title"
+                data-testid="input-file-quiz-title"
+                placeholder="e.g., Week 1 - Lesson 1 Quiz"
+                value={quizTitle}
+                onChange={(e) => setQuizTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="file-quiz-description">Description (Optional)</Label>
+              <Textarea
+                id="file-quiz-description"
+                data-testid="input-file-quiz-description"
+                placeholder="Quiz description..."
+                value={quizDescription}
+                onChange={(e) => setQuizDescription(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="file-training-week">Training Week</Label>
+              <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+                <SelectTrigger data-testid="select-file-week">
+                  <SelectValue placeholder="Select a week" />
+                </SelectTrigger>
+                <SelectContent>
+                  {weeks.map((week: any) => (
+                    <SelectItem key={week.id} value={week.id}>
+                      Week {week.weekNumber}: {week.competencyFocus}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedWeek && (
+              <div className="space-y-2">
+                <Label htmlFor="file-select">Select File</Label>
+                <Select value={selectedFileId} onValueChange={setSelectedFileId}>
+                  <SelectTrigger data-testid="select-file">
+                    <SelectValue placeholder="Select a file" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weekFiles.map((file: any) => (
+                      <SelectItem key={file.id} value={file.id}>
+                        {file.fileName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="file-num-questions">Number of Questions</Label>
+              <Input
+                id="file-num-questions"
+                type="number"
+                data-testid="input-file-num-questions"
+                min="5"
+                max="15"
+                value={numQuestions}
+                onChange={(e) => setNumQuestions(e.target.value)}
+              />
+            </div>
+            <Button
+              onClick={handleAssignFileQuiz}
+              disabled={!quizTitle || !selectedWeek || !selectedFileId || assignFileQuizMutation.isPending}
+              data-testid="button-submit-file-quiz"
+            >
+              {assignFileQuizMutation.isPending ? "Generating & Assigning..." : "Generate & Assign File Quiz"}
             </Button>
           </div>
         </DialogContent>
