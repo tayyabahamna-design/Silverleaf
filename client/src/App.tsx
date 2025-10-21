@@ -23,6 +23,7 @@ function Router() {
       <ProtectedRoute path="/trainer/batches" component={TrainerBatches} />
       {/* UPDATED: New unified auth page for all roles (Admin, Teacher, Trainer) */}
       <Route path="/auth" component={UnifiedAuth} />
+      <Route path="/login" component={UnifiedAuth} />
       <Route path="/teacher/dashboard" component={TeacherDashboard} />
       <Route component={NotFound} />
     </Switch>

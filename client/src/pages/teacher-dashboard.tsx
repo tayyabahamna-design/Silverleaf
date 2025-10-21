@@ -18,15 +18,15 @@ export default function TeacherDashboard() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
 
-  const { data: teacher } = useQuery({
+  const { data: teacher } = useQuery<any>({
     queryKey: ["/api/teacher/me"],
   });
 
-  const { data: quizzes = [] } = useQuery({
+  const { data: quizzes = [] } = useQuery<any[]>({
     queryKey: ["/api/teacher/quizzes"],
   });
 
-  const { data: reportCard } = useQuery({
+  const { data: reportCard } = useQuery<any>({
     queryKey: ["/api/teacher/report-card"],
   });
 
