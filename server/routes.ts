@@ -1142,6 +1142,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get quiz details for trainer (to review before/after assignment)
+  app.get("/api/trainer/quizzes/:quizId", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const quiz = await storage.getAssignedQuiz(req.params.quizId);
+      if (!quiz) {
+        return res.status(404).json({ error: "Quiz not found" });
+      }
+      // Verify ownership through batch
+      const batch = await storage.getBatch(quiz.batchId);
+      if (batch && req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json(quiz);
+    } catch (error) {
+      console.error("Error fetching quiz details:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Delete an assigned quiz
   app.delete("/api/assigned-quizzes/:quizId", isAuthenticated, isTrainer, async (req, res) => {
     try {

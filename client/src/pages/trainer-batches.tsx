@@ -75,7 +75,7 @@ export default function TrainerBatches() {
 
   // Fetch quiz details for viewing
   const { data: quizDetails } = useQuery<any>({
-    queryKey: ["/api/assigned-quizzes", selectedQuizId],
+    queryKey: ["/api/trainer/quizzes", selectedQuizId],
     enabled: !!selectedQuizId && viewQuizDetailsOpen,
   });
 
