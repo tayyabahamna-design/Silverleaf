@@ -95,6 +95,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         teacher = await storage.getTeacherByEmail(userIdentifier);
       }
       
+      // If still not found, try searching by name
+      if (!teacher) {
+        const teachersByName = await storage.getTeacherByName(userIdentifier);
+        if (teachersByName.length === 1) {
+          teacher = teachersByName[0];
+        } else if (teachersByName.length > 1) {
+          const teacherList = teachersByName
+            .map(t => `${t.name} (ID: ${t.teacherId}, Email: ${t.email})`)
+            .join(", ");
+          return res.status(400).json({ 
+            error: `Multiple teachers found with name "${userIdentifier}". Please use teacher ID or email instead: ${teacherList}` 
+          });
+        }
+      }
+      
       if (!teacher) {
         return res.status(404).json({ error: "User or teacher not found" });
       }
