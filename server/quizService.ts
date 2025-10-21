@@ -66,23 +66,25 @@ Generate exactly ${numQuestions} questions. Each question should:
 3. Have 4 options for multiple choice or True/False for boolean questions
 4. Include the correct answer
 
-Return your response as a JSON array with this exact structure:
-[
-  {
-    "id": "q1",
-    "question": "Question text here?",
-    "type": "multiple_choice",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correctAnswer": "Option B"
-  },
-  {
-    "id": "q2",
-    "question": "Statement to verify?",
-    "type": "true_false",
-    "options": ["True", "False"],
-    "correctAnswer": "True"
-  }
-]
+Return your response as a JSON object with a "questions" array:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Question text here?",
+      "type": "multiple_choice",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correctAnswer": "Option B"
+    },
+    {
+      "id": "q2",
+      "question": "Statement to verify?",
+      "type": "true_false",
+      "options": ["True", "False"],
+      "correctAnswer": "True"
+    }
+  ]
+}
 
 Make sure to use "multiple_choice" or "true_false" for the type field.`;
 
@@ -201,23 +203,25 @@ Generate exactly ${numQuestions} questions. Each question should:
 3. Have 4 options for multiple choice or True/False for boolean questions
 4. Include the correct answer
 
-Return your response as a JSON array with this exact structure:
-[
-  {
-    "id": "q1",
-    "question": "Question text here?",
-    "type": "multiple_choice",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correctAnswer": "Option B"
-  },
-  {
-    "id": "q2",
-    "question": "Statement to verify?",
-    "type": "true_false",
-    "options": ["True", "False"],
-    "correctAnswer": "True"
-  }
-]
+Return your response as a JSON object with a "questions" array:
+{
+  "questions": [
+    {
+      "id": "q1",
+      "question": "Question text here?",
+      "type": "multiple_choice",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "correctAnswer": "Option B"
+    },
+    {
+      "id": "q2",
+      "question": "Statement to verify?",
+      "type": "true_false",
+      "options": ["True", "False"],
+      "correctAnswer": "True"
+    }
+  ]
+}
 
 Make sure to use "multiple_choice" or "true_false" for the type field.`;
 

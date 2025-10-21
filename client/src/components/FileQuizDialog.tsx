@@ -66,6 +66,27 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }:
     },
     onSuccess: (generatedQuestions: QuizQuestion[]) => {
       console.log('[FILE-QUIZ-DIALOG] Got', generatedQuestions.length, 'questions');
+      
+      // Handle empty result
+      if (generatedQuestions.length === 0) {
+        toast({
+          title: "Quiz Generation Failed",
+          description: "No valid questions could be generated. Try selecting fewer questions or check the file content.",
+          variant: "destructive",
+        });
+        setQuizState('setup');
+        return;
+      }
+      
+      // Warn if fewer questions than requested
+      if (generatedQuestions.length < numQuestions) {
+        toast({
+          title: "Partial Quiz Generated",
+          description: `Generated ${generatedQuestions.length} questions instead of ${numQuestions}. You can still complete the quiz.`,
+          variant: "default",
+        });
+      }
+      
       setQuestions(generatedQuestions);
       setAnswers({});
       setQuizState('quiz');
@@ -240,21 +261,27 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }:
                   value={answers[question.id] || ""}
                   onValueChange={(value) => setAnswers({ ...answers, [question.id]: value })}
                 >
-                  {question.options.map((option, optionIndex) => (
-                    <div key={optionIndex} className="flex items-center space-x-2">
-                      <RadioGroupItem
-                        value={option}
-                        id={`${question.id}-${optionIndex}`}
-                        data-testid={`radio-${question.id}-${optionIndex}`}
-                      />
-                      <Label
-                        htmlFor={`${question.id}-${optionIndex}`}
-                        className="cursor-pointer flex-1"
-                      >
-                        {option}
-                      </Label>
-                    </div>
-                  ))}
+                  {Array.isArray(question.options) && question.options.length > 0 ? (
+                    question.options.map((option, optionIndex) => (
+                      <div key={optionIndex} className="flex items-center space-x-2">
+                        <RadioGroupItem
+                          value={option}
+                          id={`${question.id}-${optionIndex}`}
+                          data-testid={`radio-${question.id}-${optionIndex}`}
+                        />
+                        <Label
+                          htmlFor={`${question.id}-${optionIndex}`}
+                          className="cursor-pointer flex-1"
+                        >
+                          {option}
+                        </Label>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      Error: Question options not available
+                    </p>
+                  )}
                 </RadioGroup>
               </div>
             ))}
