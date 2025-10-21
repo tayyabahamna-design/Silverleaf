@@ -40,7 +40,7 @@ interface WeekProgress {
 export default function CourseView() {
   const { weekId } = useParams<{ weekId: string }>();
   const [, navigate] = useLocation();
-  const { user } = useAuth();
+  const { user, isTrainer } = useAuth();
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
@@ -318,30 +318,33 @@ export default function CourseView() {
                                 </div>
                               </div>
                             </button>
-                            <Button
-                              size="sm"
-                              variant={hasPassedQuiz ? "outline" : "secondary"}
-                              className="w-full"
-                              onClick={() => {
-                                console.log('[COURSE-VIEW] 🎯 Take Quiz button clicked for file:', file.id, file.fileName);
-                                setSelectedQuizFileId(file.id);
-                                setFileQuizDialogOpen(true);
-                                console.log('[COURSE-VIEW] 📝 State updated, dialog should open');
-                              }}
-                              data-testid={`button-file-quiz-${file.id}`}
-                            >
-                              {hasPassedQuiz ? (
-                                <>
-                                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
-                                  Quiz Passed
-                                </>
-                              ) : (
-                                <>
-                                  <Award className="mr-2 h-4 w-4" />
-                                  Take Quiz
-                                </>
-                              )}
-                            </Button>
+                            {/* Only show quiz buttons to teachers, not trainers */}
+                            {!isTrainer && (
+                              <Button
+                                size="sm"
+                                variant={hasPassedQuiz ? "outline" : "secondary"}
+                                className="w-full"
+                                onClick={() => {
+                                  console.log('[COURSE-VIEW] 🎯 Take Quiz button clicked for file:', file.id, file.fileName);
+                                  setSelectedQuizFileId(file.id);
+                                  setFileQuizDialogOpen(true);
+                                  console.log('[COURSE-VIEW] 📝 State updated, dialog should open');
+                                }}
+                                data-testid={`button-file-quiz-${file.id}`}
+                              >
+                                {hasPassedQuiz ? (
+                                  <>
+                                    <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
+                                    Quiz Passed
+                                  </>
+                                ) : (
+                                  <>
+                                    <Award className="mr-2 h-4 w-4" />
+                                    Take Quiz
+                                  </>
+                                )}
+                              </Button>
+                            )}
                           </div>
                         );
                       })
@@ -349,8 +352,8 @@ export default function CourseView() {
                   </div>
                 </div>
 
-                {/* Checkpoint Quiz Button */}
-                {!isLoading && deckFiles.length > 0 && (
+                {/* Checkpoint Quiz Button - Only for teachers */}
+                {!isLoading && deckFiles.length > 0 && !isTrainer && (
                   <div className="pt-4">
                     <Button
                       onClick={() => setQuizDialogOpen(true)}
