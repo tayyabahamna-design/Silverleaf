@@ -88,25 +88,6 @@ export default function Home() {
     }
   }, [editingCell]);
 
-  // Handle blur: only refocus if NOT intentionally saving
-  const handleInputBlur = () => {
-    // Don't refocus if we're intentionally saving (Enter/Escape pressed)
-    if (isSavingRef.current) return;
-    
-    // If we're still in edit mode and blur happened unintentionally, refocus
-    if (editingCell) {
-      const isTextarea = editingCell.field === "competencyFocus" || editingCell.field === "objective";
-      requestAnimationFrame(() => {
-        if (!editingCell || isSavingRef.current) return;
-        if (isTextarea && textareaRef.current) {
-          textareaRef.current.focus();
-        } else if (inputRef.current) {
-          inputRef.current.focus();
-        }
-      });
-    }
-  };
-
   const { data: weeks = [], isLoading: isLoadingWeeks } = useQuery<TrainingWeek[]>({
     queryKey: ["/api/training-weeks"],
     refetchOnWindowFocus: false,
@@ -145,6 +126,11 @@ export default function Home() {
       setEditValue("");
       // Reset the saving flag after save completes
       setTimeout(() => { isSavingRef.current = false; }, 0);
+      // Show success message
+      toast({ 
+        title: "Changes Saved Successfully!", 
+        description: "Your updates have been saved to the database."
+      });
     },
     onError: () => {
       // Reset the saving flag on error to allow refocus if needed
@@ -423,23 +409,42 @@ export default function Home() {
                 Competency Focus
               </label>
               {editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
-                <Textarea
-                  ref={textareaRef}
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  onBlur={handleInputBlur}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      e.preventDefault();
-                      handleCellCancel();
-                    }
-                  }}
-                  autoFocus
-                  disabled={updateWeekMutation.isPending}
-                  data-testid={`textarea-competency-${week.id}`}
-                  className="min-h-[100px] resize-none"
-                  placeholder="Develop effective classroom control strategies..."
-                />
+                <div className="space-y-3">
+                  <Textarea
+                    ref={textareaRef}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        handleCellCancel();
+                      }
+                    }}
+                    autoFocus
+                    disabled={updateWeekMutation.isPending}
+                    data-testid={`textarea-competency-${week.id}`}
+                    className="min-h-[100px] resize-none"
+                    placeholder="Develop effective classroom control strategies..."
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleCellSave}
+                      disabled={updateWeekMutation.isPending || !editValue.trim()}
+                      data-testid={`button-save-competency-${week.id}`}
+                      className="flex-1"
+                    >
+                      {updateWeekMutation.isPending ? "Saving..." : "Save Changes"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleCellCancel}
+                      disabled={updateWeekMutation.isPending}
+                      data-testid={`button-cancel-competency-${week.id}`}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <div
                   onClick={() => handleCellEdit(week.id, "competencyFocus", week.competencyFocus)}
@@ -461,23 +466,42 @@ export default function Home() {
                 Objective
               </label>
               {editingCell?.id === week.id && editingCell?.field === "objective" ? (
-                <Textarea
-                  ref={textareaRef}
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  onBlur={handleInputBlur}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      e.preventDefault();
-                      handleCellCancel();
-                    }
-                  }}
-                  autoFocus
-                  disabled={updateWeekMutation.isPending}
-                  data-testid={`textarea-objective-${week.id}`}
-                  className="min-h-[100px] resize-none"
-                  placeholder="Enter the learning objectives for this week..."
-                />
+                <div className="space-y-3">
+                  <Textarea
+                    ref={textareaRef}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        handleCellCancel();
+                      }
+                    }}
+                    autoFocus
+                    disabled={updateWeekMutation.isPending}
+                    data-testid={`textarea-objective-${week.id}`}
+                    className="min-h-[100px] resize-none"
+                    placeholder="Enter the learning objectives for this week..."
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleCellSave}
+                      disabled={updateWeekMutation.isPending || !editValue.trim()}
+                      data-testid={`button-save-objective-${week.id}`}
+                      className="flex-1"
+                    >
+                      {updateWeekMutation.isPending ? "Saving..." : "Save Changes"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleCellCancel}
+                      disabled={updateWeekMutation.isPending}
+                      data-testid={`button-cancel-objective-${week.id}`}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <div
                   onClick={() => handleCellEdit(week.id, "objective", week.objective)}
