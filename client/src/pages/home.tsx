@@ -692,13 +692,15 @@ export default function Home() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="newPassword">New Password</Label>
-                      <PasswordInput
-                        id="newPassword"
-                        placeholder="Enter new password (min 6 characters)"
-                        value={resetNewPassword}
-                        onChange={(e) => setResetNewPassword(e.target.value)}
-                        data-testid="input-new-password"
-                      />
+                      <div className="relative">
+                        <PasswordInput
+                          id="newPassword"
+                          placeholder="Enter new password (min 6 characters)"
+                          value={resetNewPassword}
+                          onChange={(e) => setResetNewPassword(e.target.value)}
+                          data-testid="input-new-password"
+                        />
+                      </div>
                     </div>
                   </div>
                   <DialogFooter>

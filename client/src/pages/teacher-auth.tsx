@@ -150,14 +150,16 @@ export default function TeacherAuth() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="login-password">Password</Label>
-                    <PasswordInput
-                      id="login-password"
-                      data-testid="input-login-password"
-                      placeholder="••••••••"
-                      value={loginPassword}
-                      onChange={(e) => setLoginPassword(e.target.value)}
-                      required
-                    />
+                    <div className="relative">
+                      <PasswordInput
+                        id="login-password"
+                        data-testid="input-login-password"
+                        placeholder="••••••••"
+                        value={loginPassword}
+                        onChange={(e) => setLoginPassword(e.target.value)}
+                        required
+                      />
+                    </div>
                   </div>
                   <Button
                     type="submit"
@@ -197,15 +199,17 @@ export default function TeacherAuth() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="register-password">Password</Label>
-                    <PasswordInput
-                      id="register-password"
-                      data-testid="input-register-password"
-                      placeholder="••••••••"
-                      value={registerPassword}
-                      onChange={(e) => setRegisterPassword(e.target.value)}
-                      required
-                      minLength={6}
-                    />
+                    <div className="relative">
+                      <PasswordInput
+                        id="register-password"
+                        data-testid="input-register-password"
+                        placeholder="••••••••"
+                        value={registerPassword}
+                        onChange={(e) => setRegisterPassword(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                    </div>
                   </div>
                   <Button
                     type="submit"
