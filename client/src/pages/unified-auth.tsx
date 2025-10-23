@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -422,17 +423,16 @@ export default function UnifiedAuth() {
                       <div className="relative">
                         <div className="relative">
                           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
-                          <Input
+                          <PasswordInput
                             id="login-password"
                             data-testid="input-login-password"
-                            type="password"
                             placeholder=" "
                             value={loginPassword}
                             onChange={(e) => setLoginPassword(e.target.value)}
                             onFocus={() => setPasswordFocused(true)}
                             onBlur={() => setPasswordFocused(false)}
                             required
-                            className="pl-12 h-14 text-base peer bg-card border-2 transition-all duration-300 focus:border-primary"
+                            className="pl-12 pr-12 h-14 text-base peer bg-card border-2 transition-all duration-300 focus:border-primary"
                           />
                           <Label
                             htmlFor="login-password"
@@ -555,10 +555,9 @@ export default function UnifiedAuth() {
 
                         <div className="space-y-2">
                           <Label htmlFor="reg-password">Password</Label>
-                          <Input
+                          <PasswordInput
                             id="reg-password"
                             data-testid="input-password"
-                            type="password"
                             placeholder="Create a password"
                             value={regPassword}
                             onChange={(e) => setRegPassword(e.target.value)}

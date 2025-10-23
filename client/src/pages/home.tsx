@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Textarea } from "@/components/ui/textarea";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -691,9 +692,8 @@ export default function Home() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="newPassword">New Password</Label>
-                      <Input
+                      <PasswordInput
                         id="newPassword"
-                        type="password"
                         placeholder="Enter new password (min 6 characters)"
                         value={resetNewPassword}
                         onChange={(e) => setResetNewPassword(e.target.value)}

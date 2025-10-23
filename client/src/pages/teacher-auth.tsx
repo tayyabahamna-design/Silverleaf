@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -149,9 +150,8 @@ export default function TeacherAuth() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="login-password">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="login-password"
-                      type="password"
                       data-testid="input-login-password"
                       placeholder="••••••••"
                       value={loginPassword}
@@ -197,9 +197,8 @@ export default function TeacherAuth() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="register-password">Password</Label>
-                    <Input
+                    <PasswordInput
                       id="register-password"
-                      type="password"
                       data-testid="input-register-password"
                       placeholder="••••••••"
                       value={registerPassword}
