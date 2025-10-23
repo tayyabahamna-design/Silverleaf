@@ -62,6 +62,11 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
 - **Enhanced Slide Viewer**:
   - **Persistent Floating Controls**: Navigation controls (Previous/Next, Zoom, page numbers) float at the bottom of the screen and remain visible at all times, even when zoomed in or in fullscreen mode
   - **Direct Page Navigation**: Users can type a page number directly into the input field to jump to any slide instantly, eliminating the need to click "Next" repeatedly
+  - **Smart Table of Contents**: Automatically extracts headings from PDF and PowerPoint files during upload to create a clickable table of contents
+    - Desktop: ToC appears in a collapsible side panel for easy navigation
+    - Mobile/Fullscreen: ToC accessible via dedicated button that opens a drawer
+    - One-click navigation to any page/slide in the document
+    - Current page highlighted in ToC for orientation
   - **Mobile-Optimized**: Controls work seamlessly across desktop, tablet, and mobile devices with responsive touch-friendly design
 
 ### System Design Choices
@@ -77,6 +82,7 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
 - **UI Framework**: Shadcn UI
 - **Styling**: Tailwind CSS
 - **PDF Previews**: react-pdf library
+- **Text Extraction**: officeparser library (for extracting headings from PDF/PPTX files for Table of Contents)
 
 ## Deployment & Database Management
 
