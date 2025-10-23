@@ -45,22 +45,11 @@ export default function UnifiedAuth() {
 
     try {
       if (loginRole === "teacher") {
-        // Teacher login - uses numeric ID instead of email
-        const teacherId = parseInt(loginEmail);
-        if (isNaN(teacherId)) {
-          toast({
-            variant: "destructive",
-            title: "Invalid Teacher ID",
-            description: "Please enter a valid numeric Teacher ID",
-          });
-          setLoginLoading(false);
-          return;
-        }
-
+        // Teacher login - accepts either Teacher ID or email
         const response = await fetch("/api/teacher/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ teacherId, password: loginPassword }),
+          body: JSON.stringify({ identifier: loginEmail, password: loginPassword }),
           credentials: "include",
         });
 
@@ -394,7 +383,7 @@ export default function UnifiedAuth() {
                           <Input
                             id="login-email"
                             data-testid="input-login-email"
-                            type={loginRole === "teacher" ? "number" : "email"}
+                            type={loginRole === "teacher" ? "text" : "email"}
                             placeholder=" "
                             value={loginEmail}
                             onChange={(e) => setLoginEmail(e.target.value)}
@@ -413,7 +402,7 @@ export default function UnifiedAuth() {
                               }
                             `}
                           >
-                            {loginRole === "teacher" ? "Teacher ID" : "Email Address"}
+                            {loginRole === "teacher" ? "Teacher ID or Email" : "Email Address"}
                           </Label>
                         </div>
                         <div className={`h-0.5 bg-primary transition-all duration-300 ${emailFocused ? 'w-full' : 'w-0'}`} />
