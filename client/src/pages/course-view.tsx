@@ -17,7 +17,7 @@ import { QuizDialog } from "@/components/QuizDialog";
 import { FileQuizDialog } from "@/components/FileQuizDialog";
 import { useScreenshotProtection } from "@/hooks/use-screenshot-protection";
 import { ScreenshotWarning } from "@/components/ScreenshotWarning";
-import { TableOfContents, MobileTableOfContents } from "@/components/TableOfContents";
+import { TableOfContents } from "@/components/TableOfContents";
 import type { TocEntry } from "@shared/schema";
 
 // Configure PDF.js worker
@@ -56,18 +56,9 @@ export default function CourseView() {
   const [fileQuizDialogOpen, setFileQuizDialogOpen] = useState<boolean>(false);
   const [selectedQuizFileId, setSelectedQuizFileId] = useState<string | null>(null);
   const [pageInputValue, setPageInputValue] = useState<string>('');
-  const [mobileTocOpen, setMobileTocOpen] = useState<boolean>(false);
   
-  // ToC collapsed state with localStorage persistence
-  const [tocCollapsed, setTocCollapsed] = useState<boolean>(() => {
-    const saved = localStorage.getItem('toc-collapsed');
-    return saved === 'true';
-  });
-
-  // Save ToC collapsed state to localStorage when it changes
-  useEffect(() => {
-    localStorage.setItem('toc-collapsed', String(tocCollapsed));
-  }, [tocCollapsed]);
+  // Sidebar view state: 'standard' shows competency/objectives/files, 'toc' shows table of contents
+  const [sidebarView, setSidebarView] = useState<'standard' | 'toc'>('standard');
 
   // Screenshot protection
   const { showWarning, dismissWarning } = useScreenshotProtection(weekId);
@@ -254,9 +245,10 @@ export default function CourseView() {
               </h2>
             </div>
 
-            {/* Scrollable Content: Competency Focus, Objectives, Progress, and File List */}
+            {/* Scrollable Content: Competency Focus, Objectives, Progress, and File List OR Table of Contents */}
             <div className="flex-1 overflow-y-auto">
-              <div className="p-6 space-y-6">
+              {sidebarView === 'standard' ? (
+                <div className="p-6 space-y-6">
                 {/* Competency Focus */}
                 <div>
                   <h3 className="text-base font-semibold uppercase tracking-wider text-[#666] mb-3">
@@ -414,7 +406,58 @@ export default function CourseView() {
                     </p>
                   </div>
                 )}
+                
+                {/* View Contents Button - Show if selected file has ToC */}
+                {selectedFile?.toc && selectedFile.toc.length > 0 && (
+                  <div className="pt-4 border-t mt-6">
+                    <Button
+                      onClick={() => setSidebarView('toc')}
+                      variant="outline"
+                      className="w-full"
+                      data-testid="button-view-contents"
+                    >
+                      <List className="mr-2 h-5 w-5" />
+                      View Table of Contents
+                    </Button>
+                  </div>
+                )}
               </div>
+              ) : (
+                /* Table of Contents View */
+                <div className="h-full flex flex-col">
+                  {/* ToC Header with Back Button */}
+                  <div className="p-6 border-b bg-muted/30">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSidebarView('standard')}
+                      className="mb-4 -ml-2"
+                      data-testid="button-back-to-sidebar"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Back
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      <List className="h-6 w-6 text-primary" />
+                      <h2 className="text-xl font-bold">Table of Contents</h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {selectedFile?.fileName}
+                    </p>
+                  </div>
+                  
+                  {/* ToC List */}
+                  {selectedFile?.toc && (
+                    <div className="flex-1 overflow-hidden">
+                      <TableOfContents
+                        toc={selectedFile.toc}
+                        currentPage={pageNumber}
+                        onPageSelect={setPageNumber}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </ResizablePanel>
@@ -446,58 +489,7 @@ export default function CourseView() {
               {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                 selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                 selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                <div className="h-full flex relative">
-                  {/* Desktop ToC Panel - Collapsible */}
-                  {selectedFile?.toc && selectedFile.toc.length > 0 && (
-                    <>
-                      {/* Expanded ToC Panel */}
-                      <div 
-                        className={`hidden md:block border-r bg-card transition-all duration-300 ease-in-out ${
-                          tocCollapsed ? 'w-0 overflow-hidden' : 'w-80'
-                        }`}
-                      >
-                        <div className="h-full flex flex-col">
-                          {/* ToC Header with Toggle */}
-                          <div className="p-4 border-b flex items-center justify-between bg-muted/30">
-                            <h3 className="font-semibold text-sm">Table of Contents</h3>
-                            <Button
-                              onClick={() => setTocCollapsed(true)}
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              data-testid="button-collapse-toc"
-                            >
-                              <PanelLeftClose className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          
-                          {/* ToC Content */}
-                          <div className="flex-1 overflow-hidden">
-                            <TableOfContents
-                              toc={selectedFile.toc}
-                              currentPage={pageNumber}
-                              onPageSelect={setPageNumber}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Floating Tab when Collapsed */}
-                      {tocCollapsed && (
-                        <button
-                          onClick={() => setTocCollapsed(false)}
-                          className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 flex-col items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 rounded-r-lg py-6 px-2 shadow-lg transition-all hover:px-3 group"
-                          data-testid="button-expand-toc"
-                        >
-                          <PanelLeftOpen className="h-5 w-5 mb-1" />
-                          <span className="text-xs font-medium writing-mode-vertical-rl rotate-180">Contents</span>
-                        </button>
-                      )}
-                    </>
-                  )}
-                  
-                  {/* PDF Viewer */}
-                  <div className="flex-1 flex flex-col items-center p-8 pb-28 overflow-auto">
+                <div className="h-full flex flex-col items-center p-8 pb-28">
                     <div className="w-full max-w-5xl flex flex-col items-center">
                       {viewUrl && (
                         <Document
@@ -520,20 +512,6 @@ export default function CourseView() {
                     <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl z-50">
                       <div className="max-w-7xl mx-auto px-4 py-4">
                         <div className="flex items-center gap-4 flex-wrap justify-center">
-                          {/* ToC Button - Only show if ToC exists */}
-                          {selectedFile?.toc && selectedFile.toc.length > 0 && (
-                            <Button
-                              onClick={() => setMobileTocOpen(true)}
-                              variant="outline"
-                              size="sm"
-                              className="md:hidden"
-                              data-testid="button-open-toc"
-                            >
-                              <List className="h-4 w-4 mr-2" />
-                              Contents
-                            </Button>
-                          )}
-                          
                           {/* Zoom Controls */}
                           <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
                             <Button
@@ -609,7 +587,6 @@ export default function CourseView() {
                       </div>
                     </div>
                   )}
-                  </div>
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col">
@@ -709,19 +686,6 @@ export default function CourseView() {
                     <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl z-50">
                       <div className="max-w-7xl mx-auto px-4 py-4">
                         <div className="flex items-center gap-4 flex-wrap justify-center">
-                          {/* ToC Button in Fullscreen */}
-                          {selectedFile?.toc && selectedFile.toc.length > 0 && (
-                            <Button
-                              onClick={() => setMobileTocOpen(true)}
-                              variant="outline"
-                              size="sm"
-                              data-testid="button-open-toc-fullscreen"
-                            >
-                              <List className="h-4 w-4 mr-2" />
-                              Contents
-                            </Button>
-                          )}
-                          
                           {/* Page Navigation Controls */}
                           <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
                             <Button
@@ -808,17 +772,6 @@ export default function CourseView() {
 
       {/* Screenshot Warning Overlay */}
       <ScreenshotWarning visible={showWarning} onDismiss={dismissWarning} />
-
-      {/* Mobile Table of Contents */}
-      {selectedFile?.toc && (
-        <MobileTableOfContents
-          toc={selectedFile.toc}
-          currentPage={pageNumber}
-          onPageSelect={setPageNumber}
-          open={mobileTocOpen}
-          onOpenChange={setMobileTocOpen}
-        />
-      )}
     </div>
   );
 }
