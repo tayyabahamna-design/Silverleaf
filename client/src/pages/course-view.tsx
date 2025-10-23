@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ChevronLeft, FileText, CheckCircle2, Circle, Maximize2, ZoomIn, ZoomOut, X, Award, List } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, CheckCircle2, Circle, Maximize2, ZoomIn, ZoomOut, X, Award, List, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -57,6 +57,17 @@ export default function CourseView() {
   const [selectedQuizFileId, setSelectedQuizFileId] = useState<string | null>(null);
   const [pageInputValue, setPageInputValue] = useState<string>('');
   const [mobileTocOpen, setMobileTocOpen] = useState<boolean>(false);
+  
+  // ToC collapsed state with localStorage persistence
+  const [tocCollapsed, setTocCollapsed] = useState<boolean>(() => {
+    const saved = localStorage.getItem('toc-collapsed');
+    return saved === 'true';
+  });
+
+  // Save ToC collapsed state to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('toc-collapsed', String(tocCollapsed));
+  }, [tocCollapsed]);
 
   // Screenshot protection
   const { showWarning, dismissWarning } = useScreenshotProtection(weekId);
@@ -435,16 +446,54 @@ export default function CourseView() {
               {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                 selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                 selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                <div className="h-full flex">
-                  {/* Desktop ToC Panel */}
+                <div className="h-full flex relative">
+                  {/* Desktop ToC Panel - Collapsible */}
                   {selectedFile?.toc && selectedFile.toc.length > 0 && (
-                    <div className="hidden md:block w-80 border-r bg-card">
-                      <TableOfContents
-                        toc={selectedFile.toc}
-                        currentPage={pageNumber}
-                        onPageSelect={setPageNumber}
-                      />
-                    </div>
+                    <>
+                      {/* Expanded ToC Panel */}
+                      <div 
+                        className={`hidden md:block border-r bg-card transition-all duration-300 ease-in-out ${
+                          tocCollapsed ? 'w-0 overflow-hidden' : 'w-80'
+                        }`}
+                      >
+                        <div className="h-full flex flex-col">
+                          {/* ToC Header with Toggle */}
+                          <div className="p-4 border-b flex items-center justify-between bg-muted/30">
+                            <h3 className="font-semibold text-sm">Table of Contents</h3>
+                            <Button
+                              onClick={() => setTocCollapsed(true)}
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              data-testid="button-collapse-toc"
+                            >
+                              <PanelLeftClose className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          {/* ToC Content */}
+                          <div className="flex-1 overflow-hidden">
+                            <TableOfContents
+                              toc={selectedFile.toc}
+                              currentPage={pageNumber}
+                              onPageSelect={setPageNumber}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Floating Tab when Collapsed */}
+                      {tocCollapsed && (
+                        <button
+                          onClick={() => setTocCollapsed(false)}
+                          className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 flex-col items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 rounded-r-lg py-6 px-2 shadow-lg transition-all hover:px-3 group"
+                          data-testid="button-expand-toc"
+                        >
+                          <PanelLeftOpen className="h-5 w-5 mb-1" />
+                          <span className="text-xs font-medium writing-mode-vertical-rl rotate-180">Contents</span>
+                        </button>
+                      )}
+                    </>
                   )}
                   
                   {/* PDF Viewer */}

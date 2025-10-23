@@ -1,7 +1,6 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { ChevronRight, ChevronDown, List, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { List, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import type { TocEntry } from '@shared/schema';
 
 interface TableOfContentsProps {
@@ -12,66 +11,42 @@ interface TableOfContentsProps {
 }
 
 export function TableOfContents({ toc, currentPage, onPageSelect, className = '' }: TableOfContentsProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
   if (!toc || toc.length === 0) {
     return null;
   }
 
   return (
-    <div className={`flex flex-col bg-card border-r ${className}`}>
-      {/* Header */}
-      <div className="p-4 border-b flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <List className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold text-base">Table of Contents</h3>
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          data-testid="button-toggle-toc"
-          className="h-8 w-8"
-        >
-          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </Button>
+    <ScrollArea className={`flex-1 ${className}`}>
+      <div className="p-2 space-y-1">
+        {toc.map((entry) => (
+          <button
+            key={entry.pageNumber}
+            onClick={() => onPageSelect(entry.pageNumber)}
+            className={`w-full text-left p-3 rounded-lg transition-colors flex items-start gap-3 hover-elevate ${
+              currentPage === entry.pageNumber
+                ? 'bg-primary/10 border-l-4 border-primary'
+                : 'hover:bg-muted/50 border-l-4 border-transparent'
+            }`}
+            data-testid={`toc-entry-${entry.pageNumber}`}
+          >
+            <span
+              className={`text-sm font-semibold flex-shrink-0 min-w-[2rem] ${
+                currentPage === entry.pageNumber ? 'text-primary' : 'text-muted-foreground'
+              }`}
+            >
+              {entry.pageNumber}
+            </span>
+            <span
+              className={`text-sm leading-relaxed flex-1 ${
+                currentPage === entry.pageNumber ? 'text-foreground font-medium' : 'text-muted-foreground'
+              }`}
+            >
+              {entry.heading}
+            </span>
+          </button>
+        ))}
       </div>
-
-      {/* ToC List */}
-      {!isCollapsed && (
-        <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
-            {toc.map((entry) => (
-              <button
-                key={entry.pageNumber}
-                onClick={() => onPageSelect(entry.pageNumber)}
-                className={`w-full text-left p-3 rounded-lg transition-colors flex items-start gap-3 hover-elevate ${
-                  currentPage === entry.pageNumber
-                    ? 'bg-primary/10 border-l-4 border-primary'
-                    : 'hover:bg-muted/50 border-l-4 border-transparent'
-                }`}
-                data-testid={`toc-entry-${entry.pageNumber}`}
-              >
-                <span
-                  className={`text-sm font-semibold flex-shrink-0 min-w-[2rem] ${
-                    currentPage === entry.pageNumber ? 'text-primary' : 'text-muted-foreground'
-                  }`}
-                >
-                  {entry.pageNumber}
-                </span>
-                <span
-                  className={`text-sm leading-relaxed flex-1 ${
-                    currentPage === entry.pageNumber ? 'text-foreground font-medium' : 'text-muted-foreground'
-                  }`}
-                >
-                  {entry.heading}
-                </span>
-              </button>
-            ))}
-          </div>
-        </ScrollArea>
-      )}
-    </div>
+    </ScrollArea>
   );
 }
 
