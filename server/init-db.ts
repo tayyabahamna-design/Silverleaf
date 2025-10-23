@@ -41,13 +41,17 @@ async function initializeDatabase() {
       console.log(`   Username: ${existingAdmin[0].username}`);
       console.log(`   Role: ${existingAdmin[0].role}`);
       
-      // Update password to ensure it's correct
+      // Update username and password to ensure they're correct
       const hashedPassword = await hashPassword("admin123");
       await db
         .update(users)
-        .set({ password: hashedPassword })
+        .set({ 
+          username: "admin",
+          password: hashedPassword 
+        })
         .where(eq(users.email, adminEmail));
       
+      console.log("🔑 Admin username set to: admin");
       console.log("🔑 Admin password updated to: admin123");
     } else {
       // Create admin user
@@ -55,7 +59,7 @@ async function initializeDatabase() {
       const hashedPassword = await hashPassword("admin123");
       
       await db.insert(users).values({
-        username: adminEmail,
+        username: "admin",
         email: adminEmail,
         password: hashedPassword,
         role: "admin",
@@ -64,6 +68,7 @@ async function initializeDatabase() {
       });
       
       console.log("✅ Admin user created successfully!");
+      console.log(`   Username: admin`);
       console.log(`   Email: ${adminEmail}`);
       console.log(`   Password: admin123`);
       console.log(`   Role: admin`);
@@ -79,6 +84,7 @@ async function initializeDatabase() {
     if (verifyAdmin.length > 0 && verifyAdmin[0].role === "admin") {
       console.log("✅ Database initialization complete!");
       console.log("\n📌 Admin credentials:");
+      console.log("   Username: admin");
       console.log("   Email: admin@silverleaf.com");
       console.log("   Password: admin123");
     } else {

@@ -402,7 +402,7 @@ export default function UnifiedAuth() {
                               }
                             `}
                           >
-                            {loginRole === "teacher" ? "Teacher ID or Email" : "Email Address"}
+                            {loginRole === "teacher" ? "Teacher ID or Email" : "Username or Email"}
                           </Label>
                         </div>
                         <div className={`h-0.5 bg-primary transition-all duration-300 ${emailFocused ? 'w-full' : 'w-0'}`} />
@@ -529,16 +529,21 @@ export default function UnifiedAuth() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="reg-email">Email</Label>
+                          <Label htmlFor="reg-email">{accountType === "trainer" ? "Username" : "Email"}</Label>
                           <Input
                             id="reg-email"
                             data-testid="input-email"
-                            type="email"
-                            placeholder="Enter your email"
+                            type={accountType === "trainer" ? "text" : "email"}
+                            placeholder={accountType === "trainer" ? "Choose a username" : "Enter your email"}
                             value={regEmail}
                             onChange={(e) => setRegEmail(e.target.value)}
                             required
                           />
+                          {accountType === "trainer" && (
+                            <p className="text-xs text-muted-foreground">
+                              You'll use this username to login
+                            </p>
+                          )}
                         </div>
 
                         <div className="space-y-2">

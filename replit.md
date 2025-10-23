@@ -31,7 +31,7 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
 ### Technical Implementations
 - **Frontend**: Developed with React, TypeScript, Tailwind CSS for styling, and Shadcn UI for componentry. Uses React Query for data fetching and caching.
 - **Backend**: Implemented using Express.js with TypeScript, providing a RESTful API.
-- **Authentication**: Utilizes Passport.js Local Strategy for secure username/password authentication. Passwords are hashed with scrypt. Features role-based access control (Admin/Teacher) with session management stored in PostgreSQL.
+- **Authentication**: Utilizes Passport.js Local Strategy for secure username/password authentication. Passwords are hashed with scrypt. Features role-based access control (Admin/Trainer/Teacher) with session management stored in PostgreSQL. Admin and Trainer can login with username or email; Teachers can login with Teacher ID or email.
 - **File Management**: Supports file uploads via Uppy.js, storing files in Replit Object Storage (Google Cloud Storage) with presigned URLs for secure access. Allows for multiple deck files per training week.
 - **Inline Editing**: Provides click-to-edit functionality for key fields for admin users, with optimized cache updates for a smooth user experience.
 
@@ -107,7 +107,7 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
    NODE_ENV=production tsx server/init-db.ts
    ```
 2. **What It Does**:
-   - Creates/updates the admin user with email `admin@silverleaf.com` and password `admin123`
+   - Creates/updates the admin user with username `admin`, email `admin@silverleaf.com`, and password `admin123`
    - Verifies database connection and environment
    - Ensures proper password hashing with scrypt
 3. **Verification**: Login to the deployed app with admin credentials to confirm setup
@@ -122,8 +122,10 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
   - Logs database connection details for verification
 
 ### Admin Credentials
-- **Email**: admin@silverleaf.com
+- **Username**: admin
+- **Email**: admin@silverleaf.com  
 - **Default Password**: admin123
+- **Login**: You can use either "admin" (username) or "admin@silverleaf.com" (email) to login
 - **Security Note**: Change password immediately after first login using the "Reset User Password" feature
 
 ### Environment Variables (Auto-Managed by Replit)
