@@ -2,13 +2,14 @@ import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, FileText, CheckCircle2, Circle, Maximize2, ZoomIn, ZoomOut, X, Award, List, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileText, CheckCircle2, Circle, Maximize2, ZoomIn, ZoomOut, X, Award, List, PanelLeftClose, PanelLeftOpen, Menu } from "lucide-react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -59,6 +60,12 @@ export default function CourseView() {
   
   // Sidebar view state: 'standard' shows competency/objectives/files, 'toc' shows table of contents
   const [sidebarView, setSidebarView] = useState<'standard' | 'toc'>('standard');
+  
+  // Mobile sidebar drawer state
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+  
+  // Responsive breakpoint detection
+  const { isMobile, isTablet } = useBreakpoint();
 
   // Screenshot protection
   const { showWarning, dismissWarning } = useScreenshotProtection(weekId);

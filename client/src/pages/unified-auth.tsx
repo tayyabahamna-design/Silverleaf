@@ -257,10 +257,10 @@ export default function UnifiedAuth() {
         <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-primary/20 dark:bg-primary/10 rounded-full blur-3xl" />
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-4 md:p-8 relative z-10">
-        <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-8 lg:gap-12 items-center">
+      <div className="flex-1 flex items-center justify-center p-3 sm:p-4 md:p-6 lg:p-8 relative z-10">
+        <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-6 lg:gap-12 items-center">
           {/* Left side - Welcome section (hidden on mobile in login, shown in register) */}
-          <div className="hidden lg:flex flex-1 flex-col justify-center space-y-6 text-center lg:text-left">
+          <div className="hidden lg:flex flex-1 flex-col justify-center space-y-4 lg:space-y-6 text-center lg:text-left">
             <div className="flex items-center justify-center lg:justify-start gap-4 mb-4">
               <SilverleafLogo className="w-16 h-16" />
               <div>
@@ -302,30 +302,30 @@ export default function UnifiedAuth() {
           </div>
 
           {/* Right side - Auth form */}
-          <div className="w-full lg:w-auto lg:min-w-[480px]">
+          <div className="w-full max-w-md lg:w-auto lg:min-w-[480px] lg:max-w-[520px]">
             <Card className="backdrop-blur-sm bg-card/95 shadow-2xl border-border/50">
-              <CardHeader className="text-center space-y-2 pb-6">
-                <div className="flex justify-center lg:hidden mb-4">
-                  <SilverleafLogo className="w-14 h-14" />
+              <CardHeader className="text-center space-y-2 pb-4 sm:pb-6 px-4 sm:px-6">
+                <div className="flex justify-center lg:hidden mb-3">
+                  <SilverleafLogo className="w-12 h-12 sm:w-14 sm:h-14" />
                 </div>
-                <CardTitle className="text-3xl font-bold">Welcome Back</CardTitle>
-                <CardDescription className="text-base">Sign in to continue your learning journey</CardDescription>
+                <CardTitle className="text-2xl sm:text-3xl font-bold">Welcome Back</CardTitle>
+                <CardDescription className="text-sm sm:text-base">Sign in to continue your learning journey</CardDescription>
               </CardHeader>
               
-              <CardContent>
+              <CardContent className="px-4 sm:px-6">
                 <Tabs defaultValue="login" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2 mb-6">
-                    <TabsTrigger value="login" data-testid="tab-login" className="text-base">Login</TabsTrigger>
-                    <TabsTrigger value="register" data-testid="tab-register" className="text-base">Create Account</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-2 mb-4 sm:mb-6">
+                    <TabsTrigger value="login" data-testid="tab-login" className="text-sm sm:text-base">Login</TabsTrigger>
+                    <TabsTrigger value="register" data-testid="tab-register" className="text-sm sm:text-base">Create Account</TabsTrigger>
                   </TabsList>
 
                   {/* LOGIN TAB */}
-                  <TabsContent value="login" className="space-y-6">
-                    <form onSubmit={handleLogin} className="space-y-6">
+                  <TabsContent value="login" className="space-y-4 sm:space-y-6">
+                    <form onSubmit={handleLogin} className="space-y-4 sm:space-y-6">
                       {/* Role Selection Cards */}
-                      <div className="space-y-3">
-                        <Label className="text-base font-semibold">Select Your Role</Label>
-                        <div className="grid grid-cols-3 gap-3">
+                      <div className="space-y-2 sm:space-y-3">
+                        <Label className="text-sm sm:text-base font-semibold">Select Your Role</Label>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
                           {roleCards.map((role) => {
                             const Icon = role.icon;
                             const isSelected = loginRole === role.value;
@@ -336,7 +336,7 @@ export default function UnifiedAuth() {
                                 onClick={() => setLoginRole(role.value as Role)}
                                 data-testid={`radio-${role.value}`}
                                 className={`
-                                  relative p-4 rounded-xl border-2 transition-all duration-300
+                                  relative p-3 sm:p-4 rounded-xl border-2 transition-all duration-300
                                   hover-elevate active-elevate-2
                                   ${isSelected 
                                     ? 'border-primary bg-primary/5 shadow-lg shadow-primary/20' 
@@ -344,15 +344,15 @@ export default function UnifiedAuth() {
                                   }
                                 `}
                               >
-                                <div className="flex flex-col items-center gap-2 text-center">
+                                <div className="flex flex-col sm:flex-col items-center gap-2 text-center">
                                   <div className={`
-                                    p-3 rounded-lg transition-all duration-300
+                                    p-2 sm:p-3 rounded-lg transition-all duration-300
                                     ${isSelected 
                                       ? `bg-gradient-to-br ${role.gradient} text-white` 
                                       : 'bg-muted text-muted-foreground'
                                     }
                                   `}>
-                                    <Icon className="w-6 h-6" />
+                                    <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
                                   </div>
                                   <div>
                                     <p className={`font-semibold text-sm ${isSelected ? 'text-primary' : 'text-foreground'}`}>
@@ -379,7 +379,7 @@ export default function UnifiedAuth() {
                       {/* Email/ID Input with floating label */}
                       <div className="relative">
                         <div className="relative">
-                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
+                          <Mail className="absolute left-3 sm:left-4 top-1/2 -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground z-10" />
                           <Input
                             id="login-email"
                             data-testid="input-login-email"
@@ -390,15 +390,15 @@ export default function UnifiedAuth() {
                             onFocus={() => setEmailFocused(true)}
                             onBlur={() => setEmailFocused(false)}
                             required
-                            className="pl-12 h-14 text-base peer bg-card border-2 transition-all duration-300 focus:border-primary"
+                            className="pl-10 sm:pl-12 h-12 sm:h-14 text-sm sm:text-base peer bg-card border-2 transition-all duration-300 focus:border-primary"
                           />
                           <Label
                             htmlFor="login-email"
                             className={`
-                              absolute left-12 transition-all duration-300 pointer-events-none
+                              absolute left-10 sm:left-12 transition-all duration-300 pointer-events-none
                               ${emailFocused || loginEmail
                                 ? '-top-2.5 left-3 text-xs bg-card px-2 text-primary font-medium'
-                                : 'top-1/2 -translate-y-1/2 text-base text-muted-foreground'
+                                : 'top-1/2 -translate-y-1/2 text-sm sm:text-base text-muted-foreground'
                               }
                             `}
                           >
@@ -420,7 +420,7 @@ export default function UnifiedAuth() {
                             onFocus={() => setPasswordFocused(true)}
                             onBlur={() => setPasswordFocused(false)}
                             required
-                            className="h-14 text-base peer bg-card border-2 transition-all duration-300 focus:border-primary"
+                            className="h-12 sm:h-14 text-sm sm:text-base peer bg-card border-2 transition-all duration-300 focus:border-primary"
                           />
                           <Label
                             htmlFor="login-password"
@@ -428,7 +428,7 @@ export default function UnifiedAuth() {
                               absolute left-10 transition-all duration-300 pointer-events-none
                               ${passwordFocused || loginPassword
                                 ? '-top-2.5 left-3 text-xs bg-card px-2 text-primary font-medium'
-                                : 'top-1/2 -translate-y-1/2 text-base text-muted-foreground'
+                                : 'top-1/2 -translate-y-1/2 text-sm sm:text-base text-muted-foreground'
                               }
                             `}
                           >
@@ -442,14 +442,14 @@ export default function UnifiedAuth() {
                       <Button 
                         type="submit" 
                         size="lg"
-                        className="w-full h-14 text-lg font-semibold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98]" 
+                        className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/30 transition-all duration-300 hover:shadow-xl hover:shadow-primary/40 hover:scale-[1.02] active:scale-[0.98]" 
                         disabled={loginLoading}
                         data-testid="button-login"
                       >
                         {loginLoading ? (
                           <span className="flex items-center gap-2">
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Logging in...
+                            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span className="text-sm sm:text-base">Logging in...</span>
                           </span>
                         ) : (
                           "Sign In"
@@ -457,10 +457,10 @@ export default function UnifiedAuth() {
                       </Button>
 
                       {/* Motivational Quote */}
-                      <div className="pt-4 border-t border-border">
-                        <div className="flex items-start gap-3 p-4 bg-primary/5 rounded-lg">
-                          <Sparkles className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                          <p className="text-sm text-muted-foreground italic">
+                      <div className="pt-3 sm:pt-4 border-t border-border">
+                        <div className="flex items-start gap-2 sm:gap-3 p-3 sm:p-4 bg-primary/5 rounded-lg">
+                          <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0 mt-0.5" />
+                          <p className="text-xs sm:text-sm text-muted-foreground italic">
                             "{randomQuote}"
                           </p>
                         </div>
@@ -469,14 +469,14 @@ export default function UnifiedAuth() {
                   </TabsContent>
 
                   {/* REGISTER TAB */}
-                  <TabsContent value="register" className="space-y-4">
+                  <TabsContent value="register" className="space-y-3 sm:space-y-4">
                     {!accountType ? (
-                      <div className="space-y-4">
-                        <Label className="text-base">Select account type to create:</Label>
-                        <div className="grid grid-cols-1 gap-3">
+                      <div className="space-y-3 sm:space-y-4">
+                        <Label className="text-sm sm:text-base">Select account type to create:</Label>
+                        <div className="grid grid-cols-1 gap-2 sm:gap-3">
                           <Button
                             variant="outline"
-                            className="h-20 text-base"
+                            className="h-16 sm:h-20 text-sm sm:text-base"
                             onClick={() => setAccountType("teacher")}
                             data-testid="button-create-teacher"
                           >
@@ -487,7 +487,7 @@ export default function UnifiedAuth() {
                           </Button>
                           <Button
                             variant="outline"
-                            className="h-20 text-base"
+                            className="h-16 sm:h-20 text-sm sm:text-base"
                             onClick={() => setAccountType("trainer")}
                             data-testid="button-create-trainer"
                           >
@@ -499,7 +499,7 @@ export default function UnifiedAuth() {
                         </div>
                       </div>
                     ) : (
-                      <form onSubmit={handleRegister} className="space-y-4">
+                      <form onSubmit={handleRegister} className="space-y-3 sm:space-y-4">
                         <div className="flex items-center justify-between">
                           <Label className="text-base font-semibold">
                             Create {accountType === "teacher" ? "Teacher" : "Trainer"} Account
