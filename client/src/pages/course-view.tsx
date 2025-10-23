@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -51,6 +52,7 @@ export default function CourseView() {
   const [quizDialogOpen, setQuizDialogOpen] = useState<boolean>(false);
   const [fileQuizDialogOpen, setFileQuizDialogOpen] = useState<boolean>(false);
   const [selectedQuizFileId, setSelectedQuizFileId] = useState<string | null>(null);
+  const [pageInputValue, setPageInputValue] = useState<string>('');
 
   // Screenshot protection
   const { showWarning, dismissWarning } = useScreenshotProtection(weekId);
@@ -178,6 +180,35 @@ export default function CourseView() {
         return <CheckCircle2 className="h-5 w-5 text-primary" />;
       default:
         return <Circle className="h-5 w-5 text-muted-foreground/40" />;
+    }
+  };
+
+  // Handle direct page input
+  const handlePageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Only allow numbers
+    if (value === '' || /^\d+$/.test(value)) {
+      setPageInputValue(value);
+    }
+  };
+
+  const handlePageInputSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const targetPage = parseInt(pageInputValue);
+    if (!isNaN(targetPage) && targetPage >= 1 && targetPage <= numPages) {
+      setPageNumber(targetPage);
+      setPageInputValue(''); // Clear input after successful jump
+    } else if (pageInputValue !== '') {
+      // Invalid page - shake or show feedback
+      setPageInputValue('');
+    }
+  };
+
+  const handlePageInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handlePageInputSubmit();
+    } else if (e.key === 'Escape') {
+      setPageInputValue('');
     }
   };
 
@@ -396,77 +427,108 @@ export default function CourseView() {
             </div>
 
             {/* Content Display */}
-            <div className="flex-1 overflow-auto bg-muted/20">
+            <div className="flex-1 overflow-auto bg-muted/20 relative">
               {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                 selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                 selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                <div className="h-full flex flex-col items-center p-8">
-                  <div className="w-full max-w-5xl flex flex-col items-center gap-6">
+                <div className="h-full flex flex-col items-center p-8 pb-28">
+                  <div className="w-full max-w-5xl flex flex-col items-center">
                     {viewUrl && (
-                      <>
-                        <Document
-                          file={viewUrl}
-                          onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-                          className="shadow-2xl rounded-xl overflow-hidden"
-                        >
-                          <Page
-                            pageNumber={pageNumber}
-                            scale={scale}
-                            renderTextLayer={true}
-                            renderAnnotationLayer={true}
-                          />
-                        </Document>
+                      <Document
+                        file={viewUrl}
+                        onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                        className="shadow-2xl rounded-xl overflow-hidden"
+                      >
+                        <Page
+                          pageNumber={pageNumber}
+                          scale={scale}
+                          renderTextLayer={true}
+                          renderAnnotationLayer={true}
+                        />
+                      </Document>
+                    )}
+                  </div>
+                  
+                  {/* Floating Persistent Controls */}
+                  {viewUrl && (
+                    <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl z-50">
+                      <div className="max-w-7xl mx-auto px-4 py-4">
                         <div className="flex items-center gap-4 flex-wrap justify-center">
-                          <div className="flex items-center gap-2">
+                          {/* Zoom Controls */}
+                          <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
                             <Button
                               onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
                               variant="outline"
+                              size="sm"
                               data-testid="button-zoom-out"
                             >
                               <ZoomOut className="h-4 w-4" />
                             </Button>
-                            <span className="text-base text-muted-foreground min-w-20 text-center font-medium">
+                            <span className="text-sm text-muted-foreground min-w-16 text-center font-medium">
                               {Math.round(scale * 100)}%
                             </span>
                             <Button
                               onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
                               variant="outline"
+                              size="sm"
                               data-testid="button-zoom-in"
                             >
                               <ZoomIn className="h-4 w-4" />
                             </Button>
                           </div>
-                          <div className="flex items-center gap-2">
+                          
+                          {/* Page Navigation Controls */}
+                          <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
                             <Button
                               onClick={() => setPageNumber(p => Math.max(1, p - 1))}
                               disabled={pageNumber <= 1}
                               variant="outline"
+                              size="sm"
                             >
                               Previous
                             </Button>
-                            <div className="flex flex-col items-center gap-1">
-                              <span className="text-base text-muted-foreground min-w-32 text-center font-medium">
-                                Page {pageNumber} of {numPages}
+                            
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                Page
                               </span>
-                              {pageNumber === numPages && numPages > 0 && (
-                                <div className="flex items-center gap-1 text-xs text-primary font-semibold">
-                                  <CheckCircle2 className="h-3.5 w-3.5" />
-                                  <span>Last page reached!</span>
-                                </div>
-                              )}
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                value={pageInputValue}
+                                onChange={handlePageInputChange}
+                                onKeyDown={handlePageInputKeyDown}
+                                onBlur={handlePageInputSubmit}
+                                placeholder={pageNumber.toString()}
+                                className="w-16 h-8 text-center text-sm"
+                                data-testid="input-page-number"
+                              />
+                              <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                of {numPages}
+                              </span>
                             </div>
+                            
                             <Button
                               onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
                               disabled={pageNumber >= numPages}
                               variant="outline"
+                              size="sm"
                             >
                               Next
                             </Button>
                           </div>
+                          
+                          {/* Completion Indicator */}
+                          {pageNumber === numPages && numPages > 0 && (
+                            <div className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 rounded-lg">
+                              <CheckCircle2 className="h-4 w-4 text-primary" />
+                              <span className="text-sm font-semibold text-primary">Last page reached!</span>
+                            </div>
+                          )}
                         </div>
-                      </>
-                    )}
-                  </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col">
@@ -541,12 +603,12 @@ export default function CourseView() {
             </div>
 
             {/* Fullscreen content */}
-            <div className="flex-1 p-6 overflow-auto bg-muted/20">
+            <div className="flex-1 p-6 overflow-auto bg-muted/20 relative">
               {selectedFile && viewUrl && (
                 (selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                  selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                  selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                  <div className="h-full flex flex-col items-center">
+                  <div className="h-full flex flex-col items-center pb-24">
                     <div className="select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
                       <Document
                         file={viewUrl}
@@ -561,24 +623,61 @@ export default function CourseView() {
                         />
                       </Document>
                     </div>
-                    <div className="mt-4 flex items-center gap-4">
-                      <Button
-                        onClick={() => setPageNumber(p => Math.max(1, p - 1))}
-                        disabled={pageNumber <= 1}
-                        variant="outline"
-                      >
-                        Previous
-                      </Button>
-                      <span className="text-sm">
-                        Page {pageNumber} of {numPages}
-                      </span>
-                      <Button
-                        onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
-                        disabled={pageNumber >= numPages}
-                        variant="outline"
-                      >
-                        Next
-                      </Button>
+                    
+                    {/* Floating Persistent Controls in Fullscreen */}
+                    <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl z-50">
+                      <div className="max-w-7xl mx-auto px-4 py-4">
+                        <div className="flex items-center gap-4 flex-wrap justify-center">
+                          {/* Page Navigation Controls */}
+                          <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
+                            <Button
+                              onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+                              disabled={pageNumber <= 1}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Previous
+                            </Button>
+                            
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                Page
+                              </span>
+                              <Input
+                                type="text"
+                                inputMode="numeric"
+                                value={pageInputValue}
+                                onChange={handlePageInputChange}
+                                onKeyDown={handlePageInputKeyDown}
+                                onBlur={handlePageInputSubmit}
+                                placeholder={pageNumber.toString()}
+                                className="w-16 h-8 text-center text-sm"
+                                data-testid="input-page-number-fullscreen"
+                              />
+                              <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                of {numPages}
+                              </span>
+                            </div>
+                            
+                            <Button
+                              onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
+                              disabled={pageNumber >= numPages}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Next
+                            </Button>
+                          </div>
+                          
+                          {/* Completion Indicator */}
+                          {pageNumber === numPages && numPages > 0 && (
+                            <div className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 rounded-lg">
+                              <CheckCircle2 className="h-4 w-4 text-primary" />
+                              <span className="text-sm font-semibold text-primary">Last page reached!</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ) : (

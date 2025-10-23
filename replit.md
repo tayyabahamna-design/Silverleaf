@@ -55,6 +55,10 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
 - **Admin Password Reset**: Admins can reset any user's password through a dedicated UI dialog with proper validation and security.
 - **File Handling**: Uploads of common presentation formats (PowerPoint, PDF, Keynote) are supported, with enhanced visual previews.
 - **Progress Tracking**: Files are marked as complete only when users navigate to the last page/slide. This ensures accurate, honest progress data that reflects true content consumption. Visual indicators show when the last page is reached, and progress bars update accordingly.
+- **Enhanced Slide Viewer**:
+  - **Persistent Floating Controls**: Navigation controls (Previous/Next, Zoom, page numbers) float at the bottom of the screen and remain visible at all times, even when zoomed in or in fullscreen mode
+  - **Direct Page Navigation**: Users can type a page number directly into the input field to jump to any slide instantly, eliminating the need to click "Next" repeatedly
+  - **Mobile-Optimized**: Controls work seamlessly across desktop, tablet, and mobile devices with responsive touch-friendly design
 
 ### System Design Choices
 - **Database**: PostgreSQL is used as the primary data store, with Drizzle ORM for type-safe database interactions. Sessions are also stored in PostgreSQL.
