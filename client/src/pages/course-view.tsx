@@ -248,7 +248,7 @@ export default function CourseView() {
             {/* Scrollable Content: Competency Focus, Objectives, Progress, and File List OR Table of Contents */}
             <div className="flex-1 overflow-y-auto">
               {sidebarView === 'standard' ? (
-                <div className="p-6 space-y-6">
+                <div className="p-6 pb-32 space-y-6">
                 {/* Competency Focus */}
                 <div>
                   <h3 className="text-base font-semibold uppercase tracking-wider text-[#666] mb-3">

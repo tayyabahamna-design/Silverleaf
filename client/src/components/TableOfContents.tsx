@@ -17,7 +17,7 @@ export function TableOfContents({ toc, currentPage, onPageSelect, className = ''
 
   return (
     <ScrollArea className={`flex-1 ${className}`}>
-      <div className="p-2 space-y-1">
+      <div className="p-2 pb-32 space-y-1">
         {toc.map((entry) => (
           <button
             key={entry.pageNumber}
@@ -97,7 +97,7 @@ export function MobileTableOfContents({
 
         {/* ToC List */}
         <ScrollArea className="flex-1">
-          <div className="p-3 space-y-1">
+          <div className="p-3 pb-32 space-y-1">
             {toc.map((entry) => (
               <button
                 key={entry.pageNumber}
