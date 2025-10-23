@@ -422,7 +422,6 @@ export default function UnifiedAuth() {
                       {/* Password Input with floating label */}
                       <div className="relative">
                         <div className="relative">
-                          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
                           <PasswordInput
                             id="login-password"
                             data-testid="input-login-password"
@@ -432,12 +431,12 @@ export default function UnifiedAuth() {
                             onFocus={() => setPasswordFocused(true)}
                             onBlur={() => setPasswordFocused(false)}
                             required
-                            className="pl-12 pr-12 h-14 text-base peer bg-card border-2 transition-all duration-300 focus:border-primary"
+                            className="h-14 text-base peer bg-card border-2 transition-all duration-300 focus:border-primary"
                           />
                           <Label
                             htmlFor="login-password"
                             className={`
-                              absolute left-12 transition-all duration-300 pointer-events-none
+                              absolute left-10 transition-all duration-300 pointer-events-none
                               ${passwordFocused || loginPassword
                                 ? '-top-2.5 left-3 text-xs bg-card px-2 text-primary font-medium'
                                 : 'top-1/2 -translate-y-1/2 text-base text-muted-foreground'

@@ -1,7 +1,7 @@
 import { useState, forwardRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface PasswordInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -9,7 +9,7 @@ export interface PasswordInputProps extends React.InputHTMLAttributes<HTMLInputE
 }
 
 const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
-  ({ className, ...props }, ref) => {
+  ({ className, placeholder = "Password", ...props }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
 
     const togglePasswordVisibility = () => {
@@ -18,9 +18,11 @@ const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
 
     return (
       <div className="relative">
+        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" aria-hidden="true" />
         <Input
           type={showPassword ? "text" : "password"}
-          className={cn("pr-12", className)}
+          className={cn("pl-10 pr-12", className)}
+          placeholder={placeholder}
           ref={ref}
           {...props}
         />
