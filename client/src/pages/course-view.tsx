@@ -47,7 +47,6 @@ export default function CourseView() {
   const [scale, setScale] = useState<number>(1.0); // Reasonable default scale that fits within content area
   const [viewUrl, setViewUrl] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [viewingStartTime, setViewingStartTime] = useState<number | null>(null);
   const [hasMarkedComplete, setHasMarkedComplete] = useState<boolean>(false);
   const [quizDialogOpen, setQuizDialogOpen] = useState<boolean>(false);
   const [fileQuizDialogOpen, setFileQuizDialogOpen] = useState<boolean>(false);
@@ -112,7 +111,6 @@ export default function CourseView() {
     if (deckFiles.length > 0 && !selectedFileId) {
       const firstFile = deckFiles[0];
       setSelectedFileId(firstFile.id);
-      setViewingStartTime(Date.now());
       setHasMarkedComplete(firstFile.progress?.status === 'completed');
     }
   }, [deckFiles, selectedFileId]);
@@ -151,36 +149,28 @@ export default function CourseView() {
     setPageNumber(1); // Reset page number when switching files
   }, [selectedFile]);
 
-  // Handle file click - start viewing timer
+  // Handle file click - reset completion flag
   const handleFileClick = (file: DeckFile) => {
     setSelectedFileId(file.id);
-    // Reset timer and completion flag for new file
-    setViewingStartTime(Date.now());
     setHasMarkedComplete(file.progress?.status === 'completed');
   };
 
-  // Timer effect - mark as completed after 60 seconds of viewing
+  // Track completion when user reaches the last page
   useEffect(() => {
-    if (!selectedFile || !viewingStartTime || hasMarkedComplete || selectedFile.progress?.status === 'completed') {
+    if (!selectedFile || hasMarkedComplete || selectedFile.progress?.status === 'completed') {
       return;
     }
 
-    const timer = setInterval(() => {
-      const elapsed = Date.now() - viewingStartTime;
-      const REQUIRED_VIEWING_TIME = 60 * 1000; // 60 seconds
-
-      if (elapsed >= REQUIRED_VIEWING_TIME && !hasMarkedComplete) {
-        saveProgressMutation.mutate({
-          deckFileId: selectedFile.id,
-          status: 'completed',
-          completedAt: new Date(),
-        });
-        setHasMarkedComplete(true);
-      }
-    }, 1000); // Check every second
-
-    return () => clearInterval(timer);
-  }, [selectedFile, viewingStartTime, hasMarkedComplete, saveProgressMutation]);
+    // Mark as complete when user reaches the last page
+    if (numPages > 0 && pageNumber === numPages) {
+      saveProgressMutation.mutate({
+        deckFileId: selectedFile.id,
+        status: 'completed',
+        completedAt: new Date(),
+      });
+      setHasMarkedComplete(true);
+    }
+  }, [selectedFile, pageNumber, numPages, hasMarkedComplete, saveProgressMutation]);
 
   const getStatusIcon = (status?: string) => {
     switch (status) {
@@ -265,6 +255,9 @@ export default function CourseView() {
                     <Progress value={weekProgress.percentage} className="h-2" />
                     <p className="text-sm text-muted-foreground mt-1">
                       {weekProgress.completed} of {weekProgress.total} completed
+                    </p>
+                    <p className="text-xs text-muted-foreground/70 mt-2 italic">
+                      Tip: Navigate to the last page of each file to mark it as complete
                     </p>
                   </div>
                 )}
@@ -451,9 +444,17 @@ export default function CourseView() {
                             >
                               Previous
                             </Button>
-                            <span className="text-base text-muted-foreground min-w-32 text-center font-medium">
-                              Page {pageNumber} of {numPages}
-                            </span>
+                            <div className="flex flex-col items-center gap-1">
+                              <span className="text-base text-muted-foreground min-w-32 text-center font-medium">
+                                Page {pageNumber} of {numPages}
+                              </span>
+                              {pageNumber === numPages && numPages > 0 && (
+                                <div className="flex items-center gap-1 text-xs text-primary font-semibold">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  <span>Last page reached!</span>
+                                </div>
+                              )}
+                            </div>
                             <Button
                               onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
                               disabled={pageNumber >= numPages}

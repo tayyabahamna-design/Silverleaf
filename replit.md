@@ -54,7 +54,7 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
   - View quiz history and performance statistics
 - **Admin Password Reset**: Admins can reset any user's password through a dedicated UI dialog with proper validation and security.
 - **File Handling**: Uploads of common presentation formats (PowerPoint, PDF, Keynote) are supported, with enhanced visual previews.
-- **Progress Tracking**: Teachers must view content for 60 seconds before it's marked complete, with automatic progress tracking.
+- **Progress Tracking**: Files are marked as complete only when users navigate to the last page/slide. This ensures accurate, honest progress data that reflects true content consumption. Visual indicators show when the last page is reached, and progress bars update accordingly.
 
 ### System Design Choices
 - **Database**: PostgreSQL is used as the primary data store, with Drizzle ORM for type-safe database interactions. Sessions are also stored in PostgreSQL.
