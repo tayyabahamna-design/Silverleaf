@@ -38,9 +38,9 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
 ### Feature Specifications
 - **Training Week Management**: Admins can add, edit, and delete training weeks, including competency focus, objectives, and presentation files.
 - **Role-Based Access Control**: Three user roles with distinct permissions:
-  - **Admins**: Full CRUD capabilities for training content and user management
-  - **Trainers**: Can create batches, assign teachers to batches, assign quizzes, and track teacher progress
-  - **Teachers**: Can view assigned quizzes, take assessments, and track their own progress
+  - **Admins**: Full CRUD capabilities for training content and user management. After login, directed to home page with editable week management.
+  - **Trainers**: Can create batches, assign teachers to batches, assign quizzes, and track teacher progress. After login, directed to home page showing training weeks overview. Can navigate to batch management via "Manage Batches" button in header.
+  - **Teachers**: Can view assigned quizzes, take assessments, and track their own progress. After login, directed to teacher dashboard with quiz assignments and progress tracking.
 - **Batch Management (Trainer Feature)**: 
   - Create and manage teacher batches for organized group training
   - Add/remove teachers from batches using their numeric Teacher ID
@@ -68,6 +68,15 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
     - One-click navigation to any page/slide in the document
     - Current page highlighted in ToC for orientation
   - **Mobile-Optimized**: Controls work seamlessly across desktop, tablet, and mobile devices with responsive touch-friendly design
+
+### Navigation Structure
+- **Login Redirects**:
+  - Admins and Trainers → Home page (`/`) showing training weeks overview
+  - Teachers → Teacher dashboard (`/teacher/dashboard`) with quiz assignments and progress
+- **Trainer Navigation**:
+  - **Home Page** (`/`): Default landing page showing all training weeks in card format. Header includes "Manage Batches" button to access batch management features.
+  - **Batch Management** (`/trainer/batches`): Accessible via "Manage Batches" button. Includes "Home" button in header to return to training weeks overview.
+  - This two-page flow ensures trainers always start with the high-level training content overview before diving into batch-specific management tasks.
 
 ### System Design Choices
 - **Database**: PostgreSQL is used as the primary data store, with Drizzle ORM for type-safe database interactions. Sessions are also stored in PostgreSQL.
