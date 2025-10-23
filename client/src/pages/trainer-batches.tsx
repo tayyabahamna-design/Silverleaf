@@ -695,17 +695,17 @@ export default function TrainerBatches() {
                     const level = item.reportCard?.level || "Not Started";
                     const isExpanded = expandedTeacherId === item.teacher.id;
                     
-                    // Color coding based on performance
-                    const getScoreColor = (score: number) => {
-                      if (score >= 80) return "text-green-600 dark:text-green-400";
-                      if (score >= 60) return "text-yellow-600 dark:text-yellow-400";
-                      return "text-red-600 dark:text-red-400";
+                    // Performance indicator using primary brand color with intensity variations
+                    const getScoreIntensity = (score: number) => {
+                      if (score >= 80) return "text-primary font-bold";
+                      if (score >= 60) return "text-primary/80 font-semibold";
+                      return "text-primary/50 font-medium";
                     };
                     
-                    const getProgressColor = (score: number) => {
-                      if (score >= 80) return "bg-green-500";
-                      if (score >= 60) return "bg-yellow-500";
-                      return "bg-red-500";
+                    const getProgressOpacity = (score: number) => {
+                      if (score >= 80) return "bg-primary";
+                      if (score >= 60) return "bg-primary/70";
+                      return "bg-primary/40";
                     };
                     
                     return (
@@ -752,17 +752,17 @@ export default function TrainerBatches() {
                           <div className="grid grid-cols-3 gap-3">
                             <div className="space-y-1">
                               <p className="text-xs text-muted-foreground">Quizzes</p>
-                              <p className="text-lg font-bold">{totalTaken}</p>
+                              <p className="text-lg font-bold text-foreground">{totalTaken}</p>
                             </div>
                             <div className="space-y-1">
                               <p className="text-xs text-muted-foreground">Pass Rate</p>
-                              <p className={`text-lg font-bold ${getScoreColor(passRate)}`}>
+                              <p className={`text-lg ${getScoreIntensity(passRate)}`}>
                                 {passRate}%
                               </p>
                             </div>
                             <div className="space-y-1">
                               <p className="text-xs text-muted-foreground">Avg Score</p>
-                              <p className={`text-lg font-bold ${getScoreColor(avgScore)}`}>
+                              <p className={`text-lg ${getScoreIntensity(avgScore)}`}>
                                 {avgScore}%
                               </p>
                             </div>
@@ -773,13 +773,13 @@ export default function TrainerBatches() {
                             <div className="space-y-2">
                               <div className="flex justify-between text-xs">
                                 <span className="text-muted-foreground">Overall Performance</span>
-                                <span className={`font-semibold ${getScoreColor(avgScore)}`}>
+                                <span className={getScoreIntensity(avgScore)}>
                                   {avgScore}%
                                 </span>
                               </div>
                               <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                                 <div
-                                  className={`h-full ${getProgressColor(avgScore)} transition-all duration-500`}
+                                  className={`h-full ${getProgressOpacity(avgScore)} transition-all duration-500`}
                                   style={{ width: `${avgScore}%` }}
                                 />
                               </div>
@@ -792,13 +792,13 @@ export default function TrainerBatches() {
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                   <p className="text-xs text-muted-foreground">Quizzes Passed</p>
-                                  <p className="text-xl font-bold text-green-600 dark:text-green-400">
+                                  <p className="text-xl font-bold text-primary">
                                     {totalPassed}
                                   </p>
                                 </div>
                                 <div className="space-y-1">
                                   <p className="text-xs text-muted-foreground">Quizzes Failed</p>
-                                  <p className="text-xl font-bold text-red-600 dark:text-red-400">
+                                  <p className="text-xl font-bold text-primary/50">
                                     {totalTaken - totalPassed}
                                   </p>
                                 </div>
@@ -1039,15 +1039,15 @@ export default function TrainerBatches() {
                                 key={optIndex}
                                 className={`flex items-center gap-3 p-3 rounded-md border ${
                                   isCorrect 
-                                    ? 'bg-green-50 dark:bg-green-950 border-green-500 dark:border-green-700' 
-                                    : 'bg-muted/50'
+                                    ? 'bg-primary/10 dark:bg-primary/20 border-primary/30 dark:border-primary/50' 
+                                    : 'bg-muted/50 border-transparent'
                                 }`}
                                 data-testid={`option-${index}-${optIndex}`}
                               >
                                 {isCorrect && (
-                                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                  <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
                                 )}
-                                <span className={isCorrect ? 'font-semibold text-green-900 dark:text-green-100' : ''}>
+                                <span className={isCorrect ? 'font-semibold text-primary' : 'text-foreground'}>
                                   {String.fromCharCode(65 + optIndex)}. {option}
                                 </span>
                               </div>
@@ -1064,15 +1064,15 @@ export default function TrainerBatches() {
                                 key={optIndex}
                                 className={`flex items-center gap-3 p-3 rounded-md border ${
                                   isCorrect 
-                                    ? 'bg-green-50 dark:bg-green-950 border-green-500 dark:border-green-700' 
-                                    : 'bg-muted/50'
+                                    ? 'bg-primary/10 dark:bg-primary/20 border-primary/30 dark:border-primary/50' 
+                                    : 'bg-muted/50 border-transparent'
                                 }`}
                                 data-testid={`option-${index}-${optIndex}`}
                               >
                                 {isCorrect && (
-                                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                  <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
                                 )}
-                                <span className={isCorrect ? 'font-semibold text-green-900 dark:text-green-100' : ''}>
+                                <span className={isCorrect ? 'font-semibold text-primary' : 'text-foreground'}>
                                   {option}
                                 </span>
                               </div>
@@ -1081,7 +1081,7 @@ export default function TrainerBatches() {
                         </div>
                       )}
                       <div className="pt-2 border-t">
-                        <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                        <p className="text-sm font-semibold text-primary">
                           Correct Answer: {question.correctAnswer}
                         </p>
                       </div>
@@ -1191,7 +1191,7 @@ export default function TrainerBatches() {
                 const isCorrect = teacherAnswer === question.correctAnswer;
                 
                 return (
-                  <Card key={question.id} className={`border-l-4 ${isCorrect ? 'border-l-green-500' : 'border-l-red-500'}`}>
+                  <Card key={question.id} className={`border-l-4 ${isCorrect ? 'border-l-primary' : 'border-l-primary/30'}`}>
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
@@ -1202,8 +1202,8 @@ export default function TrainerBatches() {
                             {question.question}
                           </CardDescription>
                         </div>
-                        <Badge variant={isCorrect ? "default" : "destructive"}>
-                          {isCorrect ? "✓ Correct" : "✗ Wrong"}
+                        <Badge variant={isCorrect ? "default" : "outline"} className={!isCorrect ? "border-primary/30 text-muted-foreground" : ""}>
+                          {isCorrect ? "✓ Correct" : "✗ Incorrect"}
                         </Badge>
                       </div>
                     </CardHeader>
@@ -1219,22 +1219,22 @@ export default function TrainerBatches() {
                                 key={optIndex}
                                 className={`flex items-center gap-3 p-3 rounded-md border ${
                                   isCorrectAnswer
-                                    ? 'bg-green-50 dark:bg-green-950 border-green-500 dark:border-green-700'
+                                    ? 'bg-primary/10 dark:bg-primary/20 border-primary/30 dark:border-primary/50'
                                     : isTeacherChoice
-                                    ? 'bg-red-50 dark:bg-red-950 border-red-500 dark:border-red-700'
-                                    : 'bg-muted/50'
+                                    ? 'bg-muted dark:bg-muted/50 border-primary/20 dark:border-primary/30'
+                                    : 'bg-muted/50 border-transparent'
                                 }`}
                                 data-testid={`attempt-option-${index}-${optIndex}`}
                               >
                                 {isCorrectAnswer && (
-                                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                  <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
                                 )}
                                 {isTeacherChoice && !isCorrectAnswer && (
-                                  <span className="text-red-600 dark:text-red-400 font-bold flex-shrink-0">✗</span>
+                                  <span className="text-primary/50 font-bold flex-shrink-0">✗</span>
                                 )}
-                                <span className={isCorrectAnswer ? 'font-semibold text-green-900 dark:text-green-100' : isTeacherChoice ? 'font-semibold text-red-900 dark:text-red-100' : ''}>
+                                <span className={isCorrectAnswer ? 'font-semibold text-primary' : isTeacherChoice ? 'font-semibold text-foreground' : 'text-foreground'}>
                                   {String.fromCharCode(65 + optIndex)}. {option}
-                                  {isTeacherChoice && <span className="ml-2 text-sm">(Teacher's Answer)</span>}
+                                  {isTeacherChoice && <span className="ml-2 text-sm text-muted-foreground">(Teacher's Answer)</span>}
                                 </span>
                               </div>
                             );
@@ -1252,20 +1252,20 @@ export default function TrainerBatches() {
                                 key={optIndex}
                                 className={`flex items-center gap-3 p-3 rounded-md border ${
                                   isCorrectAnswer
-                                    ? 'bg-green-50 dark:bg-green-950 border-green-500 dark:border-green-700'
+                                    ? 'bg-primary/10 dark:bg-primary/20 border-primary/30 dark:border-primary/50'
                                     : isTeacherChoice
-                                    ? 'bg-red-50 dark:bg-red-950 border-red-500 dark:border-red-700'
-                                    : 'bg-muted/50'
+                                    ? 'bg-muted dark:bg-muted/50 border-primary/20 dark:border-primary/30'
+                                    : 'bg-muted/50 border-transparent'
                                 }`}
                                 data-testid={`attempt-option-${index}-${optIndex}`}
                               >
                                 {isCorrectAnswer && (
-                                  <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                  <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
                                 )}
                                 {isTeacherChoice && !isCorrectAnswer && (
-                                  <span className="text-red-600 dark:text-red-400 font-bold flex-shrink-0">✗</span>
+                                  <span className="text-primary/50 font-bold flex-shrink-0">✗</span>
                                 )}
-                                <span className={isCorrectAnswer ? 'font-semibold text-green-900 dark:text-green-100' : isTeacherChoice ? 'font-semibold text-red-900 dark:text-red-100' : ''}>
+                                <span className={isCorrectAnswer ? 'font-semibold text-primary' : isTeacherChoice ? 'font-semibold text-foreground' : 'text-foreground'}>
                                   {option}
                                   {isTeacherChoice && <span className="ml-2 text-sm">(Teacher's Answer)</span>}
                                 </span>
