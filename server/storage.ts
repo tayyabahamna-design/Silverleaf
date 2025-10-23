@@ -810,6 +810,19 @@ export class DatabaseStorage implements IStorage {
       .orderBy(sqlOp`${teacherQuizAttempts.completedAt} DESC`);
   }
 
+  async getTeacherQuizAttemptsByQuiz(teacherId: string, assignedQuizId: string): Promise<TeacherQuizAttempt[]> {
+    return await db
+      .select()
+      .from(teacherQuizAttempts)
+      .where(
+        and(
+          eq(teacherQuizAttempts.teacherId, teacherId),
+          eq(teacherQuizAttempts.assignedQuizId, assignedQuizId)
+        )
+      )
+      .orderBy(sqlOp`${teacherQuizAttempts.attemptNumber} ASC`);
+  }
+
   // Teacher report card operations
   async getTeacherReportCard(teacherId: string): Promise<TeacherReportCard | undefined> {
     const [reportCard] = await db

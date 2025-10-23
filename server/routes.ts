@@ -1278,14 +1278,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Quiz not found" });
       }
 
-      // Check if teacher already attempted this quiz
-      const existingAttempt = await storage.getTeacherQuizAttempt(
+      // Get all existing attempts for this quiz
+      const existingAttempts = await storage.getTeacherQuizAttemptsByQuiz(
         req.teacherId!,
         req.params.quizId
       );
 
-      if (existingAttempt) {
-        return res.status(400).json({ error: "Quiz already attempted" });
+      // Check if teacher has already passed (>= 80%)
+      const hasPassedAttempt = existingAttempts.some(
+        (attempt) => (attempt.score / attempt.totalQuestions) * 100 >= 80
+      );
+
+      if (hasPassedAttempt) {
+        return res.status(400).json({ error: "Quiz already passed. Retakes are not allowed after passing." });
+      }
+
+      // Check if teacher has exhausted all 3 attempts
+      if (existingAttempts.length >= 3) {
+        return res.status(400).json({ error: "Maximum of 3 attempts reached for this quiz." });
       }
 
       // Calculate score
@@ -1298,25 +1308,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const totalQuestions = quiz.questions.length;
       const percentage = Math.round((score / totalQuestions) * 100);
-      const passed = percentage >= 70 ? "yes" : "no";
+      const passed = percentage >= 80 ? "yes" : "no";
+      const attemptNumber = existingAttempts.length + 1;
 
       // Save attempt
       const attempt = await storage.saveTeacherQuizAttempt({
         teacherId: req.teacherId!,
         assignedQuizId: req.params.quizId,
+        attemptNumber,
         answers,
         score,
         totalQuestions,
         passed,
       });
 
-      // Update report card
+      // Update report card - count unique quizzes, not total attempts
       const allAttempts = await storage.getAllTeacherQuizAttempts(req.teacherId!);
-      const totalTaken = allAttempts.length;
-      const totalPassed = allAttempts.filter(a => a.passed === "yes").length;
-      const avgScore = Math.round(
-        allAttempts.reduce((sum, a) => sum + (a.score / a.totalQuestions) * 100, 0) / totalTaken
-      );
+      
+      // Get unique quizzes attempted
+      const uniqueQuizIds = new Set(allAttempts.map(a => a.assignedQuizId));
+      const totalTaken = uniqueQuizIds.size;
+      
+      // Get unique quizzes passed (at least one passing attempt)
+      const passedQuizIds = new Set();
+      allAttempts.forEach(a => {
+        if (a.passed === "yes") {
+          passedQuizIds.add(a.assignedQuizId);
+        }
+      });
+      const totalPassed = passedQuizIds.size;
+      
+      // Calculate average score based on best attempt per quiz
+      const bestAttemptsByQuiz = new Map();
+      allAttempts.forEach(a => {
+        const quizId = a.assignedQuizId;
+        const attemptPercentage = (a.score / a.totalQuestions) * 100;
+        if (!bestAttemptsByQuiz.has(quizId) || attemptPercentage > bestAttemptsByQuiz.get(quizId)) {
+          bestAttemptsByQuiz.set(quizId, attemptPercentage);
+        }
+      });
+      
+      const avgScore = totalTaken > 0 
+        ? Math.round(Array.from(bestAttemptsByQuiz.values()).reduce((sum, score) => sum + score, 0) / totalTaken)
+        : 0;
 
       let level = "Beginner";
       if (avgScore >= 85) level = "Advanced";
@@ -1335,6 +1369,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalQuestions,
         passed: passed === "yes",
         percentage,
+        attemptNumber,
+        remainingAttempts: 3 - attemptNumber,
       });
     } catch (error) {
       console.error("Error submitting quiz:", error);
@@ -1342,16 +1378,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get teacher's quiz attempt for a specific quiz
-  app.get("/api/assigned-quizzes/:quizId/attempt", isTeacherAuthenticated, async (req, res) => {
+  // Get all teacher's quiz attempts for a specific quiz
+  app.get("/api/assigned-quizzes/:quizId/attempts", isTeacherAuthenticated, async (req, res) => {
     try {
-      const attempt = await storage.getTeacherQuizAttempt(
+      const attempts = await storage.getTeacherQuizAttemptsByQuiz(
         req.teacherId!,
         req.params.quizId
       );
-      res.json(attempt || null);
+      
+      // Get quiz details for enrichment
+      const quiz = await storage.getAssignedQuiz(req.params.quizId);
+      
+      // Calculate quiz status
+      const hasPassed = attempts.some(a => (a.score / a.totalQuestions) * 100 >= 80);
+      const attemptsUsed = attempts.length;
+      const canRetake = !hasPassed && attemptsUsed < 3;
+      const shouldShowAnswers = hasPassed || attemptsUsed >= 3;
+      
+      res.json({
+        attempts,
+        quiz,
+        hasPassed,
+        attemptsUsed,
+        remainingAttempts: Math.max(0, 3 - attemptsUsed),
+        canRetake,
+        shouldShowAnswers,
+      });
     } catch (error) {
-      console.error("Error fetching attempt:", error);
+      console.error("Error fetching attempts:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

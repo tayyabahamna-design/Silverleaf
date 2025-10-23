@@ -302,6 +302,7 @@ export const teacherQuizAttempts = pgTable("teacher_quiz_attempts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
   assignedQuizId: varchar("assigned_quiz_id").notNull().references(() => assignedQuizzes.id, { onDelete: "cascade" }),
+  attemptNumber: integer("attempt_number").notNull().default(1), // 1, 2, or 3
   answers: jsonb("answers").$type<Record<string, string>>().notNull(),
   score: integer("score").notNull(),
   totalQuestions: integer("total_questions").notNull(),

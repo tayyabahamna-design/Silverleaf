@@ -7,19 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { queryClient } from "@/lib/queryClient";
-import { Award, BookOpen, CheckCircle, XCircle, LogOut } from "lucide-react";
+import { Award, BookOpen, CheckCircle, XCircle, LogOut, AlertCircle, RotateCcw } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 export default function TeacherDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [selectedQuiz, setSelectedQuiz] = useState<any>(null);
+  const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<string>("quiz");
 
   const { data: teacher } = useQuery<any>({
     queryKey: ["/api/teacher/me"],
@@ -35,6 +38,11 @@ export default function TeacherDashboard() {
 
   const { data: quizAttempts = [] } = useQuery<any[]>({
     queryKey: ["/api/teacher/quiz-attempts"],
+  });
+
+  const { data: quizAttemptsData, refetch: refetchQuizAttempts } = useQuery<any>({
+    queryKey: [`/api/assigned-quizzes/${selectedQuizId}/attempts`],
+    enabled: !!selectedQuizId,
   });
 
   const logoutMutation = useMutation({
@@ -68,14 +76,24 @@ export default function TeacherDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/teacher/quizzes"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teacher/report-card"] });
       queryClient.invalidateQueries({ queryKey: ["/api/teacher/quiz-attempts"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/assigned-quizzes/${selectedQuizId}/attempts`] });
+      
+      refetchQuizAttempts();
+      
+      const passMessage = data.passed 
+        ? `You passed on attempt ${data.attemptNumber}!` 
+        : data.attemptNumber >= 3 
+          ? `All attempts used. View your results below.`
+          : `${data.remainingAttempts} attempt(s) remaining`;
+
       toast({
         title: data.passed ? "Quiz Passed!" : "Quiz Completed",
-        description: `Score: ${data.score}/${data.totalQuestions} (${data.percentage}%)`,
+        description: `Score: ${data.score}/${data.totalQuestions} (${data.percentage}%) - ${passMessage}`,
         variant: data.passed ? "default" : "destructive",
       });
-      setQuizDialogOpen(false);
-      setSelectedQuiz(null);
+
       setAnswers({});
+      setActiveTab("history");
     },
     onError: (error: Error) => {
       toast({
@@ -87,21 +105,25 @@ export default function TeacherDashboard() {
   });
 
   const openQuiz = async (quiz: any) => {
-    const response = await fetch(`/api/assigned-quizzes/${quiz.id}/attempt`);
-    const attempt = await response.json();
-    
-    if (attempt) {
-      toast({
-        title: "Quiz Already Attempted",
-        description: "You can only attempt each quiz once.",
-        variant: "destructive",
-      });
-      return;
-    }
-
+    setSelectedQuizId(quiz.id);
     setSelectedQuiz(quiz);
     setAnswers({});
+    
+    const response = await fetch(`/api/assigned-quizzes/${quiz.id}/attempts`);
+    const attemptsData = await response.json();
+    
+    if (attemptsData.hasPassed || !attemptsData.canRetake) {
+      setActiveTab("history");
+    } else {
+      setActiveTab("quiz");
+    }
+    
     setQuizDialogOpen(true);
+  };
+
+  const handleRetake = () => {
+    setAnswers({});
+    setActiveTab("quiz");
   };
 
   const handleSubmitQuiz = () => {
@@ -324,48 +346,211 @@ export default function TeacherDashboard() {
       </div>
 
       <Dialog open={quizDialogOpen} onOpenChange={setQuizDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedQuiz?.title}</DialogTitle>
             <DialogDescription>
-              {selectedQuiz?.numQuestions} questions - 70% required to pass
+              {selectedQuiz?.numQuestions} questions - 80% required to pass
             </DialogDescription>
           </DialogHeader>
-          {selectedQuiz && (
-            <div className="space-y-6">
-              {selectedQuiz.questions.map((question: any, index: number) => (
-                <div key={question.id} className="space-y-3" data-testid={`question-${index}`}>
-                  <h3 className="font-medium">
-                    {index + 1}. {question.question}
-                  </h3>
-                  <RadioGroup
-                    value={answers[question.id] || ""}
-                    onValueChange={(value) =>
-                      setAnswers({ ...answers, [question.id]: value })
-                    }
-                  >
-                    {question.options.map((option: string, optIndex: number) => (
-                      <div key={optIndex} className="flex items-center space-x-2">
-                        <RadioGroupItem
-                          value={option}
-                          id={`${question.id}-${optIndex}`}
-                          data-testid={`radio-${question.id}-${optIndex}`}
-                        />
-                        <Label htmlFor={`${question.id}-${optIndex}`}>{option}</Label>
+          
+          {selectedQuiz && quizAttemptsData && (
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger 
+                  value="quiz" 
+                  disabled={quizAttemptsData.hasPassed || !quizAttemptsData.canRetake}
+                  data-testid="tab-quiz"
+                >
+                  Take Quiz
+                </TabsTrigger>
+                <TabsTrigger value="history" data-testid="tab-history">
+                  Attempts ({quizAttemptsData.attemptsUsed})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="quiz" className="space-y-6">
+                {quizAttemptsData.hasPassed ? (
+                  <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                    <CheckCircle className="h-16 w-16 text-green-600" />
+                    <h3 className="text-xl font-semibold text-green-700">Quiz Already Passed!</h3>
+                    <p className="text-muted-foreground text-center">
+                      You have already passed this quiz. No further attempts are allowed.
+                    </p>
+                  </div>
+                ) : !quizAttemptsData.canRetake ? (
+                  <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                    <AlertCircle className="h-16 w-16 text-orange-600" />
+                    <h3 className="text-xl font-semibold text-orange-700">Maximum Attempts Reached</h3>
+                    <p className="text-muted-foreground text-center">
+                      You have used all 3 attempts for this quiz. View your attempt history below.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Attempt Status:</span>
+                        <Badge variant="outline">
+                          Attempt {quizAttemptsData.attemptsUsed + 1} of 3
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Remaining Attempts:</span>
+                        <span className="text-sm font-semibold">{quizAttemptsData.remainingAttempts}</span>
+                      </div>
+                    </div>
+
+                    {selectedQuiz.questions.map((question: any, index: number) => (
+                      <div key={question.id} className="space-y-3" data-testid={`question-${index}`}>
+                        <h3 className="font-medium">
+                          {index + 1}. {question.question}
+                        </h3>
+                        <RadioGroup
+                          value={answers[question.id] || ""}
+                          onValueChange={(value) =>
+                            setAnswers({ ...answers, [question.id]: value })
+                          }
+                        >
+                          {question.options.map((option: string, optIndex: number) => (
+                            <div key={optIndex} className="flex items-center space-x-2">
+                              <RadioGroupItem
+                                value={option}
+                                id={`${question.id}-${optIndex}`}
+                                data-testid={`radio-${question.id}-${optIndex}`}
+                              />
+                              <Label htmlFor={`${question.id}-${optIndex}`}>{option}</Label>
+                            </div>
+                          ))}
+                        </RadioGroup>
                       </div>
                     ))}
-                  </RadioGroup>
-                </div>
-              ))}
-              <Button
-                onClick={handleSubmitQuiz}
-                disabled={submitQuizMutation.isPending}
-                className="w-full"
-                data-testid="button-submit-quiz"
-              >
-                {submitQuizMutation.isPending ? "Submitting..." : "Submit Quiz"}
-              </Button>
-            </div>
+                    
+                    <Button
+                      onClick={handleSubmitQuiz}
+                      disabled={submitQuizMutation.isPending}
+                      className="w-full"
+                      data-testid="button-submit-quiz"
+                    >
+                      {submitQuizMutation.isPending ? "Submitting..." : "Submit Quiz"}
+                    </Button>
+                  </>
+                )}
+              </TabsContent>
+
+              <TabsContent value="history" className="space-y-6">
+                {quizAttemptsData.attempts.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    No attempts yet. Take the quiz to get started!
+                  </p>
+                ) : (
+                  <>
+                    <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Status:</span>
+                        <Badge variant={quizAttemptsData.hasPassed ? "default" : "destructive"}>
+                          {quizAttemptsData.hasPassed ? "Passed" : "Not Passed"}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Attempts Used:</span>
+                        <span className="text-sm font-semibold">{quizAttemptsData.attemptsUsed} of 3</span>
+                      </div>
+                      {quizAttemptsData.canRetake && (
+                        <Button 
+                          onClick={handleRetake} 
+                          variant="outline" 
+                          className="w-full mt-2"
+                          data-testid="button-retake"
+                        >
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          Retake Quiz ({quizAttemptsData.remainingAttempts} attempt{quizAttemptsData.remainingAttempts !== 1 ? 's' : ''} remaining)
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Your Attempts</h3>
+                      {quizAttemptsData.attempts.map((attempt: any) => {
+                        const percentage = Math.round((attempt.score / attempt.totalQuestions) * 100);
+                        const isPassed = percentage >= 80;
+                        
+                        return (
+                          <Card key={attempt.id} className={`border-l-4 ${isPassed ? 'border-l-green-500' : 'border-l-red-500'}`}>
+                            <CardHeader>
+                              <div className="flex items-center justify-between">
+                                <CardTitle className="text-base">
+                                  Attempt {attempt.attemptNumber}
+                                </CardTitle>
+                                <Badge variant={isPassed ? "default" : "destructive"}>
+                                  {percentage}% - {isPassed ? "Passed" : "Failed"}
+                                </Badge>
+                              </div>
+                              <CardDescription>
+                                {new Date(attempt.completedAt).toLocaleString()}
+                              </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">Score:</span>
+                                <span className="font-semibold">{attempt.score}/{attempt.totalQuestions}</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+
+                    {quizAttemptsData.shouldShowAnswers && (
+                      <div className="space-y-4 pt-4 border-t">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                          <h3 className="text-lg font-semibold">Answer Key</h3>
+                        </div>
+                        
+                        {selectedQuiz.questions.map((question: any, index: number) => {
+                          const latestAttempt = quizAttemptsData.attempts[quizAttemptsData.attempts.length - 1];
+                          const userAnswer = latestAttempt?.answers[question.id];
+                          const isCorrect = userAnswer === question.correctAnswer;
+                          
+                          return (
+                            <Card key={question.id} className={`border-l-4 ${isCorrect ? 'border-l-green-500' : 'border-l-red-500'}`}>
+                              <CardHeader>
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex-1">
+                                    <CardTitle className="text-base">
+                                      Question {index + 1}
+                                    </CardTitle>
+                                    <CardDescription className="text-base font-medium text-foreground mt-2">
+                                      {question.question}
+                                    </CardDescription>
+                                  </div>
+                                  <Badge variant={isCorrect ? "default" : "destructive"}>
+                                    {isCorrect ? "✓ Correct" : "✗ Wrong"}
+                                  </Badge>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="space-y-3">
+                                <div className="space-y-2">
+                                  <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                                    Correct Answer: {question.correctAnswer}
+                                  </p>
+                                  {!isCorrect && userAnswer && (
+                                    <p className="text-sm font-semibold text-red-700 dark:text-red-400">
+                                      Your Answer: {userAnswer}
+                                    </p>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>
