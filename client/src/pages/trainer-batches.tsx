@@ -10,12 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp, Home } from "lucide-react";
+import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp, Home, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 export default function TrainerBatches() {
@@ -26,10 +27,10 @@ export default function TrainerBatches() {
   const [addTeacherOpen, setAddTeacherOpen] = useState(false);
   const [assignCheckpointQuizOpen, setAssignCheckpointQuizOpen] = useState(false);
   const [assignFileQuizOpen, setAssignFileQuizOpen] = useState(false);
-  const [viewProgressOpen, setViewProgressOpen] = useState(false);
   const [viewBatchDetailsOpen, setViewBatchDetailsOpen] = useState(false);
   const [viewQuizDetailsOpen, setViewQuizDetailsOpen] = useState(false);
   const [viewTeacherAttemptsOpen, setViewTeacherAttemptsOpen] = useState(false);
+  const [expandedTeacherId, setExpandedTeacherId] = useState<string | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
   const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
   const [selectedTeacher, setSelectedTeacher] = useState<any>(null);
@@ -64,10 +65,12 @@ export default function TrainerBatches() {
     enabled: !!selectedBatch?.id && viewBatchDetailsOpen,
   });
 
-  // Fetch progress for selected batch
-  const { data: batchProgress = [] } = useQuery<any[]>({
+  // Fetch progress for selected batch - auto-loads and refreshes every 30 seconds
+  const { data: batchProgress = [], isLoading: isLoadingProgress } = useQuery<any[]>({
     queryKey: ["/api/batches", selectedBatch?.id, "progress"],
-    enabled: !!selectedBatch?.id && viewProgressOpen,
+    enabled: !!selectedBatch?.id && viewBatchDetailsOpen,
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
+    refetchOnWindowFocus: true, // Refresh when window regains focus
   });
 
   // Fetch files for selected week (for file quiz generation)
@@ -665,73 +668,160 @@ export default function TrainerBatches() {
               )}
             </TabsContent>
 
-            {/* Progress Tab */}
+            {/* Progress Tab - Auto-loads and refreshes */}
             <TabsContent value="progress" className="space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Teacher Progress</h3>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setViewProgressOpen(true);
-                    queryClient.invalidateQueries({ queryKey: ["/api/batches", selectedBatch?.id, "progress"] });
-                  }}
-                >
-                  <TrendingUp className="mr-2 h-4 w-4" />
-                  Refresh Progress
-                </Button>
+                <div>
+                  <h3 className="text-lg font-semibold">Teacher Progress</h3>
+                  <p className="text-sm text-muted-foreground">Auto-updates every 30 seconds</p>
+                </div>
               </div>
-              {batchProgress.length === 0 ? (
+              
+              {isLoadingProgress && batchProgress.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Loading teacher progress...
+                </div>
+              ) : batchProgress.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
                   No teachers in this batch to track progress
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {batchProgress.map((item: any) => (
-                    <Card key={item.teacher.id}>
-                      <CardHeader>
-                        <CardTitle className="text-base">{item.teacher.name}</CardTitle>
-                        <CardDescription>Teacher ID: {item.teacher.teacherId}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Quizzes Taken</p>
-                            <p className="text-2xl font-bold">{item.reportCard?.totalQuizzesTaken || 0}</p>
+                <div className="space-y-3">
+                  {batchProgress.map((item: any) => {
+                    const avgScore = item.reportCard?.averageScore || 0;
+                    const totalTaken = item.reportCard?.totalQuizzesTaken || 0;
+                    const totalPassed = item.reportCard?.totalQuizzesPassed || 0;
+                    const passRate = totalTaken > 0 ? Math.round((totalPassed / totalTaken) * 100) : 0;
+                    const level = item.reportCard?.level || "Not Started";
+                    const isExpanded = expandedTeacherId === item.teacher.id;
+                    
+                    // Color coding based on performance
+                    const getScoreColor = (score: number) => {
+                      if (score >= 80) return "text-green-600 dark:text-green-400";
+                      if (score >= 60) return "text-yellow-600 dark:text-yellow-400";
+                      return "text-red-600 dark:text-red-400";
+                    };
+                    
+                    const getProgressColor = (score: number) => {
+                      if (score >= 80) return "bg-green-500";
+                      if (score >= 60) return "bg-yellow-500";
+                      return "bg-red-500";
+                    };
+                    
+                    return (
+                      <Card 
+                        key={item.teacher.id}
+                        className="hover-elevate transition-all"
+                      >
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <CardTitle className="text-base">{item.teacher.name}</CardTitle>
+                                <Badge variant={getLevelBadgeVariant(level)} className="flex-shrink-0">
+                                  {level}
+                                </Badge>
+                              </div>
+                              <CardDescription className="flex items-center gap-2 mt-1">
+                                <span>Teacher ID: {item.teacher.teacherId}</span>
+                                {totalTaken === 0 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    <AlertCircle className="h-3 w-3 mr-1" />
+                                    No activity
+                                  </Badge>
+                                )}
+                              </CardDescription>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setExpandedTeacherId(isExpanded ? null : item.teacher.id)}
+                              className="flex-shrink-0"
+                              data-testid={`button-expand-${item.teacher.id}`}
+                            >
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </Button>
                           </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Quizzes Passed</p>
-                            <p className="text-2xl font-bold">{item.reportCard?.totalQuizzesPassed || 0}</p>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          {/* Quick Stats Row */}
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Quizzes</p>
+                              <p className="text-lg font-bold">{totalTaken}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Pass Rate</p>
+                              <p className={`text-lg font-bold ${getScoreColor(passRate)}`}>
+                                {passRate}%
+                              </p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs text-muted-foreground">Avg Score</p>
+                              <p className={`text-lg font-bold ${getScoreColor(avgScore)}`}>
+                                {avgScore}%
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Average Score</p>
-                            <p className="text-2xl font-bold">{item.reportCard?.averageScore ? `${item.reportCard.averageScore}%` : "N/A"}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Current Level</p>
-                            <Badge variant={getLevelBadgeVariant(item.reportCard?.level)}>
-                              {item.reportCard?.level || "Not Started"}
-                            </Badge>
-                          </div>
-                        </div>
-                        <div className="pt-3 border-t">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => {
-                              setSelectedTeacher(item.teacher);
-                              setViewTeacherAttemptsOpen(true);
-                            }}
-                            data-testid={`button-view-attempts-${item.teacher.id}`}
-                          >
-                            <Award className="mr-2 h-4 w-4" />
-                            View Quiz Attempts
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          
+                          {/* Progress Bar */}
+                          {totalTaken > 0 && (
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-xs">
+                                <span className="text-muted-foreground">Overall Performance</span>
+                                <span className={`font-semibold ${getScoreColor(avgScore)}`}>
+                                  {avgScore}%
+                                </span>
+                              </div>
+                              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full ${getProgressColor(avgScore)} transition-all duration-500`}
+                                  style={{ width: `${avgScore}%` }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Expanded Details */}
+                          {isExpanded && (
+                            <div className="pt-4 border-t space-y-3">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                  <p className="text-xs text-muted-foreground">Quizzes Passed</p>
+                                  <p className="text-xl font-bold text-green-600 dark:text-green-400">
+                                    {totalPassed}
+                                  </p>
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-xs text-muted-foreground">Quizzes Failed</p>
+                                  <p className="text-xl font-bold text-red-600 dark:text-red-400">
+                                    {totalTaken - totalPassed}
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => {
+                                  setSelectedTeacher(item.teacher);
+                                  setViewTeacherAttemptsOpen(true);
+                                }}
+                                data-testid={`button-view-attempts-${item.teacher.id}`}
+                              >
+                                <Award className="mr-2 h-4 w-4" />
+                                View Detailed Quiz Attempts
+                              </Button>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
