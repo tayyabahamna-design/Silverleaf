@@ -468,177 +468,177 @@ export default function CourseView() {
         {/* Main Content Panel */}
         <ResizablePanel defaultSize={75} minSize={60}>
           <div className="h-full flex flex-col">
-        {selectedFile ? (
-          <div className="flex-1 flex flex-col">
-            {/* Content Header */}
-            <div className="p-6 border-b bg-card">
-              <h1 className="text-2xl font-bold mb-1">{selectedFile.fileName}</h1>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Presentation File</span>
-                {selectedFile.progress?.status && (
-                  <>
-                    <span>•</span>
-                    <span className="capitalize">{selectedFile.progress.status}</span>
-                  </>
-                )}
-              </div>
-            </div>
+            {selectedFile ? (
+              <div className="flex-1 flex flex-col">
+                {/* Content Header */}
+                <div className="p-6 border-b bg-card">
+                  <h1 className="text-2xl font-bold mb-1">{selectedFile.fileName}</h1>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span>Presentation File</span>
+                    {selectedFile.progress?.status && (
+                      <>
+                        <span>•</span>
+                        <span className="capitalize">{selectedFile.progress.status}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
 
-            {/* Content Display */}
-            <div className="flex-1 overflow-auto bg-muted/20 relative">
-              {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
-                selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
-                selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                <div className="h-full flex flex-col items-center p-8 pb-28">
-                    <div className="w-full max-w-5xl flex flex-col items-center">
+                {/* Content Display */}
+                <div className="flex-1 overflow-auto bg-muted/20 relative">
+                  {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
+                    selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
+                    selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
+                    <div className="h-full flex flex-col items-center p-8 pb-28">
+                      <div className="w-full max-w-5xl flex flex-col items-center">
+                        {viewUrl && (
+                          <Document
+                            file={viewUrl}
+                            onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                            className="shadow-2xl rounded-xl overflow-hidden"
+                          >
+                            <Page
+                              pageNumber={pageNumber}
+                              scale={scale}
+                              renderTextLayer={true}
+                              renderAnnotationLayer={true}
+                            />
+                          </Document>
+                        )}
+                      </div>
+
+                      {/* Floating Persistent Controls */}
                       {viewUrl && (
-                        <Document
-                          file={viewUrl}
-                          onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-                          className="shadow-2xl rounded-xl overflow-hidden"
-                        >
-                          <Page
-                            pageNumber={pageNumber}
-                            scale={scale}
-                            renderTextLayer={true}
-                            renderAnnotationLayer={true}
-                          />
-                        </Document>
+                        <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl z-50">
+                          <div className="max-w-7xl mx-auto px-4 py-4">
+                            <div className="flex items-center gap-4 flex-wrap justify-center">
+                              {/* Zoom Controls */}
+                              <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
+                                <Button
+                                  onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
+                                  variant="outline"
+                                  size="sm"
+                                  data-testid="button-zoom-out"
+                                >
+                                  <ZoomOut className="h-4 w-4" />
+                                </Button>
+                                <span className="text-sm text-muted-foreground min-w-16 text-center font-medium">
+                                  {Math.round(scale * 100)}%
+                                </span>
+                                <Button
+                                  onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
+                                  variant="outline"
+                                  size="sm"
+                                  data-testid="button-zoom-in"
+                                >
+                                  <ZoomIn className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              
+                              {/* Page Navigation Controls */}
+                              <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
+                                <Button
+                                  onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+                                  disabled={pageNumber <= 1}
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  Previous
+                                </Button>
+                                
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                    Page
+                                  </span>
+                                  <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={pageInputValue}
+                                    onChange={handlePageInputChange}
+                                    onKeyDown={handlePageInputKeyDown}
+                                    onBlur={handlePageInputSubmit}
+                                    placeholder={pageNumber.toString()}
+                                    className="w-16 h-8 text-center text-sm"
+                                    data-testid="input-page-number"
+                                  />
+                                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                    of {numPages}
+                                  </span>
+                                </div>
+                                
+                                <Button
+                                  onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
+                                  disabled={pageNumber >= numPages}
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  Next
+                                </Button>
+                              </div>
+                              
+                              {/* Completion Indicator */}
+                              {pageNumber === numPages && numPages > 0 && (
+                                <div className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 rounded-lg">
+                                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                                  <span className="text-sm font-semibold text-primary">Last page reached!</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </div>
-                    
-                    {/* Floating Persistent Controls */}
-                    {viewUrl && (
-                    <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl z-50">
-                      <div className="max-w-7xl mx-auto px-4 py-4">
-                        <div className="flex items-center gap-4 flex-wrap justify-center">
-                          {/* Zoom Controls */}
-                          <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
-                            <Button
-                              onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
-                              variant="outline"
-                              size="sm"
-                              data-testid="button-zoom-out"
-                            >
-                              <ZoomOut className="h-4 w-4" />
-                            </Button>
-                            <span className="text-sm text-muted-foreground min-w-16 text-center font-medium">
-                              {Math.round(scale * 100)}%
-                            </span>
-                            <Button
-                              onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
-                              variant="outline"
-                              size="sm"
-                              data-testid="button-zoom-in"
-                            >
-                              <ZoomIn className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          
-                          {/* Page Navigation Controls */}
-                          <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
-                            <Button
-                              onClick={() => setPageNumber(p => Math.max(1, p - 1))}
-                              disabled={pageNumber <= 1}
-                              variant="outline"
-                              size="sm"
-                            >
-                              Previous
-                            </Button>
-                            
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-muted-foreground whitespace-nowrap">
-                                Page
-                              </span>
-                              <Input
-                                type="text"
-                                inputMode="numeric"
-                                value={pageInputValue}
-                                onChange={handlePageInputChange}
-                                onKeyDown={handlePageInputKeyDown}
-                                onBlur={handlePageInputSubmit}
-                                placeholder={pageNumber.toString()}
-                                className="w-16 h-8 text-center text-sm"
-                                data-testid="input-page-number"
+                  ) : (
+                    <div className="flex-1 flex flex-col">
+                      <div className="flex-1 bg-muted/20 p-6">
+                        {viewUrl ? (
+                          <div className="h-full flex flex-col items-center">
+                            <div className="w-full max-w-7xl h-full flex flex-col">
+                              <iframe
+                                src={viewUrl}
+                                className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0 select-none pointer-events-auto"
+                                title={selectedFile.fileName}
+                                data-testid="file-viewer"
+                                style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
                               />
-                              <span className="text-sm text-muted-foreground whitespace-nowrap">
-                                of {numPages}
-                              </span>
+                              <div className="mt-4 flex gap-3 justify-center">
+                                <Button
+                                  onClick={() => setIsFullscreen(true)}
+                                  variant="default"
+                                  size="lg"
+                                  data-testid="button-fullscreen"
+                                >
+                                  <Maximize2 className="h-5 w-5 mr-2" />
+                                  Fullscreen View
+                                </Button>
+                              </div>
                             </div>
-                            
-                            <Button
-                              onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
-                              disabled={pageNumber >= numPages}
-                              variant="outline"
-                              size="sm"
-                            >
-                              Next
-                            </Button>
                           </div>
-                          
-                          {/* Completion Indicator */}
-                          {pageNumber === numPages && numPages > 0 && (
-                            <div className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 rounded-lg">
-                              <CheckCircle2 className="h-4 w-4 text-primary" />
-                              <span className="text-sm font-semibold text-primary">Last page reached!</span>
-                            </div>
-                          )}
-                        </div>
+                        ) : (
+                          <div className="flex items-center justify-center h-full">
+                            <p className="text-muted-foreground">Loading presentation...</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="flex-1 flex flex-col">
-                  <div className="flex-1 bg-muted/20 p-6">
-                    {viewUrl ? (
-                      <div className="h-full flex flex-col items-center">
-                        <div className="w-full max-w-7xl h-full flex flex-col">
-                          <iframe
-                            src={viewUrl}
-                            className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0 select-none pointer-events-auto"
-                            title={selectedFile.fileName}
-                            data-testid="file-viewer"
-                            style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
-                          />
-                          <div className="mt-4 flex gap-3 justify-center">
-                            <Button
-                              onClick={() => setIsFullscreen(true)}
-                              variant="default"
-                              size="lg"
-                              data-testid="button-fullscreen"
-                            >
-                              <Maximize2 className="h-5 w-5 mr-2" />
-                              Fullscreen View
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <p className="text-muted-foreground">Loading presentation...</p>
-                      </div>
-                    )}
-                  </div>
+              </div>
+            ) : deckFiles.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center p-6">
+                <div className="text-center max-w-md">
+                  <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground/40" />
+                  <h3 className="text-xl font-semibold mb-2">No Content Available</h3>
+                  <p className="text-muted-foreground">
+                    This training week doesn't have any files yet. Please check back later or contact an administrator.
+                  </p>
                 </div>
-              )}
-            </div>
-          </div>
-        ) : deckFiles.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <div className="text-center max-w-md">
-              <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground/40" />
-              <h3 className="text-xl font-semibold mb-2">No Content Available</h3>
-              <p className="text-muted-foreground">
-                This training week doesn't have any files yet. Please check back later or contact an administrator.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-muted-foreground">Select a file from the sidebar to begin</p>
-          </div>
-        )}
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-muted-foreground">Select a file from the sidebar to begin</p>
+              </div>
+            )}
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
