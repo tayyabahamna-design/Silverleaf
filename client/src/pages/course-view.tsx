@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ChevronLeft, FileText, CheckCircle2, Circle, Maximize2, ZoomIn, ZoomOut, X, Award } from "lucide-react";
+import { ChevronLeft, FileText, CheckCircle2, Circle, Maximize2, ZoomIn, ZoomOut, X, Award, List } from "lucide-react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -17,6 +17,8 @@ import { QuizDialog } from "@/components/QuizDialog";
 import { FileQuizDialog } from "@/components/FileQuizDialog";
 import { useScreenshotProtection } from "@/hooks/use-screenshot-protection";
 import { ScreenshotWarning } from "@/components/ScreenshotWarning";
+import { TableOfContents, MobileTableOfContents } from "@/components/TableOfContents";
+import type { TocEntry } from "@shared/schema";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -26,6 +28,7 @@ interface DeckFile {
   fileName: string;
   fileUrl: string;
   fileSize: number;
+  toc?: TocEntry[];
   progress?: {
     status: 'pending' | 'completed';
     completedAt: Date | null;
@@ -53,6 +56,7 @@ export default function CourseView() {
   const [fileQuizDialogOpen, setFileQuizDialogOpen] = useState<boolean>(false);
   const [selectedQuizFileId, setSelectedQuizFileId] = useState<string | null>(null);
   const [pageInputValue, setPageInputValue] = useState<string>('');
+  const [mobileTocOpen, setMobileTocOpen] = useState<boolean>(false);
 
   // Screenshot protection
   const { showWarning, dismissWarning } = useScreenshotProtection(weekId);
@@ -454,6 +458,20 @@ export default function CourseView() {
                     <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl z-50">
                       <div className="max-w-7xl mx-auto px-4 py-4">
                         <div className="flex items-center gap-4 flex-wrap justify-center">
+                          {/* ToC Button - Only show if ToC exists */}
+                          {selectedFile?.toc && selectedFile.toc.length > 0 && (
+                            <Button
+                              onClick={() => setMobileTocOpen(true)}
+                              variant="outline"
+                              size="sm"
+                              className="md:hidden"
+                              data-testid="button-open-toc"
+                            >
+                              <List className="h-4 w-4 mr-2" />
+                              Contents
+                            </Button>
+                          )}
+                          
                           {/* Zoom Controls */}
                           <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
                             <Button
@@ -628,6 +646,19 @@ export default function CourseView() {
                     <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl z-50">
                       <div className="max-w-7xl mx-auto px-4 py-4">
                         <div className="flex items-center gap-4 flex-wrap justify-center">
+                          {/* ToC Button in Fullscreen */}
+                          {selectedFile?.toc && selectedFile.toc.length > 0 && (
+                            <Button
+                              onClick={() => setMobileTocOpen(true)}
+                              variant="outline"
+                              size="sm"
+                              data-testid="button-open-toc-fullscreen"
+                            >
+                              <List className="h-4 w-4 mr-2" />
+                              Contents
+                            </Button>
+                          )}
+                          
                           {/* Page Navigation Controls */}
                           <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
                             <Button
@@ -714,6 +745,17 @@ export default function CourseView() {
 
       {/* Screenshot Warning Overlay */}
       <ScreenshotWarning visible={showWarning} onDismiss={dismissWarning} />
+
+      {/* Mobile Table of Contents */}
+      {selectedFile?.toc && (
+        <MobileTableOfContents
+          toc={selectedFile.toc}
+          currentPage={pageNumber}
+          onPageSelect={setPageNumber}
+          open={mobileTocOpen}
+          onOpenChange={setMobileTocOpen}
+        />
+      )}
     </div>
   );
 }

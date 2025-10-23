@@ -273,16 +273,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Process each file and add to the existing deck files
-      const newDeckFiles = files.map(file => {
+      const newDeckFiles = await Promise.all(files.map(async file => {
         const objectPath = objectStorageService.normalizeObjectEntityPath(file.fileUrl);
         console.log(`[UPLOAD DEBUG] Normalized ${file.fileUrl} -> ${objectPath}`);
+        
+        // Extract Table of Contents for PDF and PPTX files
+        let toc = undefined;
+        try {
+          console.log(`[TOC] Extracting Table of Contents for ${file.fileName}...`);
+          const fileBuffer = await objectStorageService.getObjectEntity(objectPath);
+          const { extractTableOfContents } = await import('./tocExtractor');
+          toc = await extractTableOfContents(fileBuffer, file.fileName);
+          console.log(`[TOC] Extracted ${toc.length} entries for ${file.fileName}`);
+        } catch (error) {
+          console.error(`[TOC] Error extracting ToC for ${file.fileName}:`, error);
+          // Continue without ToC if extraction fails
+        }
+        
         return {
           id: randomUUID(),
           fileName: file.fileName,
           fileUrl: objectPath,
           fileSize: file.fileSize,
+          toc,
         };
-      });
+      }));
 
       const currentDeckFiles = week.deckFiles || [];
       const updatedDeckFiles = [...currentDeckFiles, ...newDeckFiles];
