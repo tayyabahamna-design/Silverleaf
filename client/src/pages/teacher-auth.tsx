@@ -27,7 +27,7 @@ export default function TeacherAuth() {
   const [newTeacherId, setNewTeacherId] = useState<number | null>(null);
 
   // Login form state
-  const [loginEmail, setLoginEmail] = useState("");
+  const [loginIdentifier, setLoginIdentifier] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
   // Register form state
@@ -36,7 +36,7 @@ export default function TeacherAuth() {
   const [registerPassword, setRegisterPassword] = useState("");
 
   const loginMutation = useMutation({
-    mutationFn: async (data: { email: string; password: string }) => {
+    mutationFn: async (data: { identifier: string; password: string }) => {
       const response = await fetch("/api/teacher/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -108,7 +108,7 @@ export default function TeacherAuth() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    loginMutation.mutate({ email: loginEmail, password: loginPassword });
+    loginMutation.mutate({ identifier: loginIdentifier, password: loginPassword });
   };
 
   const handleRegister = (e: React.FormEvent) => {
@@ -137,14 +137,14 @@ export default function TeacherAuth() {
               <TabsContent value="login">
                 <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email">Email</Label>
+                    <Label htmlFor="login-identifier">Teacher ID or Email</Label>
                     <Input
-                      id="login-email"
-                      type="email"
-                      data-testid="input-login-email"
-                      placeholder="your@email.com"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
+                      id="login-identifier"
+                      type="text"
+                      data-testid="input-login-identifier"
+                      placeholder="7100 or your@email.com"
+                      value={loginIdentifier}
+                      onChange={(e) => setLoginIdentifier(e.target.value)}
                       required
                     />
                   </div>
