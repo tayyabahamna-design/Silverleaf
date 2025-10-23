@@ -435,26 +435,39 @@ export default function CourseView() {
               {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                 selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                 selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                <div className="h-full flex flex-col items-center p-8 pb-28">
-                  <div className="w-full max-w-5xl flex flex-col items-center">
-                    {viewUrl && (
-                      <Document
-                        file={viewUrl}
-                        onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-                        className="shadow-2xl rounded-xl overflow-hidden"
-                      >
-                        <Page
-                          pageNumber={pageNumber}
-                          scale={scale}
-                          renderTextLayer={true}
-                          renderAnnotationLayer={true}
-                        />
-                      </Document>
-                    )}
-                  </div>
+                <div className="h-full flex">
+                  {/* Desktop ToC Panel */}
+                  {selectedFile?.toc && selectedFile.toc.length > 0 && (
+                    <div className="hidden md:block w-80 border-r bg-card">
+                      <TableOfContents
+                        toc={selectedFile.toc}
+                        currentPage={pageNumber}
+                        onPageSelect={setPageNumber}
+                      />
+                    </div>
+                  )}
                   
-                  {/* Floating Persistent Controls */}
-                  {viewUrl && (
+                  {/* PDF Viewer */}
+                  <div className="flex-1 flex flex-col items-center p-8 pb-28 overflow-auto">
+                    <div className="w-full max-w-5xl flex flex-col items-center">
+                      {viewUrl && (
+                        <Document
+                          file={viewUrl}
+                          onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                          className="shadow-2xl rounded-xl overflow-hidden"
+                        >
+                          <Page
+                            pageNumber={pageNumber}
+                            scale={scale}
+                            renderTextLayer={true}
+                            renderAnnotationLayer={true}
+                          />
+                        </Document>
+                      )}
+                    </div>
+                    
+                    {/* Floating Persistent Controls */}
+                    {viewUrl && (
                     <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl z-50">
                       <div className="max-w-7xl mx-auto px-4 py-4">
                         <div className="flex items-center gap-4 flex-wrap justify-center">
@@ -547,6 +560,7 @@ export default function CourseView() {
                       </div>
                     </div>
                   )}
+                  </div>
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col">
