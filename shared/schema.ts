@@ -42,12 +42,21 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+// Table of Contents entry type
+export const tocEntrySchema = z.object({
+  pageNumber: z.number(),
+  heading: z.string(),
+});
+
+export type TocEntry = z.infer<typeof tocEntrySchema>;
+
 // Deck file type
 export const deckFileSchema = z.object({
   id: z.string(),
   fileName: z.string(),
   fileUrl: z.string(),
   fileSize: z.number(),
+  toc: z.array(tocEntrySchema).optional(),
 });
 
 export type DeckFile = z.infer<typeof deckFileSchema>;
