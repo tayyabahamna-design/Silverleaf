@@ -395,6 +395,40 @@
   .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
     inset: -1px;
   }
+
+  /* Improve drag-and-drop touch interactions */
+  /* Prevent context menu on touch devices during drag */
+  [data-testid^="drag-handle-"],
+  [aria-label="Drag to reorder"] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Improve touch target sizing on mobile for drag handles */
+  @media (max-width: 640px) {
+    [data-testid^="drag-handle-"] {
+      min-height: 48px;
+      touch-action: none;
+    }
+  }
+
+  /* Smooth dragging animation */
+  [data-testid^="card-week-"] {
+    touch-action: manipulation;
+    will-change: transform;
+  }
+
+  /* Better visual feedback during drag on touch devices */
+  @media (hover: none) and (pointer: coarse) {
+    [data-testid^="drag-handle-"]:active {
+      transform: scale(0.98);
+    }
+  }
 }
 
 /* Uppy File Uploader Base Styles & Customization */

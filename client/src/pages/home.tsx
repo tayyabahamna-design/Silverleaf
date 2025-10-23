@@ -19,9 +19,12 @@ import {
   closestCenter,
   KeyboardSensor,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
 } from "@dnd-kit/core";
 import {
   arrayMove,
@@ -73,6 +76,7 @@ export default function Home() {
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [resetUserIdentifier, setResetUserIdentifier] = useState("");
   const [resetNewPassword, setResetNewPassword] = useState("");
+  const [activeId, setActiveId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isSavingRef = useRef(false); // Track if we're intentionally saving
@@ -219,11 +223,25 @@ export default function Home() {
   });
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 8,
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -238,6 +256,8 @@ export default function Home() {
         reorderWeekMutation.mutate({ weekId, newPosition });
       }
     }
+    
+    setActiveId(null);
   };
 
   const handleCellEdit = (id: string, field: string, currentValue: string) => {
@@ -341,7 +361,8 @@ export default function Home() {
     const style = {
       transform: CSS.Transform.toString(transform),
       transition,
-      opacity: isDragging ? 0.5 : 1,
+      opacity: isDragging ? 0.3 : 1,
+      zIndex: isDragging ? 50 : undefined,
     };
 
     return (
@@ -349,19 +370,23 @@ export default function Home() {
         ref={setNodeRef}
         style={style}
         value={week.id}
-        className="mb-6 border-0 rounded-xl bg-card shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-visible"
+        className={`mb-6 border-0 rounded-xl bg-card transition-all duration-200 overflow-visible ${
+          isDragging 
+            ? 'shadow-2xl scale-105 ring-2 ring-primary/50' 
+            : 'shadow-lg hover:shadow-xl'
+        }`}
         data-testid={`card-week-${week.id}`}
       >
         <div className="flex items-stretch rounded-xl overflow-hidden border border-border/50">
           {/* Drag Handle */}
           <button
-            className="flex items-center px-3 sm:px-4 cursor-grab active:cursor-grabbing hover-elevate active-elevate-2 bg-muted/30 dark:bg-muted/20 border-r border-border/50 transition-all"
+            className="flex items-center px-4 sm:px-5 md:px-6 cursor-grab active:cursor-grabbing hover-elevate active-elevate-2 bg-muted/30 dark:bg-muted/20 border-r border-border/50 transition-all touch-none select-none min-w-[48px] sm:min-w-[56px]"
             {...attributes}
             {...listeners}
             data-testid={`drag-handle-${week.id}`}
             aria-label="Drag to reorder"
           >
-            <GripVertical className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+            <GripVertical className="h-6 w-6 sm:h-7 sm:w-7 text-muted-foreground" />
           </button>
 
           {/* Card Content */}
@@ -797,6 +822,7 @@ export default function Home() {
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
             <SortableContext
@@ -809,6 +835,36 @@ export default function Home() {
                 ))}
               </Accordion>
             </SortableContext>
+            <DragOverlay dropAnimation={null}>
+              {activeId ? (
+                <div className="mb-6 border-0 rounded-xl bg-card shadow-2xl ring-2 ring-primary scale-105 opacity-95">
+                  <div className="flex items-stretch rounded-xl overflow-hidden border border-primary">
+                    <div className="flex items-center px-4 sm:px-5 md:px-6 bg-primary/10 dark:bg-primary/15 border-r border-primary/30 min-w-[48px] sm:min-w-[56px]">
+                      <GripVertical className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0 px-5 sm:px-7 py-5 sm:py-6">
+                      {(() => {
+                        const activeWeek = weeks.find(w => w.id === activeId);
+                        return activeWeek ? (
+                          <div className="flex flex-col gap-2.5 w-full min-w-0">
+                            <div className="inline-flex items-center gap-2">
+                              <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-primary/10 dark:bg-primary/15 border border-primary/30 shadow-sm">
+                                <span className="text-primary font-bold text-base sm:text-lg">Week {activeWeek.weekNumber}</span>
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0 text-left">
+                              <p className="text-sm sm:text-base text-muted-foreground truncate leading-relaxed">
+                                {activeWeek.competencyFocus || "No competency focus set"}
+                              </p>
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </DragOverlay>
           </DndContext>
         )}
       </main>
