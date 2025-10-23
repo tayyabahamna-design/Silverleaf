@@ -54,7 +54,11 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
   - View quiz history and performance statistics
 - **Admin Password Reset**: Admins can reset any user's password through a dedicated UI dialog with proper validation and security.
 - **File Handling**: Uploads of common presentation formats (PowerPoint, PDF, Keynote) are supported, with enhanced visual previews.
-- **Progress Tracking**: Files are marked as complete only when users navigate to the last page/slide. This ensures accurate, honest progress data that reflects true content consumption. Visual indicators show when the last page is reached, and progress bars update accordingly.
+- **Progress Tracking**: 
+  - Files are marked as complete only when users navigate to the last page/slide
+  - Progress counter shows only deck files (e.g., "1 of 1 completed" for a week with 1 file)
+  - Quizzes are tracked separately and do not count toward the main progress percentage
+  - Visual indicators show when the last page is reached, and progress bars update accordingly
 - **Enhanced Slide Viewer**:
   - **Persistent Floating Controls**: Navigation controls (Previous/Next, Zoom, page numbers) float at the bottom of the screen and remain visible at all times, even when zoomed in or in fullscreen mode
   - **Direct Page Navigation**: Users can type a page number directly into the input field to jump to any slide instantly, eliminating the need to click "Next" repeatedly

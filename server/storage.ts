@@ -438,16 +438,8 @@ export class DatabaseStorage implements IStorage {
       return { total: 0, completed: 0, percentage: 0 };
     }
     
-    // Check if there's a cached quiz for any file in this week
-    const cachedQuizzes = await db
-      .select()
-      .from(quizCache)
-      .where(eq(quizCache.weekId, weekId));
-    
-    const hasQuiz = cachedQuizzes.length > 0;
-    
-    // Total includes all deck files + 1 for the quiz (only if quiz exists)
-    const total = week.deckFiles.length + (hasQuiz ? 1 : 0);
+    // Total is just the number of deck files (no quiz counted)
+    const total = week.deckFiles.length;
     
     if (total === 0) {
       return { total: 0, completed: 0, percentage: 0 };
@@ -465,15 +457,7 @@ export class DatabaseStorage implements IStorage {
         )
       );
     
-    let completed = completedFiles.length;
-    
-    // Check if quiz is passed (only count if quiz exists)
-    if (hasQuiz) {
-      const quizPassed = await this.hasPassedQuiz(weekId, userId);
-      if (quizPassed) {
-        completed += 1;
-      }
-    }
+    const completed = completedFiles.length;
     
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
     
