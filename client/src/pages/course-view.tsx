@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, FileText, CheckCircle2, Circle, Maximize2, ZoomIn, ZoomOut, X, Award, List, PanelLeftClose, PanelLeftOpen, Menu } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, FileText, CheckCircle2, Circle, Maximize2, ZoomIn, ZoomOut, X, Award, List, PanelLeftClose, PanelLeftOpen, Menu } from "lucide-react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -60,6 +60,9 @@ export default function CourseView() {
   
   // Mobile sidebar drawer state
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+  
+  // Track which file's ToC is expanded
+  const [expandedTocFileId, setExpandedTocFileId] = useState<string | null>(null);
   
   // Responsive breakpoint detection
   const { isMobile, isTablet } = useBreakpoint();
@@ -326,32 +329,76 @@ export default function CourseView() {
                     ) : (
                       deckFiles.map((file) => {
                         const hasPassedQuiz = fileQuizProgress.some(p => p.fileId === file.id && p.passed);
+                        const hasToc = file.toc && file.toc.length > 0;
+                        const isTocExpanded = expandedTocFileId === file.id;
+                        
                         return (
                           <div key={file.id} className="space-y-2">
-                            <button
-                              onClick={() => handleFileClick(file)}
-                              className={`w-full text-left p-3 rounded-lg transition-colors ${
-                                selectedFileId === file.id
-                                  ? 'bg-primary/10 border-2 border-primary'
-                                  : 'hover:bg-muted/50 border-2 border-transparent'
-                              }`}
-                              data-testid={`button-file-${file.id}`}
-                            >
-                              <div className="flex items-start gap-3">
-                                <div className="flex-shrink-0 mt-0.5">
-                                  {getStatusIcon(file.progress?.status)}
+                            <div className="relative">
+                              <button
+                                onClick={() => handleFileClick(file)}
+                                className={`w-full text-left p-3 rounded-lg transition-colors ${
+                                  selectedFileId === file.id
+                                    ? 'bg-primary/10 border-2 border-primary'
+                                    : 'hover:bg-muted/50 border-2 border-transparent'
+                                } ${hasToc ? 'pr-12' : ''}`}
+                                data-testid={`button-file-${file.id}`}
+                              >
+                                <div className="flex items-start gap-3">
+                                  <div className="flex-shrink-0 mt-0.5">
+                                    {getStatusIcon(file.progress?.status)}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <FileText className="h-5 w-5 text-primary flex-shrink-0" />
+                                      <span className="font-semibold text-base truncate">{file.fileName}</span>
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {(file.fileSize / 1024 / 1024).toFixed(2)} MB
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <FileText className="h-5 w-5 text-primary flex-shrink-0" />
-                                    <span className="font-semibold text-base truncate">{file.fileName}</span>
-                                  </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {(file.fileSize / 1024 / 1024).toFixed(2)} MB
-                                  </div>
+                              </button>
+                              
+                              {/* ToC Toggle Button - Only show if file has ToC */}
+                              {hasToc && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setExpandedTocFileId(isTocExpanded ? null : file.id);
+                                  }}
+                                  className="absolute top-3 right-3 p-1.5 rounded-md hover:bg-muted/80 transition-colors"
+                                  data-testid={`button-toggle-toc-${file.id}`}
+                                  aria-label={isTocExpanded ? "Hide contents" : "View contents"}
+                                >
+                                  <ChevronDown 
+                                    className={`h-5 w-5 text-muted-foreground transition-transform ${
+                                      isTocExpanded ? 'rotate-180' : ''
+                                    }`}
+                                  />
+                                </button>
+                              )}
+                            </div>
+                            
+                            {/* Expanded ToC - Show beneath the file when expanded */}
+                            {hasToc && isTocExpanded && (
+                              <div className="ml-3 pl-3 border-l-2 border-primary/20">
+                                <div className="bg-muted/30 rounded-lg overflow-hidden">
+                                  <TableOfContents
+                                    toc={file.toc}
+                                    currentPage={pageNumber}
+                                    onPageSelect={(page) => {
+                                      setPageNumber(page);
+                                      // Also select this file if not already selected
+                                      if (selectedFileId !== file.id) {
+                                        handleFileClick(file);
+                                      }
+                                    }}
+                                  />
                                 </div>
                               </div>
-                            </button>
+                            )}
+                            
                             {/* Only show quiz buttons to teachers, not trainers */}
                             {!isTrainer && (
                               <Button
@@ -385,23 +432,6 @@ export default function CourseView() {
                     )}
                   </div>
                 </div>
-
-                {/* Table of Contents - Show if selected file has ToC */}
-                {selectedFile?.toc && selectedFile.toc.length > 0 && (
-                  <div className="pt-4 border-t mt-6">
-                    <h3 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
-                      <List className="h-5 w-5 text-primary" />
-                      Table of Contents
-                    </h3>
-                    <div className="bg-muted/30 rounded-lg overflow-hidden">
-                      <TableOfContents
-                        toc={selectedFile.toc}
-                        currentPage={pageNumber}
-                        onPageSelect={setPageNumber}
-                      />
-                    </div>
-                  </div>
-                )}
 
                 {/* Checkpoint Quiz Button - Only for teachers */}
                 {!isLoading && deckFiles.length > 0 && !isTrainer && (
