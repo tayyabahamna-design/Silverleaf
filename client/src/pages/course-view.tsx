@@ -58,9 +58,6 @@ export default function CourseView() {
   const [selectedQuizFileId, setSelectedQuizFileId] = useState<string | null>(null);
   const [pageInputValue, setPageInputValue] = useState<string>('');
   
-  // Table of Contents visibility state
-  const [showToc, setShowToc] = useState<boolean>(false);
-  
   // Mobile sidebar drawer state
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   
@@ -389,6 +386,23 @@ export default function CourseView() {
                   </div>
                 </div>
 
+                {/* Table of Contents - Show if selected file has ToC */}
+                {selectedFile?.toc && selectedFile.toc.length > 0 && (
+                  <div className="pt-4 border-t mt-6">
+                    <h3 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <List className="h-5 w-5 text-primary" />
+                      Table of Contents
+                    </h3>
+                    <div className="bg-muted/30 rounded-lg overflow-hidden">
+                      <TableOfContents
+                        toc={selectedFile.toc}
+                        currentPage={pageNumber}
+                        onPageSelect={setPageNumber}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Checkpoint Quiz Button - Only for teachers */}
                 {!isLoading && deckFiles.length > 0 && !isTrainer && (
                   <div className="pt-4">
@@ -410,21 +424,6 @@ export default function CourseView() {
                         ? "You've completed this checkpoint quiz" 
                         : "Test your knowledge on this week's content"}
                     </p>
-                  </div>
-                )}
-                
-                {/* Toggle Table of Contents Button - Show if selected file has ToC */}
-                {selectedFile?.toc && selectedFile.toc.length > 0 && (
-                  <div className="pt-4 border-t mt-6">
-                    <Button
-                      onClick={() => setShowToc(!showToc)}
-                      variant="outline"
-                      className="w-full"
-                      data-testid="button-toggle-contents"
-                    >
-                      <List className="mr-2 h-5 w-5" />
-                      {showToc ? 'Hide Table of Contents' : 'View Table of Contents'}
-                    </Button>
                   </div>
                 )}
               </div>
@@ -459,7 +458,7 @@ export default function CourseView() {
                   {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                     selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                     selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                    <div className="h-full flex flex-col items-center p-8 pb-8">
+                    <div className="h-full flex flex-col items-center p-8 pb-32">
                       {/* Slides Viewer */}
                       <div className="w-full max-w-5xl flex flex-col items-center">
                         {viewUrl && (
@@ -477,30 +476,6 @@ export default function CourseView() {
                           </Document>
                         )}
                       </div>
-                      
-                      {/* Table of Contents - Below Slides */}
-                      {showToc && selectedFile.toc && selectedFile.toc.length > 0 && (
-                        <div className="w-full max-w-5xl mt-8 mb-8">
-                          <div className="bg-card rounded-xl border shadow-lg overflow-hidden">
-                            <div className="p-6 border-b bg-muted/30">
-                              <div className="flex items-center gap-2">
-                                <List className="h-6 w-6 text-primary" />
-                                <h2 className="text-xl font-bold">Table of Contents</h2>
-                              </div>
-                              <p className="text-sm text-muted-foreground mt-2">
-                                Click on any section to jump to that page
-                              </p>
-                            </div>
-                            <div className="max-h-96 overflow-auto">
-                              <TableOfContents
-                                toc={selectedFile.toc}
-                                currentPage={pageNumber}
-                                onPageSelect={setPageNumber}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <div className="flex-1 flex flex-col">
@@ -537,6 +512,89 @@ export default function CourseView() {
                     </div>
                   )}
                 </div>
+
+                {/* Persistent Control Bar - PDF/PPTX Files Only */}
+                {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
+                  selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
+                  selectedFile.fileName.toLowerCase().endsWith('.ppt')) && viewUrl && (
+                  <div className="flex-shrink-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl">
+                    <div className="max-w-7xl mx-auto px-4 py-4">
+                      <div className="flex items-center gap-4 flex-wrap justify-center">
+                        {/* Zoom Controls */}
+                        <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
+                          <Button
+                            onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
+                            variant="outline"
+                            size="sm"
+                            data-testid="button-zoom-out"
+                          >
+                            <ZoomOut className="h-4 w-4" />
+                          </Button>
+                          <span className="text-sm text-muted-foreground min-w-16 text-center font-medium">
+                            {Math.round(scale * 100)}%
+                          </span>
+                          <Button
+                            onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
+                            variant="outline"
+                            size="sm"
+                            data-testid="button-zoom-in"
+                          >
+                            <ZoomIn className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        {/* Page Navigation Controls */}
+                        <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
+                          <Button
+                            onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+                            disabled={pageNumber <= 1}
+                            variant="outline"
+                            size="sm"
+                          >
+                            Previous
+                          </Button>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                              Page
+                            </span>
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              value={pageInputValue}
+                              onChange={handlePageInputChange}
+                              onKeyDown={handlePageInputKeyDown}
+                              onBlur={handlePageInputSubmit}
+                              placeholder={pageNumber.toString()}
+                              className="w-16 h-8 text-center text-sm"
+                              data-testid="input-page-number"
+                            />
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                              of {numPages}
+                            </span>
+                          </div>
+                          
+                          <Button
+                            onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
+                            disabled={pageNumber >= numPages}
+                            variant="outline"
+                            size="sm"
+                          >
+                            Next
+                          </Button>
+                        </div>
+                        
+                        {/* Completion Indicator */}
+                        {pageNumber === numPages && numPages > 0 && (
+                          <div className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 rounded-lg">
+                            <CheckCircle2 className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-semibold text-primary">Last page reached!</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : deckFiles.length === 0 ? (
               <div className="flex-1 flex items-center justify-center p-6">
