@@ -1,5 +1,6 @@
 import type { TocEntry } from '@shared/schema';
 import { createRequire } from 'module';
+import PizZip from 'pizzip';
 
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
@@ -16,27 +17,56 @@ interface PageContent {
 }
 
 /**
- * Extract a meaningful heading from text content
- * Takes the first non-empty line or first 60 characters
+ * Extract heading from text with improved heuristics
+ * Filters out body text, bullet points, and focuses on title-like content
  */
-function extractHeading(text: string, pageNumber: number): string {
+function extractHeadingFromText(text: string, pageNumber: number): string {
   if (!text || text.trim().length === 0) {
     return `Page ${pageNumber}`;
   }
 
-  // Split into lines and find first non-empty line
-  const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+  // Split into lines and filter
+  const lines = text.split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0);
   
   if (lines.length === 0) {
     return `Page ${pageNumber}`;
   }
 
-  // Get first line
-  let heading = lines[0];
+  // Filter out lines that are likely body text or bullet points
+  const titleCandidates = lines.filter(line => {
+    // Exclude bullet points (common formats)
+    if (/^[\u2022\u2023\u25E6\u2043\u2219•·○●■□▪▫-]\s/.test(line)) {
+      return false;
+    }
+    
+    // Exclude numbered lists
+    if (/^\d+[\.)]\s/.test(line)) {
+      return false;
+    }
+    
+    // Exclude very long lines (likely body text)
+    // Titles are usually concise
+    if (line.length > 100) {
+      return false;
+    }
+    
+    // Exclude lines that look like sentences (ending with period, comma, etc.)
+    // unless they're short enough to be a title
+    if (line.length > 50 && /[.,;:]$/.test(line)) {
+      return false;
+    }
+    
+    return true;
+  });
 
-  // Truncate if too long (max 60 characters)
-  if (heading.length > 60) {
-    heading = heading.substring(0, 57) + '...';
+  // Use the first valid title candidate, or fall back to first line
+  let heading = titleCandidates.length > 0 ? titleCandidates[0] : lines[0];
+
+  // Truncate if too long (max 80 characters for better readability)
+  if (heading.length > 80) {
+    heading = heading.substring(0, 77) + '...';
   }
 
   return heading;
@@ -44,15 +74,13 @@ function extractHeading(text: string, pageNumber: number): string {
 
 /**
  * Extract ToC from PDF file
+ * Uses improved heuristics to identify page headers/titles
  */
 async function extractPdfToc(buffer: Buffer): Promise<TocEntry[]> {
   try {
     const pdfData = await pdfParse(buffer);
     const totalPages = pdfData.numpages;
     
-    // Extract text from each page individually
-    // Note: pdf-parse gives us all text in one blob, so we'll need to parse it
-    // For now, we'll create a simple ToC with page numbers
     const toc: TocEntry[] = [];
     
     // Split text by form feed character which typically indicates page breaks
@@ -60,7 +88,7 @@ async function extractPdfToc(buffer: Buffer): Promise<TocEntry[]> {
     
     for (let i = 0; i < Math.min(pageTexts.length, totalPages); i++) {
       const pageText = pageTexts[i]?.trim() || '';
-      const heading = extractHeading(pageText, i + 1);
+      const heading = extractHeadingFromText(pageText, i + 1);
       
       toc.push({
         pageNumber: i + 1,
@@ -88,22 +116,94 @@ async function extractPdfToc(buffer: Buffer): Promise<TocEntry[]> {
 }
 
 /**
+ * Extract title text from a PPTX slide XML
+ * Looks specifically for title placeholder shapes
+ */
+function extractTitleFromSlideXml(slideXml: string): string | null {
+  try {
+    // Look for title placeholder types in the XML
+    // Title shapes have <p:ph type="title"> or <p:ph type="ctrTitle">
+    const titleRegex = /<p:sp>[\s\S]*?<p:ph[^>]*type="(?:title|ctrTitle)"[\s\S]*?<\/p:sp>/;
+    const titleShapeMatch = slideXml.match(titleRegex);
+    
+    if (titleShapeMatch) {
+      const titleShape = titleShapeMatch[0];
+      // Extract all text elements within this shape
+      const textMatches = titleShape.match(/<a:t[^>]*>(.*?)<\/a:t>/g) || [];
+      const titleText = textMatches
+        .map(match => match.replace(/<\/?a:t[^>]*>/g, ''))
+        .join(' ')
+        .trim();
+      
+      if (titleText) {
+        return titleText;
+      }
+    }
+    
+    // Fallback: try to find any text in the first shape (sometimes titles don't have proper placeholders)
+    const firstShapeRegex = /<p:sp>[\s\S]*?<\/p:sp>/;
+    const firstShapeMatch = slideXml.match(firstShapeRegex);
+    
+    if (firstShapeMatch) {
+      const firstShape = firstShapeMatch[0];
+      const textMatches = firstShape.match(/<a:t[^>]*>(.*?)<\/a:t>/g) || [];
+      const text = textMatches
+        .map(match => match.replace(/<\/?a:t[^>]*>/g, ''))
+        .join(' ')
+        .trim();
+      
+      if (text && text.length <= 100) {
+        return text;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error extracting title from slide XML:', error);
+    return null;
+  }
+}
+
+/**
  * Extract ToC from PPTX file
+ * Parses the PPTX structure to extract only slide titles
  */
 async function extractPptxToc(buffer: Buffer): Promise<TocEntry[]> {
   try {
-    // officeparser can handle buffers directly
-    const text = await officeParser.parseOfficeAsync(buffer);
-
-    // PPTX slides are typically separated by multiple newlines or specific patterns
-    // We'll split by common slide separators
-    const slideTexts = text.split(/\n{3,}|\f/).filter((s: string) => s.trim().length > 0);
+    const zip = new PizZip(buffer);
+    const toc: TocEntry[] = [];
     
-    const toc: TocEntry[] = slideTexts.map((slideText: string, index: number) => ({
-      pageNumber: index + 1,
-      heading: extractHeading(slideText, index + 1),
-    }));
-
+    // Get all slide files, sorted numerically
+    const slideFiles = Object.keys(zip.files)
+      .filter(name => name.startsWith('ppt/slides/slide') && name.endsWith('.xml'))
+      .sort((a, b) => {
+        const numA = parseInt(a.match(/slide(\d+)\.xml/)?.[1] || '0');
+        const numB = parseInt(b.match(/slide(\d+)\.xml/)?.[1] || '0');
+        return numA - numB;
+      });
+    
+    console.log(`[TOC PPTX] Found ${slideFiles.length} slides`);
+    
+    for (let i = 0; i < slideFiles.length; i++) {
+      const slideFile = slideFiles[i];
+      const slideXml = zip.files[slideFile].asText();
+      
+      // Extract title from this slide
+      const title = extractTitleFromSlideXml(slideXml);
+      
+      let heading: string;
+      if (title && title.trim().length > 0) {
+        heading = title.length > 80 ? title.substring(0, 77) + '...' : title;
+      } else {
+        heading = `Slide ${i + 1}`;
+      }
+      
+      toc.push({
+        pageNumber: i + 1,
+        heading: heading,
+      });
+    }
+    
     // Ensure we have at least one entry
     if (toc.length === 0) {
       return [{
@@ -111,7 +211,8 @@ async function extractPptxToc(buffer: Buffer): Promise<TocEntry[]> {
         heading: 'Slide 1',
       }];
     }
-
+    
+    console.log(`[TOC PPTX] Extracted ${toc.length} ToC entries`);
     return toc;
   } catch (error) {
     console.error('Error extracting PPTX ToC:', error);
@@ -125,17 +226,18 @@ async function extractPptxToc(buffer: Buffer): Promise<TocEntry[]> {
 
 /**
  * Extract ToC from PPT (older PowerPoint format)
- * Falls back to basic entries since PPT is harder to parse
+ * Uses officeparser with improved heading extraction
  */
 async function extractPptToc(buffer: Buffer): Promise<TocEntry[]> {
   try {
     const text = await officeParser.parseOfficeAsync(buffer);
 
+    // Split by common slide separators
     const slideTexts = text.split(/\n{3,}|\f/).filter((s: string) => s.trim().length > 0);
     
     const toc: TocEntry[] = slideTexts.map((slideText: string, index: number) => ({
       pageNumber: index + 1,
-      heading: extractHeading(slideText, index + 1),
+      heading: extractHeadingFromText(slideText, index + 1),
     }));
 
     if (toc.length === 0) {
