@@ -58,8 +58,8 @@ export default function CourseView() {
   const [selectedQuizFileId, setSelectedQuizFileId] = useState<string | null>(null);
   const [pageInputValue, setPageInputValue] = useState<string>('');
   
-  // Sidebar view state: 'standard' shows competency/objectives/files, 'toc' shows table of contents
-  const [sidebarView, setSidebarView] = useState<'standard' | 'toc'>('standard');
+  // Table of Contents visibility state
+  const [showToc, setShowToc] = useState<boolean>(false);
   
   // Mobile sidebar drawer state
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
@@ -252,10 +252,9 @@ export default function CourseView() {
               </h2>
             </div>
 
-            {/* Scrollable Content: Competency Focus, Objectives, Progress, and File List OR Table of Contents */}
+            {/* Scrollable Content: Competency Focus, Objectives, Progress, and File List */}
             <div className="flex-1 overflow-y-auto">
-              {sidebarView === 'standard' ? (
-                <div className="p-6 pb-32 space-y-6">
+              <div className="p-6 pb-32 space-y-6">
                 {/* Competency Focus */}
                 <div>
                   <h3 className="text-base font-semibold uppercase tracking-wider text-[#666] mb-3">
@@ -414,57 +413,21 @@ export default function CourseView() {
                   </div>
                 )}
                 
-                {/* View Contents Button - Show if selected file has ToC */}
+                {/* Toggle Table of Contents Button - Show if selected file has ToC */}
                 {selectedFile?.toc && selectedFile.toc.length > 0 && (
                   <div className="pt-4 border-t mt-6">
                     <Button
-                      onClick={() => setSidebarView('toc')}
+                      onClick={() => setShowToc(!showToc)}
                       variant="outline"
                       className="w-full"
-                      data-testid="button-view-contents"
+                      data-testid="button-toggle-contents"
                     >
                       <List className="mr-2 h-5 w-5" />
-                      View Table of Contents
+                      {showToc ? 'Hide Table of Contents' : 'View Table of Contents'}
                     </Button>
                   </div>
                 )}
               </div>
-              ) : (
-                /* Table of Contents View */
-                <div className="h-full flex flex-col">
-                  {/* ToC Header with Back Button */}
-                  <div className="p-6 border-b bg-muted/30">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSidebarView('standard')}
-                      className="mb-4 -ml-2"
-                      data-testid="button-back-to-sidebar"
-                    >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
-                      Back
-                    </Button>
-                    <div className="flex items-center gap-2">
-                      <List className="h-6 w-6 text-primary" />
-                      <h2 className="text-xl font-bold">Table of Contents</h2>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {selectedFile?.fileName}
-                    </p>
-                  </div>
-                  
-                  {/* ToC List */}
-                  {selectedFile?.toc && (
-                    <div className="flex-1 overflow-hidden">
-                      <TableOfContents
-                        toc={selectedFile.toc}
-                        currentPage={pageNumber}
-                        onPageSelect={setPageNumber}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </ResizablePanel>
@@ -497,6 +460,7 @@ export default function CourseView() {
                     selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                     selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
                     <div className="h-full flex flex-col items-center p-8 pb-28">
+                      {/* Slides Viewer */}
                       <div className="w-full max-w-5xl flex flex-col items-center">
                         {viewUrl && (
                           <Document
@@ -513,6 +477,30 @@ export default function CourseView() {
                           </Document>
                         )}
                       </div>
+                      
+                      {/* Table of Contents - Below Slides */}
+                      {showToc && selectedFile.toc && selectedFile.toc.length > 0 && (
+                        <div className="w-full max-w-5xl mt-8 mb-8">
+                          <div className="bg-card rounded-xl border shadow-lg overflow-hidden">
+                            <div className="p-6 border-b bg-muted/30">
+                              <div className="flex items-center gap-2">
+                                <List className="h-6 w-6 text-primary" />
+                                <h2 className="text-xl font-bold">Table of Contents</h2>
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-2">
+                                Click on any section to jump to that page
+                              </p>
+                            </div>
+                            <div className="max-h-96 overflow-auto">
+                              <TableOfContents
+                                toc={selectedFile.toc}
+                                currentPage={pageNumber}
+                                onPageSelect={setPageNumber}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Floating Persistent Controls */}
                       {viewUrl && (
