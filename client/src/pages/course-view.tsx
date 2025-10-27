@@ -455,11 +455,11 @@ export default function CourseView() {
                 </div>
 
                 {/* Content Display */}
-                <div className="flex-1 overflow-auto bg-muted/20 relative">
+                <div className="flex-1 overflow-auto bg-muted/20">
                   {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                     selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                     selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                    <div className="h-full flex flex-col items-center p-8 pb-28">
+                    <div className="h-full flex flex-col items-center p-8 pb-8">
                       {/* Slides Viewer */}
                       <div className="w-full max-w-5xl flex flex-col items-center">
                         {viewUrl && (
@@ -497,87 +497,6 @@ export default function CourseView() {
                                 currentPage={pageNumber}
                                 onPageSelect={setPageNumber}
                               />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Floating Persistent Controls */}
-                      {viewUrl && (
-                        <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl z-50">
-                          <div className="max-w-7xl mx-auto px-4 py-4">
-                            <div className="flex items-center gap-4 flex-wrap justify-center">
-                              {/* Zoom Controls */}
-                              <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
-                                <Button
-                                  onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
-                                  variant="outline"
-                                  size="sm"
-                                  data-testid="button-zoom-out"
-                                >
-                                  <ZoomOut className="h-4 w-4" />
-                                </Button>
-                                <span className="text-sm text-muted-foreground min-w-16 text-center font-medium">
-                                  {Math.round(scale * 100)}%
-                                </span>
-                                <Button
-                                  onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
-                                  variant="outline"
-                                  size="sm"
-                                  data-testid="button-zoom-in"
-                                >
-                                  <ZoomIn className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              
-                              {/* Page Navigation Controls */}
-                              <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
-                                <Button
-                                  onClick={() => setPageNumber(p => Math.max(1, p - 1))}
-                                  disabled={pageNumber <= 1}
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  Previous
-                                </Button>
-                                
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-muted-foreground whitespace-nowrap">
-                                    Page
-                                  </span>
-                                  <Input
-                                    type="text"
-                                    inputMode="numeric"
-                                    value={pageInputValue}
-                                    onChange={handlePageInputChange}
-                                    onKeyDown={handlePageInputKeyDown}
-                                    onBlur={handlePageInputSubmit}
-                                    placeholder={pageNumber.toString()}
-                                    className="w-16 h-8 text-center text-sm"
-                                    data-testid="input-page-number"
-                                  />
-                                  <span className="text-sm text-muted-foreground whitespace-nowrap">
-                                    of {numPages}
-                                  </span>
-                                </div>
-                                
-                                <Button
-                                  onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
-                                  disabled={pageNumber >= numPages}
-                                  variant="outline"
-                                  size="sm"
-                                >
-                                  Next
-                                </Button>
-                              </div>
-                              
-                              {/* Completion Indicator */}
-                              {pageNumber === numPages && numPages > 0 && (
-                                <div className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 rounded-lg">
-                                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                                  <span className="text-sm font-semibold text-primary">Last page reached!</span>
-                                </div>
-                              )}
                             </div>
                           </div>
                         </div>
