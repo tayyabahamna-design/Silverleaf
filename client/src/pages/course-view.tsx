@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
@@ -63,6 +63,12 @@ export default function CourseView() {
   
   // Track which file's ToC is expanded
   const [expandedTocFileId, setExpandedTocFileId] = useState<string | null>(null);
+  
+  // Track intended page when switching files via ToC navigation
+  const [intendedPage, setIntendedPage] = useState<number | null>(null);
+  
+  // Track previous file ID to detect actual file changes
+  const prevFileIdRef = useRef<string | null>(null);
   
   // Responsive breakpoint detection
   const { isMobile, isTablet } = useBreakpoint();
@@ -161,8 +167,20 @@ export default function CourseView() {
     };
 
     fetchViewUrl();
-    setPageNumber(1); // Reset page number when switching files
-  }, [selectedFile]);
+    
+    // Only reset page number if the file actually changed
+    const currentFileId = selectedFile?.id || null;
+    if (currentFileId !== prevFileIdRef.current) {
+      // File changed - use intended page if available, otherwise reset to 1
+      if (intendedPage !== null) {
+        setPageNumber(intendedPage);
+        setIntendedPage(null);
+      } else {
+        setPageNumber(1);
+      }
+      prevFileIdRef.current = currentFileId;
+    }
+  }, [selectedFile, intendedPage]);
 
   // Handle file click - reset completion flag
   const handleFileClick = (file: DeckFile) => {
@@ -386,12 +404,15 @@ export default function CourseView() {
                                 <div className="bg-muted/30 rounded-lg overflow-hidden">
                                   <TableOfContents
                                     toc={file.toc}
-                                    currentPage={pageNumber}
+                                    currentPage={selectedFileId === file.id ? pageNumber : 1}
                                     onPageSelect={(page) => {
-                                      setPageNumber(page);
-                                      // Also select this file if not already selected
+                                      // If selecting a ToC entry for a different file, set the intended page first
                                       if (selectedFileId !== file.id) {
+                                        setIntendedPage(page);
                                         handleFileClick(file);
+                                      } else {
+                                        // Same file, just navigate to the page
+                                        setPageNumber(page);
                                       }
                                     }}
                                   />
