@@ -134,6 +134,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Approval routes for admin
+  app.get("/api/admin/pending-trainers", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const pendingTrainers = await storage.getPendingTrainers();
+      // Remove password from response
+      const sanitized = pendingTrainers.map(({ password, ...trainer }) => trainer);
+      res.json(sanitized);
+    } catch (error) {
+      console.error("Error getting pending trainers:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/admin/pending-teachers", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const pendingTeachers = await storage.getPendingTeachers();
+      // Remove password from response
+      const sanitized = pendingTeachers.map(({ password, ...teacher }) => teacher);
+      res.json(sanitized);
+    } catch (error) {
+      console.error("Error getting pending teachers:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/admin/approve-trainer/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const approvedBy = req.user!.id;
+      
+      const approvedUser = await storage.approveUser(id, approvedBy);
+      if (!approvedUser) {
+        return res.status(404).json({ error: "Trainer not found" });
+      }
+      
+      const { password, ...sanitized } = approvedUser;
+      res.json({ 
+        success: true, 
+        message: `Trainer ${approvedUser.username} has been approved`,
+        user: sanitized 
+      });
+    } catch (error) {
+      console.error("Error approving trainer:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/admin/approve-teacher/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const approvedBy = req.user!.id;
+      const approvedByRole = "admin";
+      
+      const approvedTeacher = await storage.approveTeacher(id, approvedBy, approvedByRole);
+      if (!approvedTeacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      const { password, ...sanitized } = approvedTeacher;
+      res.json({ 
+        success: true, 
+        message: `Teacher ${approvedTeacher.name} has been approved by admin`,
+        teacher: sanitized 
+      });
+    } catch (error) {
+      console.error("Error approving teacher:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Approval routes for trainers
+  app.get("/api/trainer/pending-teachers", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const pendingTeachers = await storage.getPendingTeachers();
+      // Remove password from response
+      const sanitized = pendingTeachers.map(({ password, ...teacher }) => teacher);
+      res.json(sanitized);
+    } catch (error) {
+      console.error("Error getting pending teachers:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/trainer/approve-teacher/:id", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const approvedBy = req.user!.id;
+      const approvedByRole = "trainer";
+      
+      const approvedTeacher = await storage.approveTeacher(id, approvedBy, approvedByRole);
+      if (!approvedTeacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      const { password, ...sanitized } = approvedTeacher;
+      res.json({ 
+        success: true, 
+        message: `Teacher ${approvedTeacher.name} has been approved by trainer`,
+        teacher: sanitized 
+      });
+    } catch (error) {
+      console.error("Error approving teacher:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get all training weeks (authenticated users only)
   app.get("/api/training-weeks", isAuthenticated, async (req, res) => {
     try {

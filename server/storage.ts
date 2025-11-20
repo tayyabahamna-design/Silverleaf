@@ -65,6 +65,8 @@ export interface IStorage {
   getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<User | undefined>;
+  getPendingTrainers(): Promise<User[]>;
+  approveUser(userId: string, approvedBy: string): Promise<User | undefined>;
   
   // Content item operations
   getContentItemsWithProgress(weekId: string, userId: string): Promise<any[]>;
@@ -108,6 +110,8 @@ export interface IStorage {
   createTeacher(teacher: InsertTeacher): Promise<Teacher>;
   getNextTeacherId(): Promise<number>;
   updateTeacherPassword(teacherId: string, hashedPassword: string): Promise<Teacher | undefined>;
+  getPendingTeachers(): Promise<Teacher[]>;
+  approveTeacher(teacherId: string, approvedBy: string, approvedByRole: string): Promise<Teacher | undefined>;
   
   // Batch operations
   getAllBatches(createdBy?: string): Promise<Batch[]>;
@@ -213,6 +217,31 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db
       .update(users)
       .set({ password: hashedPassword })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async getPendingTrainers(): Promise<User[]> {
+    const pendingUsers = await db
+      .select()
+      .from(users)
+      .where(and(
+        eq(users.role, "trainer"),
+        eq(users.approvalStatus, "pending")
+      ))
+      .orderBy(users.createdAt);
+    return pendingUsers;
+  }
+
+  async approveUser(userId: string, approvedBy: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ 
+        approvalStatus: "approved",
+        approvedBy,
+        approvedAt: new Date()
+      })
       .where(eq(users.id, userId))
       .returning();
     return user;
@@ -647,6 +676,29 @@ export class DatabaseStorage implements IStorage {
     const [teacher] = await db
       .update(teachers)
       .set({ password: hashedPassword })
+      .where(eq(teachers.id, teacherId))
+      .returning();
+    return teacher;
+  }
+
+  async getPendingTeachers(): Promise<Teacher[]> {
+    const pendingTeachers = await db
+      .select()
+      .from(teachers)
+      .where(eq(teachers.approvalStatus, "pending"))
+      .orderBy(teachers.createdAt);
+    return pendingTeachers;
+  }
+
+  async approveTeacher(teacherId: string, approvedBy: string, approvedByRole: string): Promise<Teacher | undefined> {
+    const [teacher] = await db
+      .update(teachers)
+      .set({ 
+        approvalStatus: "approved",
+        approvedBy,
+        approvedByRole,
+        approvedAt: new Date()
+      })
       .where(eq(teachers.id, teacherId))
       .returning();
     return teacher;
