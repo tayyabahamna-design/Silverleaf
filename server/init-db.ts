@@ -41,13 +41,14 @@ async function initializeDatabase() {
       console.log(`   Username: ${existingAdmin[0].username}`);
       console.log(`   Role: ${existingAdmin[0].role}`);
       
-      // Update username and password to ensure they're correct
+      // Update username, password and approval status to ensure they're correct
       const hashedPassword = await hashPassword("admin123");
       await db
         .update(users)
         .set({ 
           username: "admin",
-          password: hashedPassword 
+          password: hashedPassword,
+          approvalStatus: "approved"
         })
         .where(eq(users.email, adminEmail));
       
@@ -63,6 +64,7 @@ async function initializeDatabase() {
         email: adminEmail,
         password: hashedPassword,
         role: "admin",
+        approvalStatus: "approved",
         firstName: "Admin",
         lastName: "User",
       });
