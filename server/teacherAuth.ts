@@ -36,11 +36,12 @@ export function setupTeacherAuth(app: Express) {
         return res.status(400).json({ message: "Email already registered" });
       }
 
-      // Create teacher with auto-incrementing teacherId
+      // Create teacher with auto-incrementing teacherId and pending approval status
       const teacher = await storage.createTeacher({
         name,
         email,
         password: await hashPassword(password),
+        approvalStatus: "pending",
       });
 
       // Create initial report card
@@ -52,12 +53,12 @@ export function setupTeacherAuth(app: Express) {
         averageScore: 0,
       });
 
-      // Store teacher session
-      (req.session as any).teacherId = teacher.id;
-
-      // Don't send password back to client
+      // Don't auto-login - user needs approval first from admin or trainer
       const { password: _, ...teacherWithoutPassword } = teacher;
-      res.status(201).json(teacherWithoutPassword);
+      res.status(201).json({
+        ...teacherWithoutPassword,
+        message: "Account created successfully. Your account is pending approval from admin or trainer."
+      });
     } catch (error: any) {
       console.error("Teacher registration error:", error);
       res.status(500).json({ message: error.message || "Registration failed" });
@@ -93,6 +94,21 @@ export function setupTeacherAuth(app: Express) {
       const passwordMatch = await comparePasswords(password, teacher.password);
       if (!passwordMatch) {
         return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Check if account is approved
+      if (teacher.approvalStatus === "pending") {
+        return res.status(403).json({ 
+          message: "Your account is pending approval. Please wait for admin or trainer approval.",
+          approvalStatus: "pending"
+        });
+      }
+      
+      if (teacher.approvalStatus === "rejected") {
+        return res.status(403).json({ 
+          message: "Your account has been rejected. Please contact support.",
+          approvalStatus: "rejected"
+        });
       }
 
       // Store teacher session

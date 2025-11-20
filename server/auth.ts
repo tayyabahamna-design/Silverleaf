@@ -97,13 +97,14 @@ export function setupAuth(app: Express) {
       const user = await storage.createUser({
         ...req.body,
         password: await hashPassword(req.body.password),
+        approvalStatus: "pending",
       });
 
-      req.login(user, (err) => {
-        if (err) return next(err);
-        // Don't send password back to client
-        const { password, ...userWithoutPassword } = user;
-        res.status(201).json(userWithoutPassword);
+      // Don't auto-login - user needs approval first
+      const { password, ...userWithoutPassword } = user;
+      res.status(201).json({
+        ...userWithoutPassword,
+        message: "Account created successfully. Your account is pending admin approval."
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Registration failed" });
@@ -116,6 +117,22 @@ export function setupAuth(app: Express) {
       if (!user) {
         return res.status(401).json({ message: "Invalid username or password" });
       }
+      
+      // Check if account is approved
+      if (user.approvalStatus === "pending") {
+        return res.status(403).json({ 
+          message: "Your account is pending approval. Please wait for admin approval.",
+          approvalStatus: "pending"
+        });
+      }
+      
+      if (user.approvalStatus === "rejected") {
+        return res.status(403).json({ 
+          message: "Your account has been rejected. Please contact support.",
+          approvalStatus: "rejected"
+        });
+      }
+      
       req.login(user, (err) => {
         if (err) return next(err);
         // Don't send password back to client
