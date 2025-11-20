@@ -150,16 +150,15 @@ export default function UnifiedAuth() {
           const data = await response.json();
           toast({
             title: "Account created!",
-            description: `Your Teacher ID is: ${data.teacherId}. Please save this for login.`,
+            description: `Your Teacher ID is: ${data.teacherId}. ${data.message || "Your account is pending approval from admin or trainer."}`,
+            duration: 8000,
           });
           
-          // Reset form and switch to login tab
+          // Reset form - don't switch to login since they can't log in yet
           setRegName("");
           setRegEmail("");
           setRegPassword("");
           setAccountType(null);
-          setLoginRole("teacher");
-          setLoginEmail(data.teacherId.toString());
         } else {
           const error = await response.text();
           toast({
@@ -182,18 +181,18 @@ export default function UnifiedAuth() {
         });
 
         if (response.ok) {
+          const data = await response.json();
           toast({
             title: "Account created!",
-            description: "You can now log in as a Trainer",
+            description: data.message || "Your account is pending admin approval.",
+            duration: 8000,
           });
           
-          // Reset form and switch to login tab
+          // Reset form - don't switch to login since they can't log in yet
           setRegName("");
           setRegEmail("");
           setRegPassword("");
           setAccountType(null);
-          setLoginRole("trainer");
-          setLoginEmail(regEmail);
         } else {
           const error = await response.text();
           toast({

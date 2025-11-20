@@ -12,6 +12,7 @@ import CourseView from "@/pages/course-view";
 import UnifiedAuth from "@/pages/unified-auth";
 import TeacherDashboard from "@/pages/teacher-dashboard";
 import TrainerBatches from "@/pages/trainer-batches";
+import Approvals from "@/pages/approvals";
 import NotFound from "@/pages/not-found";
 
 // UPDATED: Router now uses unified authentication
@@ -21,6 +22,7 @@ function Router() {
       <ProtectedRoute path="/" component={Home} />
       <ProtectedRoute path="/course/:weekId" component={CourseView} />
       <ProtectedRoute path="/trainer/batches" component={TrainerBatches} />
+      <ProtectedRoute path="/approvals" component={Approvals} />
       {/* UPDATED: New unified auth page for all roles (Admin, Teacher, Trainer) */}
       <Route path="/auth" component={UnifiedAuth} />
       <Route path="/login" component={UnifiedAuth} />

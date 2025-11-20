@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical } from "lucide-react";
+import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
@@ -640,18 +640,33 @@ export default function Home() {
                 {user.email} ({user.role})
               </div>
             )}
-            {user?.role === "trainer" && (
-              <Link href="/trainer/batches">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  data-testid="button-manage-batches"
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Manage Batches
-                </Button>
-              </Link>
+            {(user?.role === "admin" || user?.role === "trainer") && (
+              <>
+                <Link href="/approvals">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    data-testid="button-approvals"
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                  >
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Approvals
+                  </Button>
+                </Link>
+                {user?.role === "trainer" && (
+                  <Link href="/trainer/batches">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      data-testid="button-manage-batches"
+                      className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                    >
+                      <Users className="mr-2 h-4 w-4" />
+                      Manage Batches
+                    </Button>
+                  </Link>
+                )}
+              </>
             )}
             <div className="text-white">
               <ThemeToggle />
