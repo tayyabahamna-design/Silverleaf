@@ -29,6 +29,12 @@ import {
   type InsertTeacherQuizAttempt,
   type TeacherReportCard,
   type InsertTeacherReportCard,
+  type TeacherContentProgress,
+  type InsertTeacherContentProgress,
+  type TeacherContentQuizAttempt,
+  type InsertTeacherContentQuizAttempt,
+  type TeacherQuizRegeneration,
+  type InsertTeacherQuizRegeneration,
   trainingWeeks,
   users,
   contentItems,
@@ -42,7 +48,10 @@ import {
   batchTeachers,
   assignedQuizzes,
   teacherQuizAttempts,
-  teacherReportCards
+  teacherReportCards,
+  teacherContentProgress,
+  teacherContentQuizAttempts,
+  teacherQuizRegenerations
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql as sqlOp } from "drizzle-orm";
@@ -140,6 +149,21 @@ export interface IStorage {
   // Teacher report card operations
   getTeacherReportCard(teacherId: string): Promise<TeacherReportCard | undefined>;
   upsertTeacherReportCard(reportCard: Partial<InsertTeacherReportCard> & { teacherId: string }): Promise<TeacherReportCard>;
+  
+  // Teacher content progress operations (for content viewing with quiz gating)
+  upsertTeacherContentProgress(progress: Partial<InsertTeacherContentProgress> & { teacherId: string; weekId: string; deckFileId: string }): Promise<TeacherContentProgress>;
+  getTeacherContentProgress(teacherId: string, weekId: string, deckFileId: string): Promise<TeacherContentProgress | undefined>;
+  getAllTeacherContentProgressForWeek(teacherId: string, weekId: string): Promise<TeacherContentProgress[]>;
+  
+  // Teacher content quiz attempt operations
+  saveTeacherContentQuizAttempt(attempt: InsertTeacherContentQuizAttempt): Promise<TeacherContentQuizAttempt>;
+  getTeacherContentQuizAttempts(teacherId: string, weekId: string, deckFileId: string, quizGenerationId: string): Promise<TeacherContentQuizAttempt[]>;
+  getAllTeacherContentQuizAttemptsForFile(teacherId: string, weekId: string, deckFileId: string): Promise<TeacherContentQuizAttempt[]>;
+  
+  // Teacher quiz regeneration operations
+  saveTeacherQuizRegeneration(regeneration: InsertTeacherQuizRegeneration): Promise<TeacherQuizRegeneration>;
+  getTeacherQuizRegenerations(teacherId: string, weekId: string, deckFileId: string): Promise<TeacherQuizRegeneration[]>;
+  getAllTeacherQuizRegenerationsForWeek(teacherId: string, weekId: string): Promise<TeacherQuizRegeneration[]>;
   
   // Session store
   sessionStore: session.Store;
@@ -910,6 +934,139 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return created;
     }
+  }
+
+  // Teacher content progress operations (for content viewing with quiz gating)
+  async upsertTeacherContentProgress(progress: Partial<InsertTeacherContentProgress> & { teacherId: string; weekId: string; deckFileId: string }): Promise<TeacherContentProgress> {
+    const existing = await this.getTeacherContentProgress(progress.teacherId, progress.weekId, progress.deckFileId);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(teacherContentProgress)
+        .set(progress as any)
+        .where(
+          and(
+            eq(teacherContentProgress.teacherId, progress.teacherId),
+            eq(teacherContentProgress.weekId, progress.weekId),
+            eq(teacherContentProgress.deckFileId, progress.deckFileId)
+          )
+        )
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(teacherContentProgress)
+        .values({
+          teacherId: progress.teacherId,
+          weekId: progress.weekId,
+          deckFileId: progress.deckFileId,
+          status: progress.status || "locked",
+          viewedAt: progress.viewedAt || null,
+          completedAt: progress.completedAt || null,
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  async getTeacherContentProgress(teacherId: string, weekId: string, deckFileId: string): Promise<TeacherContentProgress | undefined> {
+    const [progress] = await db
+      .select()
+      .from(teacherContentProgress)
+      .where(
+        and(
+          eq(teacherContentProgress.teacherId, teacherId),
+          eq(teacherContentProgress.weekId, weekId),
+          eq(teacherContentProgress.deckFileId, deckFileId)
+        )
+      );
+    return progress;
+  }
+
+  async getAllTeacherContentProgressForWeek(teacherId: string, weekId: string): Promise<TeacherContentProgress[]> {
+    return await db
+      .select()
+      .from(teacherContentProgress)
+      .where(
+        and(
+          eq(teacherContentProgress.teacherId, teacherId),
+          eq(teacherContentProgress.weekId, weekId)
+        )
+      );
+  }
+
+  // Teacher content quiz attempt operations
+  async saveTeacherContentQuizAttempt(attempt: InsertTeacherContentQuizAttempt): Promise<TeacherContentQuizAttempt> {
+    const [result] = await db
+      .insert(teacherContentQuizAttempts)
+      .values(attempt as any)
+      .returning();
+    return result;
+  }
+
+  async getTeacherContentQuizAttempts(teacherId: string, weekId: string, deckFileId: string, quizGenerationId: string): Promise<TeacherContentQuizAttempt[]> {
+    return await db
+      .select()
+      .from(teacherContentQuizAttempts)
+      .where(
+        and(
+          eq(teacherContentQuizAttempts.teacherId, teacherId),
+          eq(teacherContentQuizAttempts.weekId, weekId),
+          eq(teacherContentQuizAttempts.deckFileId, deckFileId),
+          eq(teacherContentQuizAttempts.quizGenerationId, quizGenerationId)
+        )
+      )
+      .orderBy(teacherContentQuizAttempts.attemptNumber);
+  }
+
+  async getAllTeacherContentQuizAttemptsForFile(teacherId: string, weekId: string, deckFileId: string): Promise<TeacherContentQuizAttempt[]> {
+    return await db
+      .select()
+      .from(teacherContentQuizAttempts)
+      .where(
+        and(
+          eq(teacherContentQuizAttempts.teacherId, teacherId),
+          eq(teacherContentQuizAttempts.weekId, weekId),
+          eq(teacherContentQuizAttempts.deckFileId, deckFileId)
+        )
+      )
+      .orderBy(sqlOp`${teacherContentQuizAttempts.completedAt} DESC`);
+  }
+
+  // Teacher quiz regeneration operations
+  async saveTeacherQuizRegeneration(regeneration: InsertTeacherQuizRegeneration): Promise<TeacherQuizRegeneration> {
+    const [result] = await db
+      .insert(teacherQuizRegenerations)
+      .values(regeneration as any)
+      .returning();
+    return result;
+  }
+
+  async getTeacherQuizRegenerations(teacherId: string, weekId: string, deckFileId: string): Promise<TeacherQuizRegeneration[]> {
+    return await db
+      .select()
+      .from(teacherQuizRegenerations)
+      .where(
+        and(
+          eq(teacherQuizRegenerations.teacherId, teacherId),
+          eq(teacherQuizRegenerations.weekId, weekId),
+          eq(teacherQuizRegenerations.deckFileId, deckFileId)
+        )
+      )
+      .orderBy(sqlOp`${teacherQuizRegenerations.requestedAt} DESC`);
+  }
+
+  async getAllTeacherQuizRegenerationsForWeek(teacherId: string, weekId: string): Promise<TeacherQuizRegeneration[]> {
+    return await db
+      .select()
+      .from(teacherQuizRegenerations)
+      .where(
+        and(
+          eq(teacherQuizRegenerations.teacherId, teacherId),
+          eq(teacherQuizRegenerations.weekId, weekId)
+        )
+      )
+      .orderBy(sqlOp`${teacherQuizRegenerations.requestedAt} DESC`);
   }
 }
 

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -345,3 +345,71 @@ export const insertTeacherReportCardSchema = createInsertSchema(teacherReportCar
 
 export type InsertTeacherReportCard = z.infer<typeof insertTeacherReportCardSchema>;
 export type TeacherReportCard = typeof teacherReportCards.$inferSelect;
+
+// Teacher content progress table (for tracking teachers viewing assigned week content)
+export const teacherContentProgress = pgTable("teacher_content_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  weekId: varchar("week_id").notNull().references(() => trainingWeeks.id, { onDelete: "cascade" }),
+  deckFileId: varchar("deck_file_id").notNull(), // ID from the deckFiles JSONB array
+  status: varchar("status").notNull().default("locked"), // 'locked', 'available', 'in_progress', 'quiz_required', 'completed'
+  viewedAt: timestamp("viewed_at"),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  uniqueIndex("idx_teacher_content_progress_unique").on(table.teacherId, table.weekId, table.deckFileId),
+]);
+
+export const insertTeacherContentProgressSchema = createInsertSchema(teacherContentProgress).omit({
+  id: true,
+});
+
+export type InsertTeacherContentProgress = z.infer<typeof insertTeacherContentProgressSchema>;
+export type TeacherContentProgress = typeof teacherContentProgress.$inferSelect;
+
+// Teacher content quiz attempts table (for quizzes tied to specific content files)
+export const teacherContentQuizAttempts = pgTable("teacher_content_quiz_attempts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  weekId: varchar("week_id").notNull().references(() => trainingWeeks.id, { onDelete: "cascade" }),
+  deckFileId: varchar("deck_file_id").notNull(), // ID from the deckFiles JSONB array
+  quizGenerationId: varchar("quiz_generation_id").notNull(), // Links to which quiz version this attempt used
+  attemptNumber: integer("attempt_number").notNull(), // 1, 2, or 3 (per quiz generation)
+  questions: jsonb("questions").$type<QuizQuestion[]>().notNull(),
+  answers: jsonb("answers").$type<Record<string, string>>().notNull(),
+  score: integer("score").notNull(),
+  totalQuestions: integer("total_questions").notNull(),
+  passed: varchar("passed").notNull(), // 'yes' or 'no'
+  completedAt: timestamp("completed_at").defaultNow(),
+}, (table) => [
+  index("idx_teacher_content_quiz_attempts").on(table.teacherId, table.weekId, table.deckFileId),
+  uniqueIndex("idx_teacher_quiz_attempt_unique").on(table.teacherId, table.weekId, table.deckFileId, table.quizGenerationId, table.attemptNumber),
+]);
+
+export const insertTeacherContentQuizAttemptSchema = createInsertSchema(teacherContentQuizAttempts).omit({
+  id: true,
+  completedAt: true,
+});
+
+export type InsertTeacherContentQuizAttempt = z.infer<typeof insertTeacherContentQuizAttemptSchema>;
+export type TeacherContentQuizAttempt = typeof teacherContentQuizAttempts.$inferSelect;
+
+// Teacher quiz regenerations table (tracks when teachers request new quizzes after 3 failed attempts)
+export const teacherQuizRegenerations = pgTable("teacher_quiz_regenerations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  weekId: varchar("week_id").notNull().references(() => trainingWeeks.id, { onDelete: "cascade" }),
+  deckFileId: varchar("deck_file_id").notNull(), // ID from the deckFiles JSONB array
+  previousQuizGenerationId: varchar("previous_quiz_generation_id").notNull(), // The quiz they failed 3 times
+  newQuizGenerationId: varchar("new_quiz_generation_id").notNull(), // The new quiz generated
+  requestedAt: timestamp("requested_at").defaultNow(),
+}, (table) => [
+  index("idx_teacher_quiz_regenerations").on(table.teacherId, table.weekId, table.deckFileId),
+]);
+
+export const insertTeacherQuizRegenerationSchema = createInsertSchema(teacherQuizRegenerations).omit({
+  id: true,
+  requestedAt: true,
+});
+
+export type InsertTeacherQuizRegeneration = z.infer<typeof insertTeacherQuizRegenerationSchema>;
+export type TeacherQuizRegeneration = typeof teacherQuizRegenerations.$inferSelect;
