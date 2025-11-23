@@ -1629,6 +1629,313 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Teacher content viewing endpoints (with quiz gating)
+  
+  // Get all content files for a week with progress and unlock status
+  app.get("/api/teachers/weeks/:weekId/content", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const { weekId } = req.params;
+      const teacherId = req.teacherId!;
+      
+      const week = await storage.getTrainingWeek(weekId);
+      if (!week || !week.deckFiles) {
+        return res.status(404).json({ error: "Week not found" });
+      }
+      
+      // Get all progress records for this teacher and week
+      const progressRecords = await storage.getAllTeacherContentProgressForWeek(teacherId, weekId);
+      
+      // Map deck files with their progress and unlock status
+      const contentWithProgress = week.deckFiles.map((file, index) => {
+        const progress = progressRecords.find(p => p.deckFileId === file.id);
+        const isFirst = index === 0;
+        
+        // First file is always available, others locked until previous is completed
+        let status = progress?.status || (isFirst ? "available" : "locked");
+        
+        return {
+          ...file,
+          status,
+          progress,
+        };
+      });
+      
+      res.json({
+        week,
+        content: contentWithProgress,
+      });
+    } catch (error) {
+      console.error("Error fetching teacher content:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Mark content as viewed
+  app.post("/api/teachers/weeks/:weekId/content/:deckFileId/viewed", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const { weekId, deckFileId } = req.params;
+      const teacherId = req.teacherId!;
+      
+      const progress = await storage.upsertTeacherContentProgress({
+        teacherId,
+        weekId,
+        deckFileId,
+        status: "in_progress",
+        viewedAt: new Date(),
+      });
+      
+      res.json(progress);
+    } catch (error) {
+      console.error("Error marking content as viewed:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Generate quiz for content file
+  app.post("/api/teachers/weeks/:weekId/content/:deckFileId/generate-quiz", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const { weekId, deckFileId } = req.params;
+      const teacherId = req.teacherId!;
+      const { numQuestions = 5 } = req.body;
+      
+      const week = await storage.getTrainingWeek(weekId);
+      if (!week || !week.deckFiles) {
+        return res.status(404).json({ error: "Week not found" });
+      }
+      
+      const file = week.deckFiles.find(f => f.id === deckFileId);
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      
+      // Generate unique quiz generation ID
+      const quizGenerationId = `quiz-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Import quiz service
+      const { generateSingleFileQuiz } = await import('./quizService');
+      
+      const questions = await generateSingleFileQuiz({
+        fileUrl: file.fileUrl,
+        fileName: file.fileName,
+        competencyFocus: week.competencyFocus,
+        objective: week.objective,
+        numQuestions,
+      });
+      
+      // Update progress to quiz_required
+      await storage.upsertTeacherContentProgress({
+        teacherId,
+        weekId,
+        deckFileId,
+        status: "quiz_required",
+      });
+      
+      res.json({ 
+        questions,
+        quizGenerationId,
+      });
+    } catch (error) {
+      console.error("Error generating quiz:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to generate quiz" });
+    }
+  });
+  
+  // Submit quiz for content file
+  app.post("/api/teachers/weeks/:weekId/content/:deckFileId/submit-quiz", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const { weekId, deckFileId } = req.params;
+      const teacherId = req.teacherId!;
+      const { questions, answers, quizGenerationId } = req.body;
+      
+      if (!questions || !Array.isArray(questions) || !answers || typeof answers !== 'object' || !quizGenerationId) {
+        return res.status(400).json({ error: "Invalid quiz submission" });
+      }
+      
+      // Calculate score
+      let score = 0;
+      questions.forEach((q: any) => {
+        if (answers[q.id] === q.correctAnswer) {
+          score++;
+        }
+      });
+      
+      const totalQuestions = questions.length;
+      const percentage = Math.round((score / totalQuestions) * 100);
+      const passed = score >= Math.ceil(totalQuestions * 0.7);
+      
+      // Save attempt
+      const attempt = await storage.saveTeacherContentQuizAttempt({
+        teacherId,
+        weekId,
+        deckFileId,
+        quizGenerationId,
+        attemptNumber: 1, // Will be auto-calculated by storage method
+        questions,
+        answers,
+        score,
+        totalQuestions,
+        passed: passed ? "yes" : "no",
+      });
+      
+      // If passed, unlock next content and mark this as completed
+      if (passed) {
+        await storage.upsertTeacherContentProgress({
+          teacherId,
+          weekId,
+          deckFileId,
+          status: "completed",
+          completedAt: new Date(),
+        });
+        
+        // Unlock next content file
+        const week = await storage.getTrainingWeek(weekId);
+        if (week && week.deckFiles) {
+          const currentIndex = week.deckFiles.findIndex(f => f.id === deckFileId);
+          if (currentIndex >= 0 && currentIndex < week.deckFiles.length - 1) {
+            const nextFile = week.deckFiles[currentIndex + 1];
+            await storage.upsertTeacherContentProgress({
+              teacherId,
+              weekId,
+              deckFileId: nextFile.id,
+              status: "available",
+            });
+          }
+        }
+      }
+      
+      // Get current attempt count for this quiz generation
+      const attempts = await storage.getTeacherContentQuizAttempts(teacherId, weekId, deckFileId, quizGenerationId);
+      const canRegenerate = attempts.length >= 3 && !passed;
+      
+      res.json({
+        score,
+        totalQuestions,
+        passed,
+        percentage,
+        attemptNumber: attempt.attemptNumber,
+        attemptsUsed: attempts.length,
+        remainingAttempts: Math.max(0, 3 - attempts.length),
+        canRegenerate,
+      });
+    } catch (error) {
+      console.error("Error submitting quiz:", error);
+      if (error instanceof Error && error.message.includes('Maximum 3 attempts')) {
+        return res.status(400).json({ error: "Maximum 3 attempts per quiz exceeded. Please request a new quiz." });
+      }
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Regenerate quiz after 3 failed attempts
+  app.post("/api/teachers/weeks/:weekId/content/:deckFileId/regenerate-quiz", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const { weekId, deckFileId } = req.params;
+      const teacherId = req.teacherId!;
+      const { previousQuizGenerationId, numQuestions = 5 } = req.body;
+      
+      if (!previousQuizGenerationId) {
+        return res.status(400).json({ error: "previousQuizGenerationId is required" });
+      }
+      
+      // Verify they've used all 3 attempts on the previous quiz
+      const previousAttempts = await storage.getTeacherContentQuizAttempts(teacherId, weekId, deckFileId, previousQuizGenerationId);
+      if (previousAttempts.length !== 3) {
+        return res.status(400).json({ error: "Must use exactly 3 attempts before requesting a new quiz" });
+      }
+      
+      // Check if any of the previous attempts passed
+      const hasPassed = previousAttempts.some(a => a.passed === "yes");
+      if (hasPassed) {
+        return res.status(400).json({ error: "You have already passed this quiz" });
+      }
+      
+      // Verify all 3 attempts failed (defensive check)
+      const failedAttempts = previousAttempts.filter(a => a.passed === "no");
+      if (failedAttempts.length !== 3) {
+        return res.status(400).json({ error: "Cannot regenerate quiz unless all 3 attempts have failed" });
+      }
+      
+      const week = await storage.getTrainingWeek(weekId);
+      if (!week || !week.deckFiles) {
+        return res.status(404).json({ error: "Week not found" });
+      }
+      
+      const file = week.deckFiles.find(f => f.id === deckFileId);
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      
+      // Generate new quiz generation ID
+      const newQuizGenerationId = `quiz-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Save regeneration record
+      await storage.saveTeacherQuizRegeneration({
+        teacherId,
+        weekId,
+        deckFileId,
+        previousQuizGenerationId,
+        newQuizGenerationId,
+      });
+      
+      // Generate new quiz
+      const { generateSingleFileQuiz } = await import('./quizService');
+      
+      const questions = await generateSingleFileQuiz({
+        fileUrl: file.fileUrl,
+        fileName: file.fileName,
+        competencyFocus: week.competencyFocus,
+        objective: week.objective,
+        numQuestions,
+      });
+      
+      res.json({ 
+        questions,
+        quizGenerationId: newQuizGenerationId,
+      });
+    } catch (error) {
+      console.error("Error regenerating quiz:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to regenerate quiz" });
+    }
+  });
+  
+  // Trainer endpoint: Get teacher's content viewing history for a week
+  app.get("/api/trainers/teachers/:teacherId/weeks/:weekId/content-history", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { teacherId, weekId } = req.params;
+      
+      // Get all progress records
+      const progressRecords = await storage.getAllTeacherContentProgressForWeek(teacherId, weekId);
+      
+      // Get all quiz attempts
+      const allAttempts = await storage.getAllTeacherContentQuizAttemptsForFile(teacherId, weekId, ""); // Get all files
+      
+      // Get all regenerations
+      const regenerations = await storage.getAllTeacherQuizRegenerationsForWeek(teacherId, weekId);
+      
+      // Get week details
+      const week = await storage.getTrainingWeek(weekId);
+      
+      // Organize data by deck file
+      const history = progressRecords.map(progress => {
+        const file = week?.deckFiles?.find(f => f.id === progress.deckFileId);
+        const fileAttempts = allAttempts.filter(a => a.deckFileId === progress.deckFileId);
+        const fileRegenerations = regenerations.filter(r => r.deckFileId === progress.deckFileId);
+        
+        return {
+          file,
+          progress,
+          attempts: fileAttempts,
+          regenerations: fileRegenerations,
+        };
+      });
+      
+      res.json(history);
+    } catch (error) {
+      console.error("Error fetching content history:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
