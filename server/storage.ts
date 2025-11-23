@@ -54,7 +54,7 @@ import {
   teacherQuizRegenerations
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, sql as sqlOp } from "drizzle-orm";
+import { eq, and, sql as sqlOp, desc, max } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 
@@ -938,35 +938,26 @@ export class DatabaseStorage implements IStorage {
 
   // Teacher content progress operations (for content viewing with quiz gating)
   async upsertTeacherContentProgress(progress: Partial<InsertTeacherContentProgress> & { teacherId: string; weekId: string; deckFileId: string }): Promise<TeacherContentProgress> {
-    const existing = await this.getTeacherContentProgress(progress.teacherId, progress.weekId, progress.deckFileId);
-    
-    if (existing) {
-      const [updated] = await db
-        .update(teacherContentProgress)
-        .set(progress as any)
-        .where(
-          and(
-            eq(teacherContentProgress.teacherId, progress.teacherId),
-            eq(teacherContentProgress.weekId, progress.weekId),
-            eq(teacherContentProgress.deckFileId, progress.deckFileId)
-          )
-        )
-        .returning();
-      return updated;
-    } else {
-      const [created] = await db
-        .insert(teacherContentProgress)
-        .values({
-          teacherId: progress.teacherId,
-          weekId: progress.weekId,
-          deckFileId: progress.deckFileId,
-          status: progress.status || "locked",
-          viewedAt: progress.viewedAt || null,
-          completedAt: progress.completedAt || null,
-        })
-        .returning();
-      return created;
-    }
+    const [result] = await db
+      .insert(teacherContentProgress)
+      .values({
+        teacherId: progress.teacherId,
+        weekId: progress.weekId,
+        deckFileId: progress.deckFileId,
+        status: progress.status || "locked",
+        viewedAt: progress.viewedAt || null,
+        completedAt: progress.completedAt || null,
+      })
+      .onConflictDoUpdate({
+        target: [teacherContentProgress.teacherId, teacherContentProgress.weekId, teacherContentProgress.deckFileId],
+        set: {
+          status: progress.status !== undefined ? progress.status : sqlOp`${teacherContentProgress.status}`,
+          viewedAt: progress.viewedAt !== undefined ? progress.viewedAt : sqlOp`${teacherContentProgress.viewedAt}`,
+          completedAt: progress.completedAt !== undefined ? progress.completedAt : sqlOp`${teacherContentProgress.completedAt}`,
+        },
+      })
+      .returning();
+    return result;
   }
 
   async getTeacherContentProgress(teacherId: string, weekId: string, deckFileId: string): Promise<TeacherContentProgress | undefined> {
@@ -997,9 +988,29 @@ export class DatabaseStorage implements IStorage {
 
   // Teacher content quiz attempt operations
   async saveTeacherContentQuizAttempt(attempt: InsertTeacherContentQuizAttempt): Promise<TeacherContentQuizAttempt> {
+    // Get existing attempts for this quiz generation to calculate next attempt number
+    const existingAttempts = await this.getTeacherContentQuizAttempts(
+      attempt.teacherId,
+      attempt.weekId,
+      attempt.deckFileId,
+      attempt.quizGenerationId
+    );
+    
+    const nextAttemptNumber = existingAttempts.length > 0 
+      ? Math.max(...existingAttempts.map(a => a.attemptNumber)) + 1 
+      : 1;
+    
+    // Enforce max 3 attempts per quiz generation
+    if (nextAttemptNumber > 3) {
+      throw new Error('Maximum 3 attempts per quiz generation exceeded');
+    }
+    
     const [result] = await db
       .insert(teacherContentQuizAttempts)
-      .values(attempt as any)
+      .values({
+        ...attempt,
+        attemptNumber: nextAttemptNumber,
+      } as any)
       .returning();
     return result;
   }
