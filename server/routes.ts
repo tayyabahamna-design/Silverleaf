@@ -1631,6 +1631,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Teacher content viewing endpoints (with quiz gating)
   
+  // Get teacher's assigned weeks (from their batches)
+  app.get("/api/teacher/assigned-weeks", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherId = req.teacherId!;
+      
+      // Get teacher's batches
+      const batches = await storage.getBatchesForTeacher(teacherId);
+      
+      // Get weeks for each batch
+      const weeksWithBatch = await Promise.all(
+        batches.flatMap(async (batch) => {
+          if (!batch.weekIds || batch.weekIds.length === 0) return [];
+          
+          const weeks = await Promise.all(
+            batch.weekIds.map(async (weekId) => {
+              const week = await storage.getTrainingWeek(weekId);
+              if (!week) return null;
+              
+              // Get progress for this week
+              const progressRecords = await storage.getAllTeacherContentProgressForWeek(teacherId, weekId);
+              const totalFiles = week.deckFiles?.length || 0;
+              const completedFiles = progressRecords.filter(p => p.status === "completed").length;
+              
+              return {
+                ...week,
+                batchName: batch.name,
+                batchId: batch.id,
+                progress: {
+                  total: totalFiles,
+                  completed: completedFiles,
+                  percentage: totalFiles > 0 ? Math.round((completedFiles / totalFiles) * 100) : 0,
+                },
+              };
+            })
+          );
+          
+          return weeks.filter(w => w !== null);
+        })
+      );
+      
+      const allWeeks = weeksWithBatch.flat();
+      
+      res.json(allWeeks);
+    } catch (error) {
+      console.error("Error fetching assigned weeks:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
   // Get all content files for a week with progress and unlock status
   app.get("/api/teachers/weeks/:weekId/content", isTeacherAuthenticated, async (req, res) => {
     try {

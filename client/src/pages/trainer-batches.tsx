@@ -16,7 +16,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp, Home, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
+import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp, Home, ChevronDown, ChevronRight, AlertCircle, FileText } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 export default function TrainerBatches() {
@@ -816,6 +816,31 @@ export default function TrainerBatches() {
                                 <Award className="mr-2 h-4 w-4" />
                                 View Detailed Quiz Attempts
                               </Button>
+                              
+                              {/* Content History Button for each week */}
+                              {selectedBatch?.weekIds && selectedBatch.weekIds.length > 0 && (
+                                <div className="space-y-2">
+                                  <p className="text-xs text-muted-foreground">View Content History by Week:</p>
+                                  <div className="space-y-2">
+                                    {selectedBatch.weekIds.map((weekId: string) => {
+                                      const week = weeks.find((w: any) => w.id === weekId);
+                                      return week ? (
+                                        <Button
+                                          key={weekId}
+                                          variant="outline"
+                                          size="sm"
+                                          className="w-full"
+                                          onClick={() => setLocation(`/trainer/teachers/${item.teacher.id}/weeks/${weekId}/content-history`)}
+                                          data-testid={`button-content-history-${item.teacher.id}-${weekId}`}
+                                        >
+                                          <FileText className="mr-2 h-4 w-4" />
+                                          {week.title}
+                                        </Button>
+                                      ) : null;
+                                    })}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </CardContent>

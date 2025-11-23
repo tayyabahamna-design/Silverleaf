@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { queryClient } from "@/lib/queryClient";
-import { Award, BookOpen, CheckCircle, XCircle, LogOut, AlertCircle, RotateCcw } from "lucide-react";
+import { Award, BookOpen, CheckCircle, XCircle, LogOut, AlertCircle, RotateCcw, GraduationCap, ArrowRight } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 export default function TeacherDashboard() {
@@ -38,6 +38,10 @@ export default function TeacherDashboard() {
 
   const { data: quizAttempts = [] } = useQuery<any[]>({
     queryKey: ["/api/teacher/quiz-attempts"],
+  });
+
+  const { data: assignedWeeks = [] } = useQuery<any[]>({
+    queryKey: ["/api/teacher/assigned-weeks"],
   });
 
   const { data: quizAttemptsData, refetch: refetchQuizAttempts } = useQuery<any>({
@@ -247,6 +251,67 @@ export default function TeacherDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5" />
+              Training Content
+            </CardTitle>
+            <CardDescription>View course materials and complete quizzes to progress</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {assignedWeeks.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">
+                No training weeks assigned yet
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {assignedWeeks.map((week: any) => (
+                  <Card key={week.id} data-testid={`card-week-${week.id}`} className="shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border-border/50 rounded-lg">
+                    <CardHeader>
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <CardTitle className="text-lg">{week.title}</CardTitle>
+                          <CardDescription>{week.batchName}</CardDescription>
+                        </div>
+                        {week.progress && (
+                          <Badge variant={week.progress.percentage === 100 ? "default" : "secondary"}>
+                            {week.progress.completed}/{week.progress.total} Completed
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {week.progress && week.progress.total > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Progress</span>
+                            <span className="font-medium">{week.progress.percentage}%</span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div 
+                              className="bg-primary rounded-full h-2 transition-all duration-300"
+                              style={{ width: `${week.progress.percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <Button 
+                        onClick={() => setLocation(`/teacher/week/${week.id}/content`)} 
+                        data-testid={`button-view-content-${week.id}`}
+                        className="w-full"
+                      >
+                        View Content
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
           <CardHeader>
