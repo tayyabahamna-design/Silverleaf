@@ -40,18 +40,29 @@ export function PresentationUpload({ onUpload }: PresentationUploadProps) {
 
   const processFile = (file: File) => {
     const allowedTypes = [
+      // Presentations
       'application/vnd.ms-powerpoint',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       'application/pdf',
-      'application/x-iwork-keynote-sffkey'
+      'application/x-iwork-keynote-sffkey',
+      // Videos
+      'video/mp4',
+      'video/webm',
+      'video/quicktime',
+      // Notes
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+      'application/rtf',
+      'application/vnd.oasis.opendocument.text'
     ];
     
-    const maxSize = 50 * 1024 * 1024; // 50MB
+    const maxSize = 500 * 1024 * 1024; // 500MB for videos
 
-    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(ppt|pptx|pdf|key)$/i)) {
+    if (!allowedTypes.includes(file.type) && !file.name.match(/\.(ppt|pptx|pdf|key|mp4|webm|mov|doc|docx|txt|rtf|odt)$/i)) {
       toast({
         title: "Invalid file type",
-        description: "Please upload a .pptx, .ppt, .pdf, or .key file",
+        description: "Please upload a presentation (.pptx, .pdf, .key), video (.mp4, .webm, .mov), or notes (.docx, .txt, .rtf) file",
         variant: "destructive",
       });
       return;
@@ -60,7 +71,7 @@ export function PresentationUpload({ onUpload }: PresentationUploadProps) {
     if (file.size > maxSize) {
       toast({
         title: "File too large",
-        description: "Maximum file size is 50MB",
+        description: "Maximum file size is 500MB",
         variant: "destructive",
       });
       return;
@@ -90,9 +101,9 @@ export function PresentationUpload({ onUpload }: PresentationUploadProps) {
         </div>
         
         <div className="space-y-2">
-          <h3 className="text-xl font-semibold">Upload Presentation</h3>
+          <h3 className="text-xl font-semibold">Upload Files</h3>
           <p className="text-sm text-muted-foreground max-w-sm">
-            Drag and drop your presentation file here, or click to browse
+            Drag and drop presentations, videos, or notes here, or click to browse
           </p>
         </div>
 
@@ -100,7 +111,7 @@ export function PresentationUpload({ onUpload }: PresentationUploadProps) {
           type="file"
           id="file-upload"
           className="hidden"
-          accept=".ppt,.pptx,.pdf,.key"
+          accept=".ppt,.pptx,.pdf,.key,.mp4,.webm,.mov,.doc,.docx,.txt,.rtf,.odt"
           onChange={handleFileSelect}
           data-testid="input-file"
         />
@@ -116,7 +127,7 @@ export function PresentationUpload({ onUpload }: PresentationUploadProps) {
         </Button>
 
         <p className="text-xs text-muted-foreground">
-          Supports: .pptx, .ppt, .pdf, .key (Max 50MB)
+          Supports presentations (.pptx, .pdf, .key), videos (.mp4, .webm, .mov), notes (.docx, .txt, .rtf) • Max 500MB
         </p>
       </div>
     </div>
