@@ -52,24 +52,16 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
     queryFn: async () => {
       try {
         console.log(`[FILE-QUIZ-DIALOG] 🔍 Fetching quiz from: /api/training-weeks/${weekId}/files/${fileId}/quiz`);
-        const response = await fetch(`/api/training-weeks/${weekId}/files/${fileId}/quiz`, {
-          credentials: 'include',
-        });
-        
-        if (response.status === 404) {
-          console.log('[FILE-QUIZ-DIALOG] ℹ️ Quiz not yet created (404)');
-          return null;
-        }
-        
-        if (!response.ok) {
-          console.log(`[FILE-QUIZ-DIALOG] ❌ Error response: ${response.status} ${response.statusText}`);
-          return null;
-        }
-        
+        const response = await apiRequest('GET', `/api/training-weeks/${weekId}/files/${fileId}/quiz`);
         const data = await response.json();
         console.log('[FILE-QUIZ-DIALOG] ✅ Successfully fetched quiz:', data.questions?.length, 'questions');
         return data;
       } catch (error) {
+        // 404 is expected when no quiz exists yet
+        if (error instanceof Error && error.message.includes('404')) {
+          console.log('[FILE-QUIZ-DIALOG] ℹ️ Quiz not yet created (404)');
+          return null;
+        }
         console.error('[FILE-QUIZ-DIALOG] 💥 Fetch error:', error instanceof Error ? error.message : String(error));
         return null;
       }

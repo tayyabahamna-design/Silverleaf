@@ -14,7 +14,6 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
-import { QuizDialog } from "@/components/QuizDialog";
 import { FileQuizDialog } from "@/components/FileQuizDialog";
 import { useScreenshotProtection } from "@/hooks/use-screenshot-protection";
 import { ScreenshotWarning } from "@/components/ScreenshotWarning";
@@ -109,7 +108,6 @@ export default function TeacherContentView() {
   const [viewUrl, setViewUrl] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [hasMarkedComplete, setHasMarkedComplete] = useState<boolean>(false);
-  const [quizDialogOpen, setQuizDialogOpen] = useState<boolean>(false);
   const [fileQuizDialogOpen, setFileQuizDialogOpen] = useState<boolean>(false);
   const [selectedQuizFileId, setSelectedQuizFileId] = useState<string | null>(null);
   const [pageInputValue, setPageInputValue] = useState<string>('');
@@ -151,11 +149,6 @@ export default function TeacherContentView() {
       : 0,
   };
 
-  // Placeholder for quiz status - to be fetched if endpoint exists
-  const quizStatus = { passed: false };
-
-  // Placeholder for file quiz progress - to be fetched if endpoint exists
-  const fileQuizProgress = [] as { fileId: string; passed: boolean }[];
 
   // Save progress mutation
   const saveProgressMutation = useMutation({
@@ -242,12 +235,8 @@ export default function TeacherContentView() {
     }
   }, [selectedFile, intendedPage]);
 
-  // Handle file click - prevent access to locked files
+  // Handle file click
   const handleFileClick = (file: DeckFile) => {
-    // Prevent selecting locked files for teachers
-    if (file.status === 'locked') {
-      return;
-    }
     setSelectedFileId(file.id);
     setHasMarkedComplete(file.progress?.status === 'completed');
   };
@@ -410,10 +399,11 @@ export default function TeacherContentView() {
                       </div>
                     ) : (
                       deckFiles.map((file) => {
-                        const hasPassedQuiz = fileQuizProgress.some(p => p.fileId === file.id && p.passed);
+                        // TODO: Fetch file quiz progress from backend when endpoint is available
+                        const hasPassedQuiz = false;
                         const hasToc = file.toc && file.toc.length > 0;
                         const isTocExpanded = expandedTocFileId === file.id;
-                        const isLocked = file.status === 'locked';
+                        const isLocked = false; // Access control handled by backend
                         
                         return (
                           <div key={file.id} className="space-y-2">
@@ -528,29 +518,6 @@ export default function TeacherContentView() {
                   </div>
                 </div>
 
-                {/* Checkpoint Quiz Button */}
-                {!isLoading && deckFiles.length > 0 && (
-                  <div className="pt-4">
-                    <Button
-                      onClick={() => setQuizDialogOpen(true)}
-                      className="w-full"
-                      variant={quizStatus?.passed ? "outline" : "default"}
-                      data-testid="button-take-quiz"
-                    >
-                      {quizStatus?.passed ? (
-                        <CheckCircle2 className="mr-2 h-5 w-5 text-green-600" />
-                      ) : (
-                        <Award className="mr-2 h-5 w-5" />
-                      )}
-                      {quizStatus?.passed ? "Quiz Passed" : "Take Checkpoint Quiz"}
-                    </Button>
-                    <p className="text-xs text-muted-foreground mt-2 text-center">
-                      {quizStatus?.passed 
-                        ? "You've completed this checkpoint quiz" 
-                        : "Test your knowledge on this week's content"}
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -963,13 +930,6 @@ export default function TeacherContentView() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Quiz Dialog */}
-      <QuizDialog
-        weekId={weekId || ''}
-        open={quizDialogOpen}
-        onOpenChange={setQuizDialogOpen}
-      />
 
       {/* File Quiz Dialog */}
       {selectedQuizFileId && (
