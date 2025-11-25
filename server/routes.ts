@@ -1822,7 +1822,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Teacher content viewing endpoints (with quiz gating)
   
-  // Get teacher's assigned weeks (from their batches)
+  // Get teacher's assigned weeks (from their batches and batch courses)
   app.get("/api/teacher/assigned-weeks", isTeacherAuthenticated, async (req, res) => {
     try {
       const teacherId = req.teacherId!;
@@ -1830,35 +1830,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get teacher's batches
       const batches = await storage.getBatchesForTeacher(teacherId);
       
-      // Get weeks for each batch
+      // Get weeks for each batch by first getting the courses assigned to that batch
       const weeksWithBatch = await Promise.all(
-        batches.flatMap(async (batch) => {
-          if (!batch.weekIds || batch.weekIds.length === 0) return [];
+        batches.map(async (batch) => {
+          // Get courses assigned to this batch
+          const batchCourses = await storage.getCoursesForBatch(batch.id);
+          if (!batchCourses || batchCourses.length === 0) return [];
           
+          // For each course, get its weeks
           const weeks = await Promise.all(
-            batch.weekIds.map(async (weekId) => {
-              const week = await storage.getTrainingWeek(weekId);
-              if (!week) return null;
+            batchCourses.flatMap(async (batchCourse) => {
+              const courseWeeks = await storage.getWeeksForCourse(batchCourse.id);
               
-              // Get progress for this week
-              const progressRecords = await storage.getAllTeacherContentProgressForWeek(teacherId, weekId);
-              const totalFiles = week.deckFiles?.length || 0;
-              const completedFiles = progressRecords.filter(p => p.status === "completed").length;
-              
-              return {
-                ...week,
-                batchName: batch.name,
-                batchId: batch.id,
-                progress: {
-                  total: totalFiles,
-                  completed: completedFiles,
-                  percentage: totalFiles > 0 ? Math.round((completedFiles / totalFiles) * 100) : 0,
-                },
-              };
+              return Promise.all(
+                courseWeeks.map(async (week) => {
+                  // Get progress for this week
+                  const progressRecords = await storage.getAllTeacherContentProgressForWeek(teacherId, week.id);
+                  const totalFiles = week.deckFiles?.length || 0;
+                  const completedFiles = progressRecords.filter(p => p.status === "completed").length;
+                  
+                  return {
+                    ...week,
+                    batchName: batch.name,
+                    batchId: batch.id,
+                    progress: {
+                      total: totalFiles,
+                      completed: completedFiles,
+                      percentage: totalFiles > 0 ? Math.round((completedFiles / totalFiles) * 100) : 0,
+                    },
+                  };
+                })
+              );
             })
           );
           
-          return weeks.filter(w => w !== null);
+          return weeks.flat();
         })
       );
       

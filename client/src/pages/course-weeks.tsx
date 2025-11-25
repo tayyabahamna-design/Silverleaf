@@ -622,11 +622,28 @@ export default function CourseWeeks() {
       )}
 
       {viewingFile && (
-        <FilePreview
-          url={viewingFile.url}
-          name={viewingFile.name}
-          onClose={() => setViewingFile(null)}
-        />
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-auto">
+          <div className="bg-background rounded-lg max-w-4xl w-full max-h-screen overflow-auto relative">
+            <div className="sticky top-0 right-0 p-2 flex justify-end z-10 bg-background/95 border-b">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewingFile(null)}
+                data-testid="button-close-file-preview"
+              >
+                Close
+              </Button>
+            </div>
+            <div className="p-4">
+              <p className="text-sm text-muted-foreground mb-2">{viewingFile.name}</p>
+              <FilePreview
+                fileName={viewingFile.name}
+                fileUrl={viewingFile.url}
+                className="w-full"
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
