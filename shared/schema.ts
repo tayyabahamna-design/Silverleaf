@@ -29,7 +29,6 @@ export const users = pgTable("users", {
   approvedAt: timestamp("approved_at"), // timestamp when approved
   resetToken: varchar("reset_token"), // password reset token
   resetTokenExpiry: timestamp("reset_token_expiry"), // token expiration time
-  lastLogin: timestamp("last_login"), // timestamp of last login
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -46,44 +45,20 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
-// User progress table (for admin dashboard analytics)
-export const userProgress = pgTable("user_progress", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  courseId: varchar("course_id").notNull(), // Training week ID
-  percentComplete: integer("percent_complete").notNull().default(0),
-  lastUpdated: timestamp("last_updated").defaultNow(),
-}, (table) => [
-  index("idx_user_progress_user").on(table.userId),
-  index("idx_user_progress_course").on(table.courseId),
-]);
+// IMPORTANT: userProgress table exists in the database with different columns (content tracking)
+// We're NOT modifying it to preserve backward compatibility
+// For admin dashboard analytics, we track progress via existing tables
 
-export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
-  id: true,
-});
+// For reference, existing userProgress table has:
+// id, user_id, content_item_id, status, video_progress, completed_at, last_accessed_at
 
-export type InsertUserProgressRecord = z.infer<typeof insertUserProgressSchema>;
-export type UserProgressRecord = typeof userProgress.$inferSelect;
+// Type aliases for existing userProgress table (backward compatible)
+export type UserProgressRecord = typeof userContentProgress.$inferSelect;
+export type InsertUserProgressRecord = typeof userContentProgress.$inferSelect;
 
-// Activity logs table (for tracking user actions)
-export const activityLogs = pgTable("activity_logs", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  action: varchar("action").notNull(), // 'login', 'view', 'complete', etc.
-  details: text("details"), // JSON string with additional details
-  timestamp: timestamp("timestamp").defaultNow(),
-}, (table) => [
-  index("idx_activity_logs_user").on(table.userId),
-  index("idx_activity_logs_timestamp").on(table.timestamp),
-]);
-
-export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
-  id: true,
-  timestamp: true,
-});
-
-export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
-export type ActivityLog = typeof activityLogs.$inferSelect;
+// Activity logs table (for tracking user actions) - note: may not exist in all databases
+// This is for future analytics and can be created via migrations
+// For now, we'll track basic progress via existing tables
 
 // Table of Contents entry type
 export const tocEntrySchema = z.object({
@@ -268,7 +243,6 @@ export const teachers = pgTable("teachers", {
   approvedBy: varchar("approved_by"), // ID of admin/trainer who approved (null if pending)
   approvedByRole: varchar("approved_by_role"), // 'admin' or 'trainer' - who approved them
   approvedAt: timestamp("approved_at"), // timestamp when approved
-  lastLogin: timestamp("last_login"), // timestamp of last login
   createdAt: timestamp("created_at").defaultNow(),
 });
 
