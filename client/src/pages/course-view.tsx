@@ -44,13 +44,13 @@ function DocumentViewer({ url }: { url: string }) {
   }, [url]);
 
   if (loading) {
-    return <div className="flex items-center justify-center w-full h-32"><p className="text-muted-foreground">Loading document...</p></div>;
+    return <div className="flex items-center justify-center w-full p-12"><p className="text-muted-foreground">Loading document...</p></div>;
   }
 
   return (
     <div 
       ref={contentRef}
-      className="w-full rounded-xl shadow-2xl border-0 p-6 bg-white dark:bg-slate-900 text-black dark:text-white prose dark:prose-invert max-w-none"
+      className="w-full p-8 bg-white dark:bg-slate-900 text-black dark:text-white prose dark:prose-invert max-w-none"
       dangerouslySetInnerHTML={{ __html: html }}
       onContextMenu={(e) => e.preventDefault()}
     />
@@ -589,44 +589,46 @@ export default function CourseView() {
                       )}
                     </div>
                   ) : (
-                    <div className="flex-1 flex flex-col">
-                      <div className="flex-1 bg-muted/20 p-6 overflow-auto">
+                    <div className="flex-1 flex flex-col bg-muted/20">
+                      <div className="flex-1 overflow-auto flex items-start justify-center py-8 px-6">
                         {viewUrl ? (
-                          <div className="h-full flex flex-col items-center">
-                            <div className="w-full max-w-7xl h-full flex flex-col">
-                              {selectedFile.fileName.toLowerCase().endsWith('.txt') ? (
-                                <textarea
-                                  readOnly
-                                  className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0 p-4 bg-white dark:bg-slate-900 text-black dark:text-white font-mono resize-none"
-                                  data-testid="text-viewer"
-                                  style={{ lineHeight: '1.5' }}
-                                  onContextMenu={(e) => e.preventDefault()}
-                                />
-                              ) : (selectedFile.fileName.toLowerCase().endsWith('.docx') || 
-                                   selectedFile.fileName.toLowerCase().endsWith('.doc')) ? (
+                          <div className="w-full max-w-4xl flex flex-col gap-6">
+                            {selectedFile.fileName.toLowerCase().endsWith('.txt') ? (
+                              <textarea
+                                readOnly
+                                className="w-full flex-1 min-h-[600px] rounded-lg shadow-md border-0 p-6 bg-white dark:bg-slate-900 text-black dark:text-white font-mono resize-none"
+                                data-testid="text-viewer"
+                                style={{ lineHeight: '1.5' }}
+                                onContextMenu={(e) => e.preventDefault()}
+                              />
+                            ) : (selectedFile.fileName.toLowerCase().endsWith('.docx') || 
+                                 selectedFile.fileName.toLowerCase().endsWith('.doc')) ? (
+                              <div className="rounded-lg shadow-md overflow-hidden bg-white dark:bg-slate-900">
                                 <DocumentViewer url={viewUrl} />
-                              ) : (
+                              </div>
+                            ) : (
+                              <div className="rounded-lg shadow-md overflow-hidden">
                                 <iframe
                                   src={viewUrl}
-                                  className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0 select-none pointer-events-auto"
+                                  className="w-full min-h-[600px] border-0 select-none pointer-events-auto"
                                   title={selectedFile.fileName}
                                   data-testid="file-viewer"
                                   style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
                                   sandbox="allow-same-origin allow-scripts"
                                   onContextMenu={(e) => e.preventDefault()}
                                 />
-                              )}
-                              <div className="mt-4 flex gap-3 justify-center">
-                                <Button
-                                  onClick={() => setIsFullscreen(true)}
-                                  variant="default"
-                                  size="lg"
-                                  data-testid="button-fullscreen"
-                                >
-                                  <Maximize2 className="h-5 w-5 mr-2" />
-                                  Fullscreen View
-                                </Button>
                               </div>
+                            )}
+                            <div className="flex gap-3 justify-center pb-4">
+                              <Button
+                                onClick={() => setIsFullscreen(true)}
+                                variant="default"
+                                size="lg"
+                                data-testid="button-fullscreen"
+                              >
+                                <Maximize2 className="h-5 w-5 mr-2" />
+                                Fullscreen View
+                              </Button>
                             </div>
                           </div>
                         ) : (
