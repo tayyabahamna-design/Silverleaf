@@ -871,6 +871,29 @@ export default function CourseView() {
                       </Button>
                     </div>
                     
+                    {/* Zoom Controls */}
+                    <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
+                      <Button
+                        onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
+                        variant="outline"
+                        size="sm"
+                        data-testid="button-zoom-out-fullscreen"
+                      >
+                        <ZoomOut className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm text-muted-foreground min-w-16 text-center font-medium">
+                        {Math.round(scale * 100)}%
+                      </span>
+                      <Button
+                        onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
+                        variant="outline"
+                        size="sm"
+                        data-testid="button-zoom-in-fullscreen"
+                      >
+                        <ZoomIn className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
                     {/* Exit Fullscreen Button */}
                     <Button
                       onClick={() => setIsFullscreen(false)}
