@@ -21,6 +21,40 @@ import { ScreenshotWarning } from "@/components/ScreenshotWarning";
 import { TableOfContents } from "@/components/TableOfContents";
 import type { TocEntry } from "@shared/schema";
 
+// DocumentViewer component for displaying DOCX files converted to HTML
+function DocumentViewer({ url }: { url: string }) {
+  const [html, setHtml] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDocument = async () => {
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        setHtml(data.html);
+      } catch (error) {
+        console.error('Error loading document:', error);
+        setHtml('<p>Failed to load document</p>');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDocument();
+  }, [url]);
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">Loading document...</p></div>;
+  }
+
+  return (
+    <div 
+      className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0 p-6 bg-white dark:bg-slate-900 text-black dark:text-white overflow-auto prose dark:prose-invert max-w-none"
+      dangerouslySetInnerHTML={{ __html: html }}
+      onContextMenu={(e) => e.preventDefault()}
+    />
+  );
+}
+
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
@@ -147,10 +181,16 @@ export default function CourseView() {
       try {
         const isPptx = selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                        selectedFile.fileName.toLowerCase().endsWith('.ppt');
+        const isDocx = selectedFile.fileName.toLowerCase().endsWith('.docx') || 
+                       selectedFile.fileName.toLowerCase().endsWith('.doc');
         
         if (isPptx) {
           // For PowerPoint files, convert to PDF for HD viewing
           const convertUrl = `/api/files/convert-to-pdf?url=${encodeURIComponent(selectedFile.fileUrl)}`;
+          setViewUrl(convertUrl);
+        } else if (isDocx) {
+          // For Word documents, convert to HTML using mammoth
+          const convertUrl = `/api/files/convert-to-html?url=${encodeURIComponent(selectedFile.fileUrl)}`;
           setViewUrl(convertUrl);
         } else {
           // For all other files (videos, documents, etc.), use the proxy endpoint
@@ -548,7 +588,7 @@ export default function CourseView() {
                     </div>
                   ) : (
                     <div className="flex-1 flex flex-col">
-                      <div className="flex-1 bg-muted/20 p-6">
+                      <div className="flex-1 bg-muted/20 p-6 overflow-auto">
                         {viewUrl ? (
                           <div className="h-full flex flex-col items-center">
                             <div className="w-full max-w-7xl h-full flex flex-col">
@@ -560,6 +600,9 @@ export default function CourseView() {
                                   style={{ lineHeight: '1.5' }}
                                   onContextMenu={(e) => e.preventDefault()}
                                 />
+                              ) : (selectedFile.fileName.toLowerCase().endsWith('.docx') || 
+                                   selectedFile.fileName.toLowerCase().endsWith('.doc')) ? (
+                                <DocumentViewer url={viewUrl} />
                               ) : (
                                 <iframe
                                   src={viewUrl}

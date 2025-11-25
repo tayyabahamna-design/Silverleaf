@@ -12,6 +12,7 @@ import { insertTrainingWeekSchema, updateTrainingWeekSchema } from "@shared/sche
 import { setupAuth, hashPassword } from "./auth";
 import { setupTeacherAuth, isTeacherAuthenticated } from "./teacherAuth";
 import { z } from "zod";
+import * as mammoth from "mammoth";
 
 const execAsync = promisify(exec);
 
@@ -702,6 +703,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.sendStatus(404);
       }
       return res.sendStatus(500);
+    }
+  });
+
+  // Convert DOCX to HTML for viewing in the app
+  app.get("/api/files/convert-to-html", isAuthenticated, async (req, res) => {
+    try {
+      const { url } = req.query;
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ error: "url parameter required" });
+      }
+
+      const objectFile = await objectStorageService.getObjectEntityFile(url);
+      const buffer = await objectStorageService.getObjectBuffer(objectFile);
+
+      const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
+      
+      res.setHeader('Content-Type', 'application/json');
+      res.json({ 
+        html: result.value,
+        messages: result.messages 
+      });
+    } catch (error) {
+      console.error("Error converting document to HTML:", error);
+      res.status(500).json({ error: "Failed to convert document" });
     }
   });
 
