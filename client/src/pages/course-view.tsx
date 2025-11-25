@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, ChevronDown, FileText, CheckCircle2, Circle, Maximize2, ZoomIn, ZoomOut, X, Award, List, PanelLeftClose, PanelLeftOpen, Menu } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, FileText, CheckCircle2, Circle, Maximize2, Minimize2, ZoomIn, ZoomOut, X, Award, List, PanelLeftClose, PanelLeftOpen, Menu } from "lucide-react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -680,29 +680,6 @@ export default function CourseView() {
                   <div className="flex-shrink-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl">
                     <div className="max-w-7xl mx-auto px-4 py-4">
                       <div className="flex items-center gap-4 flex-wrap justify-center">
-                        {/* Zoom Controls */}
-                        <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
-                          <Button
-                            onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
-                            variant="outline"
-                            size="sm"
-                            data-testid="button-zoom-out"
-                          >
-                            <ZoomOut className="h-4 w-4" />
-                          </Button>
-                          <span className="text-sm text-muted-foreground min-w-16 text-center font-medium">
-                            {Math.round(scale * 100)}%
-                          </span>
-                          <Button
-                            onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
-                            variant="outline"
-                            size="sm"
-                            data-testid="button-zoom-in"
-                          >
-                            <ZoomIn className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        
                         {/* Page Navigation Controls */}
                         <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
                           <Button
@@ -743,6 +720,17 @@ export default function CourseView() {
                             Next
                           </Button>
                         </div>
+                        
+                        {/* Fullscreen Button */}
+                        <Button
+                          onClick={() => setIsFullscreen(true)}
+                          variant="outline"
+                          size="sm"
+                          data-testid="button-fullscreen-normal"
+                        >
+                          <Maximize2 className="h-4 w-4 mr-1" />
+                          Fullscreen
+                        </Button>
                         
                         {/* Completion Indicator */}
                         {pageNumber === numPages && numPages > 0 && (
@@ -855,29 +843,6 @@ export default function CourseView() {
               <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl z-50">
                 <div className="max-w-7xl mx-auto px-4 py-4">
                   <div className="flex items-center gap-4 flex-wrap justify-center">
-                    {/* Zoom Controls */}
-                    <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
-                      <Button
-                        onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
-                        variant="outline"
-                        size="sm"
-                        data-testid="button-zoom-out-fullscreen"
-                      >
-                        <ZoomOut className="h-4 w-4" />
-                      </Button>
-                      <span className="text-sm text-muted-foreground min-w-16 text-center font-medium">
-                        {Math.round(scale * 100)}%
-                      </span>
-                      <Button
-                        onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
-                        variant="outline"
-                        size="sm"
-                        data-testid="button-zoom-in-fullscreen"
-                      >
-                        <ZoomIn className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    
                     {/* Page Navigation Controls */}
                     <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
                       <Button
@@ -918,6 +883,17 @@ export default function CourseView() {
                         Next
                       </Button>
                     </div>
+                    
+                    {/* Exit Fullscreen Button */}
+                    <Button
+                      onClick={() => setIsFullscreen(false)}
+                      variant="outline"
+                      size="sm"
+                      data-testid="button-exit-fullscreen-control"
+                    >
+                      <Minimize2 className="h-4 w-4 mr-1" />
+                      Exit Fullscreen
+                    </Button>
                     
                     {/* Completion Indicator */}
                     {pageNumber === numPages && numPages > 0 && (
