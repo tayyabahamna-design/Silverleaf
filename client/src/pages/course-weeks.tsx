@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, ExternalLink } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, ExternalLink, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -17,6 +17,26 @@ import logoImage from "@assets/image_1760460046116.png";
 import type { Course, TrainingWeek } from "@shared/schema";
 import type { UploadResult } from "@uppy/core";
 import { FilePreview } from "@/components/FilePreview";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Accordion,
   AccordionContent,
@@ -33,8 +53,26 @@ export default function CourseWeeks() {
   const [editValue, setEditValue] = useState("");
   const [deleteWeekId, setDeleteWeekId] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<{ url: string; name: string } | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     if (editingCell) {
@@ -127,6 +165,38 @@ export default function CourseWeeks() {
     },
   });
 
+  // Reorder weeks mutation
+  const reorderWeekMutation = useMutation({
+    mutationFn: async ({ weekId, newPosition }: { weekId: string; newPosition: number }) => {
+      return apiRequest("POST", `/api/courses/${courseId}/weeks/reorder`, { weekId, newPosition });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "weeks"] });
+      toast({ title: "Week reordered" });
+    },
+  });
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const oldIndex = weeks.findIndex((w) => w.id === active.id);
+      const newIndex = weeks.findIndex((w) => w.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const weekId = active.id as string;
+        const newPosition = newIndex + 1;
+        reorderWeekMutation.mutate({ weekId, newPosition });
+      }
+    }
+    
+    setActiveId(null);
+  };
+
   const handleGetUploadParams = async () => {
     try {
       const response = await apiRequest("POST", "/api/objects/upload", {});
@@ -187,6 +257,217 @@ export default function CourseWeeks() {
     setEditingCell(null);
     setEditValue("");
   };
+
+  // Sortable Week Item Component for Drag and Drop
+  interface SortableWeekItemProps {
+    week: TrainingWeek;
+  }
+
+  function SortableWeekItem({ week }: SortableWeekItemProps) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: week.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.3 : 1,
+      zIndex: isDragging ? 50 : undefined,
+    };
+
+    return (
+      <AccordionItem
+        ref={setNodeRef}
+        style={style}
+        value={week.id}
+        className={`border rounded-lg overflow-hidden transition-all duration-200 ${
+          isDragging 
+            ? 'shadow-2xl scale-105 ring-2 ring-primary/50' 
+            : 'shadow-md hover:shadow-lg'
+        }`}
+        data-testid={`card-week-${week.id}`}
+      >
+        <div className="flex items-stretch rounded-lg overflow-hidden border border-border/50">
+          {/* Drag Handle - Only for Admin */}
+          {isAdmin && (
+            <button
+              className="flex items-center px-4 cursor-grab active:cursor-grabbing hover:bg-muted/20 bg-muted/30 border-r border-border/50 transition-all touch-none select-none min-w-[48px]"
+              {...attributes}
+              {...listeners}
+              data-testid={`drag-handle-${week.id}`}
+              aria-label="Drag to reorder"
+            >
+              <GripVertical className="h-5 w-5 text-muted-foreground" />
+            </button>
+          )}
+
+          {/* Card Content */}
+          <div className="flex-1 min-w-0">
+            <AccordionTrigger className="w-full px-4 py-3 hover:bg-muted/50">
+              <div className="flex items-center gap-3 text-left w-full">
+                <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 flex-shrink-0">
+                  <span className="text-sm font-bold text-primary">Week {week.weekNumber}</span>
+                </div>
+                <p className="text-muted-foreground truncate text-sm flex-1">
+                  {week.competencyFocus || "No competency focus set"}
+                </p>
+              </div>
+            </AccordionTrigger>
+          </div>
+
+          {/* Delete Button - Only for Admin */}
+          {isAdmin && (
+            <div className="flex items-center px-3 border-l border-border/50 bg-muted/10">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDeleteWeekId(week.id);
+                }}
+                className="h-9 w-9 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                data-testid={`button-delete-week-${week.id}`}
+                aria-label="Delete week"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <AccordionContent className="px-4 py-4 bg-muted/5 border-t">
+          <div className="space-y-4">
+            {/* Competency Focus */}
+            <div>
+              <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
+                Competency Focus
+              </label>
+              {editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
+                <div className="space-y-2">
+                  <Textarea
+                    ref={textareaRef}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    data-testid={`textarea-competency-${week.id}`}
+                    className="min-h-[80px]"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleCellSave} disabled={updateWeekMutation.isPending}>
+                      Save
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleCellCancel}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => isAdmin && handleCellEdit(week.id, "competencyFocus", week.competencyFocus || "")}
+                  className={`p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center ${isAdmin ? "cursor-text hover:bg-muted/50" : ""}`}
+                  data-testid={`text-competency-${week.id}`}
+                >
+                  {week.competencyFocus || "Click to add competency focus"}
+                </div>
+              )}
+            </div>
+
+            {/* Objective */}
+            <div>
+              <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
+                Objective
+              </label>
+              {editingCell?.id === week.id && editingCell?.field === "objective" ? (
+                <div className="space-y-2">
+                  <Textarea
+                    ref={textareaRef}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    data-testid={`textarea-objective-${week.id}`}
+                    className="min-h-[80px]"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleCellSave} disabled={updateWeekMutation.isPending}>
+                      Save
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleCellCancel}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => isAdmin && handleCellEdit(week.id, "objective", week.objective || "")}
+                  className={`p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center ${isAdmin ? "cursor-text hover:bg-muted/50" : ""}`}
+                  data-testid={`text-objective-${week.id}`}
+                >
+                  {week.objective || "Click to add objective"}
+                </div>
+              )}
+            </div>
+
+            {/* Files Section */}
+            <div>
+              <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
+                Presentation Files
+              </label>
+              <ObjectUploader
+                onGetUploadParameters={handleGetUploadParams}
+                onComplete={handleUploadComplete(week.id)}
+                maxNumberOfFiles={10}
+                key={`uploader-${week.id}`}
+              />
+              {week.deckFiles && week.deckFiles.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {week.deckFiles.map((file) => (
+                    <div key={file.id} className="flex items-center justify-between p-2 border rounded bg-muted/30">
+                      <span className="text-sm truncate">{file.fileName}</span>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
+                          data-testid={`button-view-${file.id}`}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
+                          data-testid={`button-delete-file-${file.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            {!isAdmin && (
+              <div className="flex gap-2 pt-2">
+                <Button
+                  size="sm"
+                  onClick={() => navigate(`/courses/${courseId}/weeks/${week.id}`)}
+                  data-testid={`button-view-week-${week.id}`}
+                >
+                  <ChevronRight className="mr-1 h-4 w-4" />
+                  View Week
+                </Button>
+              </div>
+            )}
+          </div>
+        </AccordionContent>
+      </AccordionItem>
+    );
+  }
 
   const sortedWeeks = [...weeks].sort((a, b) => a.weekNumber - b.weekNumber);
 
@@ -272,162 +553,42 @@ export default function CourseWeeks() {
           <div className="text-center py-12 text-muted-foreground">
             {isAdmin ? "No weeks yet. Click 'Add Week' to get started!" : "No weeks in this course yet."}
           </div>
-        ) : (
-          <Accordion type="multiple" className="p-6 space-y-4">
-            {sortedWeeks.map((week) => (
-              <AccordionItem
-                key={week.id}
-                value={week.id}
-                className="border rounded-lg overflow-hidden"
-                data-testid={`card-week-${week.id}`}
-              >
-                <AccordionTrigger className="px-4 py-3 hover:bg-muted/50">
-                  <div className="flex items-center gap-3 text-left">
+        ) : isAdmin ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={sortedWeeks.map((w) => w.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="space-y-4">
+                {sortedWeeks.map((week) => (
+                  <SortableWeekItem key={week.id} week={week} />
+                ))}
+              </div>
+            </SortableContext>
+            <DragOverlay dropAnimation={null}>
+              {activeId ? (
+                <div className="border rounded-lg overflow-hidden bg-card shadow-2xl ring-2 ring-primary scale-105 opacity-95">
+                  <div className="flex items-center gap-3 p-4">
+                    <GripVertical className="h-5 w-5 text-primary" />
                     <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30">
-                      <span className="text-sm font-bold text-primary">Week {week.weekNumber}</span>
-                    </div>
-                    <p className="text-muted-foreground truncate text-sm">
-                      {week.competencyFocus || "No competency focus set"}
-                    </p>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-4 py-4 bg-muted/5">
-                  <div className="space-y-4">
-                    {/* Competency Focus */}
-                    <div>
-                      <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
-                        Competency Focus
-                      </label>
-                      {editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
-                        <div className="space-y-2">
-                          <Textarea
-                            ref={textareaRef}
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            data-testid={`textarea-competency-${week.id}`}
-                            className="min-h-[80px]"
-                          />
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={handleCellSave} disabled={updateWeekMutation.isPending}>
-                              Save
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={handleCellCancel}>
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div
-                          onClick={() => isAdmin && handleCellEdit(week.id, "competencyFocus", week.competencyFocus || "")}
-                          className={`p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center ${isAdmin ? "cursor-text hover:bg-muted/50" : ""}`}
-                          data-testid={`text-competency-${week.id}`}
-                        >
-                          {week.competencyFocus || "Click to add competency focus"}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Objective */}
-                    <div>
-                      <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
-                        Objective
-                      </label>
-                      {editingCell?.id === week.id && editingCell?.field === "objective" ? (
-                        <div className="space-y-2">
-                          <Textarea
-                            ref={textareaRef}
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            data-testid={`textarea-objective-${week.id}`}
-                            className="min-h-[80px]"
-                          />
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={handleCellSave} disabled={updateWeekMutation.isPending}>
-                              Save
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={handleCellCancel}>
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div
-                          onClick={() => isAdmin && handleCellEdit(week.id, "objective", week.objective || "")}
-                          className={`p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center ${isAdmin ? "cursor-text hover:bg-muted/50" : ""}`}
-                          data-testid={`text-objective-${week.id}`}
-                        >
-                          {week.objective || "Click to add objective"}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Files Section */}
-                    <div>
-                      <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
-                        Presentation Files
-                      </label>
-                      <ObjectUploader
-                        onGetUploadParameters={handleGetUploadParams}
-                        onComplete={handleUploadComplete(week.id)}
-                        maxNumberOfFiles={10}
-                        key={`uploader-${week.id}`}
-                      />
-                      {week.deckFiles && week.deckFiles.length > 0 && (
-                        <div className="mt-3 space-y-2">
-                          {week.deckFiles.map((file) => (
-                            <div key={file.id} className="flex items-center justify-between p-2 border rounded bg-muted/30">
-                              <span className="text-sm truncate">{file.fileName}</span>
-                              <div className="flex gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
-                                  data-testid={`button-view-${file.id}`}
-                                >
-                                  <ExternalLink className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
-                                  data-testid={`button-delete-file-${file.id}`}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex gap-2 pt-2">
-                    {!isAdmin && (
-                      <Button
-                        size="sm"
-                        onClick={() => navigate(`/courses/${courseId}/weeks/${week.id}`)}
-                        data-testid={`button-view-week-${week.id}`}
-                      >
-                        <ChevronRight className="mr-1 h-4 w-4" />
-                        View Week
-                      </Button>
-                    )}
-                    {isAdmin && (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => setDeleteWeekId(week.id)}
-                        data-testid={`button-delete-week-${week.id}`}
-                      >
-                        <Trash2 className="mr-1 h-4 w-4" />
-                        Delete
-                      </Button>
-                    )}
+                      <span className="text-sm font-bold text-primary">
+                        Week {sortedWeeks.find(w => w.id === activeId)?.weekNumber}
+                      </span>
                     </div>
                   </div>
-                </AccordionContent>
-              </AccordionItem>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        ) : (
+          <Accordion type="multiple" className="space-y-4">
+            {sortedWeeks.map((week) => (
+              <SortableWeekItem key={week.id} week={week} />
             ))}
           </Accordion>
         )}

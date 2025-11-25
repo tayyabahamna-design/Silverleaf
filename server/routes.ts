@@ -2394,6 +2394,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reorder weeks for a course (admin only)
+  app.post("/api/courses/:courseId/weeks/reorder", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { weekId, newPosition } = req.body;
+      const { courseId } = req.params;
+      
+      if (!weekId || typeof newPosition !== 'number') {
+        return res.status(400).json({ error: "Invalid request: weekId and newPosition required" });
+      }
+
+      // Get all weeks for this course
+      const weeks = await storage.getWeeksForCourse(courseId);
+      
+      // Find the week to move
+      const weekIndex = weeks.findIndex(w => w.id === weekId);
+      if (weekIndex === -1) {
+        return res.status(404).json({ error: "Training week not found" });
+      }
+
+      // Validate new position
+      if (newPosition < 1 || newPosition > weeks.length) {
+        return res.status(400).json({ error: `Invalid position: must be between 1 and ${weeks.length}` });
+      }
+
+      // Remove the week from its current position
+      const [weekToMove] = weeks.splice(weekIndex, 1);
+      
+      // Insert at new position (newPosition - 1 for 0-based indexing)
+      weeks.splice(newPosition - 1, 0, weekToMove);
+
+      // Renumber all weeks sequentially
+      const updatePromises = weeks.map((week, index) => 
+        storage.updateTrainingWeek({
+          id: week.id,
+          weekNumber: index + 1
+        })
+      );
+
+      await Promise.all(updatePromises);
+
+      // Return updated weeks
+      const updatedWeeks = await storage.getWeeksForCourse(courseId);
+      res.json(updatedWeeks);
+    } catch (error) {
+      console.error("Error reordering weeks:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // ==================== BATCH-COURSE ASSIGNMENTS (TRAINER) ====================
   // Assign courses to batch (trainer)
   app.post("/api/batches/:batchId/courses", isAuthenticated, isTrainer, async (req, res) => {
