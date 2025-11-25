@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical, CheckCircle } from "lucide-react";
+import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical, CheckCircle, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
@@ -639,6 +639,19 @@ export default function Home() {
               <div className="text-xs sm:text-sm text-white/90 hidden md:block truncate max-w-[200px]" data-testid="text-user-info">
                 {user.email} ({user.role})
               </div>
+            )}
+            {user?.role === "admin" && (
+              <Link href="/admin">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  data-testid="button-admin-dashboard"
+                  className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                >
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Admin Dashboard
+                </Button>
+              </Link>
             )}
             {(user?.role === "admin" || user?.role === "trainer") && (
               <>
