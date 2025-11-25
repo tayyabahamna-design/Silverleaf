@@ -415,12 +415,14 @@ export default function CourseWeeks() {
               <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
                 Presentation Files
               </label>
-              <ObjectUploader
-                onGetUploadParameters={handleGetUploadParams}
-                onComplete={handleUploadComplete(week.id)}
-                maxNumberOfFiles={10}
-                key={`uploader-${week.id}`}
-              />
+              {isAdmin && (
+                <ObjectUploader
+                  onGetUploadParameters={handleGetUploadParams}
+                  onComplete={handleUploadComplete(week.id)}
+                  maxNumberOfFiles={10}
+                  key={`uploader-${week.id}`}
+                />
+              )}
               {week.deckFiles && week.deckFiles.length > 0 && (
                 <div className="mt-3 space-y-2">
                   {week.deckFiles.map((file) => (
@@ -435,14 +437,16 @@ export default function CourseWeeks() {
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
-                          data-testid={`button-delete-file-${file.id}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
+                            data-testid={`button-delete-file-${file.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
