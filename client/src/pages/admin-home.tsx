@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { Users, Award, BarChart3, ArrowRight, BookOpen } from "lucide-react";
+import { Users, Award, BarChart3, ArrowRight, BookOpen, ChevronLeft } from "lucide-react";
 
 interface DashboardStats {
   totalTrainers: number;
@@ -41,11 +41,16 @@ export default function AdminHome() {
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
-            Manage trainers, teachers, and view system statistics
-          </p>
+        <div className="flex items-center gap-4 mb-8">
+          <Button onClick={() => navigate("/")} variant="ghost" size="icon">
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
+            <p className="text-muted-foreground">
+              Manage trainers, teachers, and view system statistics
+            </p>
+          </div>
         </div>
 
         {/* Stats Grid */}
