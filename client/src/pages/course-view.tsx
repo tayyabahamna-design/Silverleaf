@@ -782,7 +782,7 @@ export default function CourseView() {
                       >
                         <Page
                           pageNumber={pageNumber}
-                          scale={2.0}
+                          scale={scale}
                           renderTextLayer={true}
                           renderAnnotationLayer={true}
                         />
