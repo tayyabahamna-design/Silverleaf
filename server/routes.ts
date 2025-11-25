@@ -1851,8 +1851,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   
                   return {
                     ...week,
-                    batchName: batch.name,
-                    batchId: batch.id,
+                    courseName: batchCourse.name,
                     progress: {
                       total: totalFiles,
                       completed: completedFiles,
@@ -1870,7 +1869,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const allWeeks = weeksWithBatch.flat();
       
-      res.json(allWeeks);
+      // Deduplicate weeks (keep only first occurrence by week ID)
+      const uniqueWeeksMap = new Map<string, any>();
+      allWeeks.forEach(week => {
+        if (!uniqueWeeksMap.has(week.id)) {
+          uniqueWeeksMap.set(week.id, week);
+        }
+      });
+      
+      const uniqueWeeks = Array.from(uniqueWeeksMap.values());
+      
+      res.json(uniqueWeeks);
     } catch (error) {
       console.error("Error fetching assigned weeks:", error);
       res.status(500).json({ error: "Internal server error" });
