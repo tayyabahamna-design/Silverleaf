@@ -12,9 +12,10 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Plus, Trash2, Pencil, ChevronRight, LogOut, BarChart3, FileText, CheckCircle, Users } from "lucide-react";
+import { Plus, Trash2, Pencil, ChevronRight, LogOut, BarChart3, FileText, CheckCircle, Users, Layers } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Link } from "wouter";
+import { Badge } from "@/components/ui/badge";
 import logoImage from "@assets/image_1760460046116.png";
 import type { Course, Batch } from "@shared/schema";
 
@@ -50,6 +51,26 @@ export default function CoursesList() {
   const { data: batches = [] } = useQuery<Batch[]>({
     queryKey: ["/api/batches"],
     enabled: isTrainer,
+  });
+
+  // Fetch assigned batches for each course (trainer/admin only)
+  const courseIds = courses.map(c => c.id);
+  const { data: courseAssignments = {} } = useQuery<Record<string, Batch[]>>({
+    queryKey: ["/api/courses", "assignments", courseIds],
+    queryFn: async () => {
+      const assignments: Record<string, Batch[]> = {};
+      for (const courseId of courseIds) {
+        try {
+          const response = await apiRequest("GET", `/api/courses/${courseId}/batches`);
+          const batches = await response.json();
+          assignments[courseId] = Array.isArray(batches) ? batches : [];
+        } catch {
+          assignments[courseId] = [];
+        }
+      }
+      return assignments;
+    },
+    enabled: (isTrainer || isAdmin) && courseIds.length > 0,
   });
 
   // Create course mutation
@@ -113,6 +134,7 @@ export default function CoursesList() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", "assignments"] });
       if (user?.role === 'teacher') {
         queryClient.invalidateQueries({ queryKey: ["/api/teacher", user?.id, "courses"] });
       }
@@ -419,6 +441,19 @@ export default function CoursesList() {
                         </h3>
                         {course.description && (
                           <p className="text-sm text-muted-foreground mt-2">{course.description}</p>
+                        )}
+                        {(isTrainer || isAdmin) && courseAssignments[course.id]?.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <div className="text-xs text-muted-foreground flex items-center gap-1 mr-2">
+                              <Layers className="h-3 w-3" />
+                              Assigned to:
+                            </div>
+                            {courseAssignments[course.id].map((batch) => (
+                              <Badge key={batch.id} variant="secondary" data-testid={`badge-batch-${batch.id}`}>
+                                {batch.name}
+                              </Badge>
+                            ))}
+                          </div>
                         )}
                       </div>
                     )}

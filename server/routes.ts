@@ -8,7 +8,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers } from "@shared/schema";
+import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers, batches, batchCourses } from "@shared/schema";
 import { setupAuth, hashPassword } from "./auth";
 import { setupTeacherAuth, isTeacherAuthenticated } from "./teacherAuth";
 import { z } from "zod";
@@ -2354,6 +2354,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(weeks);
     } catch (error) {
       console.error("Error getting weeks:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get batches that have a course assigned
+  app.get("/api/courses/:courseId/batches", isAuthenticated, async (req, res) => {
+    try {
+      const { courseId } = req.params;
+      
+      // Query batchCourses to find all batches with this course
+      const batchesWithCourse = await db
+        .select({ batch: batches })
+        .from(batchCourses)
+        .innerJoin(batches, eq(batchCourses.batchId, batches.id))
+        .where(eq(batchCourses.courseId, courseId));
+      
+      // Filter by user permissions (admin sees all, trainer only sees their own)
+      let results = batchesWithCourse.map(r => r.batch);
+      if (req.user!.role !== "admin") {
+        results = results.filter(b => b.createdBy === req.user!.id);
+      }
+      
+      res.json(results);
+    } catch (error) {
+      console.error("Error getting batches for course:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
