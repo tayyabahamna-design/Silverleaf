@@ -29,11 +29,11 @@ export default function Home() {
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <img 
                 src={logoImage}
-                alt="Logo"
+                alt="Silverleaf Logo"
                 className="h-10 w-10 flex-shrink-0 rounded-md object-cover"
               />
               <div className="flex-1 min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold">Welcome back</h1>
+                <h1 className="text-lg sm:text-xl font-bold text-primary">SILVERLEAF</h1>
                 <p className="text-xs sm:text-sm text-muted-foreground">{user?.username}</p>
               </div>
             </div>
