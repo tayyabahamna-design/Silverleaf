@@ -20,6 +20,9 @@ import AdminTrainers from "@/pages/admin-trainers";
 import AdminTrainerDetail from "@/pages/admin-trainer-detail";
 import AdminTeachers from "@/pages/admin-teachers";
 import AdminTeacherDetail from "@/pages/admin-teacher-detail";
+import AdminAnalytics from "@/pages/admin-analytics";
+import AdminCertificateApproval from "@/pages/admin-certificate-approval";
+import AdminCertificateView from "@/pages/admin-certificate-view";
 import NotFound from "@/pages/not-found";
 
 // UPDATED: Router now uses unified authentication
@@ -37,6 +40,9 @@ function Router() {
       <ProtectedRoute path="/admin/trainers/:id" component={AdminTrainerDetail} />
       <ProtectedRoute path="/admin/teachers" component={AdminTeachers} />
       <ProtectedRoute path="/admin/teachers/:id" component={AdminTeacherDetail} />
+      <ProtectedRoute path="/admin/analytics" component={AdminAnalytics} />
+      <ProtectedRoute path="/admin/certificates/:batchId/approve" component={AdminCertificateApproval} />
+      <ProtectedRoute path="/admin/certificates/batch/:batchId/view" component={AdminCertificateView} />
       {/* UPDATED: New unified auth page for all roles (Admin, Teacher, Trainer) */}
       <Route path="/auth" component={UnifiedAuth} />
       <Route path="/login" component={UnifiedAuth} />
