@@ -930,13 +930,59 @@ export default function TrainerBatches() {
                           </div>
                         </div>
 
-                        <div className="p-4 bg-background rounded-lg border">
-                          <p className="text-sm font-medium mb-3">Preview</p>
-                          <div className="text-xs text-muted-foreground space-y-2 p-3 bg-muted/30 rounded">
-                            <p>{appreciationText || template?.appreciationText || "No appreciation text"}</p>
-                            <p className="mt-4 pt-4 border-t">Signed by:</p>
-                            <p>{adminName1 || template?.adminName1 || "Admin Name 1"}</p>
-                            {(adminName2 || template?.adminName2) && <p>{adminName2 || template?.adminName2}</p>}
+                        <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border">
+                          <p className="text-sm font-medium mb-4 text-foreground">Certificate Preview</p>
+                          <div className="border-2 border-primary rounded-lg p-8 space-y-6 text-center bg-white dark:bg-slate-900">
+                            {/* Certificate Header */}
+                            <div className="space-y-2">
+                              <h1 className="text-3xl font-bold text-primary">Certificate of Completion</h1>
+                              <p className="text-sm text-muted-foreground">Silverleaf Academy</p>
+                            </div>
+
+                            {/* Divider */}
+                            <div className="flex justify-center">
+                              <div className="w-16 h-1 bg-primary rounded-full" />
+                            </div>
+
+                            {/* Content */}
+                            <div className="space-y-4">
+                              <p className="text-sm text-foreground">This certificate is proudly presented to</p>
+                              <p className="text-2xl font-bold text-primary">Teacher Name</p>
+                              <p className="text-xs text-muted-foreground border-t-2 border-primary pt-4">
+                                For successfully completing the course
+                              </p>
+                              <p className="text-lg font-bold text-primary">{selectedBatch?.name || "Course Name"}</p>
+                            </div>
+
+                            {/* Appreciation Text */}
+                            <div className="bg-primary/5 p-4 rounded-lg">
+                              <p className="text-xs leading-relaxed text-foreground italic">
+                                {appreciationText || template?.appreciationText || "In recognition of successfully completing the training program"}
+                              </p>
+                            </div>
+
+                            {/* Signatures */}
+                            <div className="grid grid-cols-2 gap-6 pt-6">
+                              <div className="space-y-8 text-center">
+                                <div className="h-12" />
+                                <div>
+                                  <p className="text-xs font-semibold text-foreground">{adminName1 || template?.adminName1 || "Administrator"}</p>
+                                  <p className="text-xs text-muted-foreground">Authorized Signatory</p>
+                                </div>
+                              </div>
+                              <div className="space-y-8 text-center">
+                                <div className="h-12" />
+                                <div>
+                                  <p className="text-xs font-semibold text-foreground">{adminName2 || template?.adminName2 || "Director"}</p>
+                                  <p className="text-xs text-muted-foreground">Program Director</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Date */}
+                            <p className="text-xs text-muted-foreground pt-4">
+                              Issued on {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                            </p>
                           </div>
                         </div>
 
