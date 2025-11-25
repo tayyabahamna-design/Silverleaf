@@ -6,8 +6,10 @@ import {
   type InsertUser,
   type ContentItem,
   type InsertContentItem,
-  type UserProgress,
-  type InsertUserProgress,
+  type UserProgressRecord,
+  type InsertUserProgressRecord,
+  type UserContentProgress,
+  type InsertUserContentProgress,
   type DeckFileProgress,
   type InsertDeckFileProgress,
   type DeckFile,
@@ -42,7 +44,9 @@ import {
   users,
   contentItems,
   userProgress,
+  userContentProgress,
   deckFileProgress,
+  activityLogs,
   quizAttempts,
   quizCache,
   securityViolations,
@@ -339,9 +343,9 @@ export class DatabaseStorage implements IStorage {
     return result.rowCount !== null && result.rowCount > 0;
   }
 
-  // User progress operations
-  async saveUserProgress(progress: Partial<InsertUserProgress>): Promise<UserProgress> {
-    const { userId, contentItemId, status, videoProgress, completedAt } = progress;
+  // User progress operations (overall course progress)
+  async saveUserProgress(progress: Partial<InsertUserProgressRecord>): Promise<UserProgressRecord> {
+    const { userId, courseId, percentComplete } = progress;
     
     // Check if progress already exists
     const [existing] = await db
@@ -350,7 +354,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(userProgress.userId, userId!),
-          eq(userProgress.contentItemId, contentItemId!)
+          eq(userProgress.courseId, courseId!)
         )
       );
     
@@ -359,10 +363,8 @@ export class DatabaseStorage implements IStorage {
       const [updated] = await db
         .update(userProgress)
         .set({
-          status,
-          videoProgress,
-          completedAt,
-          lastAccessedAt: new Date(),
+          percentComplete: percentComplete || 0,
+          lastUpdated: new Date(),
         })
         .where(eq(userProgress.id, existing.id))
         .returning();
@@ -371,6 +373,48 @@ export class DatabaseStorage implements IStorage {
       // Create new progress record
       const [newProgress] = await db
         .insert(userProgress)
+        .values({
+          userId: userId!,
+          courseId: courseId!,
+          percentComplete: percentComplete || 0,
+        })
+        .returning();
+      return newProgress;
+    }
+  }
+
+  // Content item progress operations
+  async saveContentItemProgress(progress: Partial<InsertUserContentProgress>): Promise<UserContentProgress> {
+    const { userId, contentItemId, status, videoProgress, completedAt } = progress;
+    
+    // Check if progress already exists
+    const [existing] = await db
+      .select()
+      .from(userContentProgress)
+      .where(
+        and(
+          eq(userContentProgress.userId, userId!),
+          eq(userContentProgress.contentItemId, contentItemId!)
+        )
+      );
+    
+    if (existing) {
+      // Update existing progress
+      const [updated] = await db
+        .update(userContentProgress)
+        .set({
+          status,
+          videoProgress,
+          completedAt,
+          lastAccessedAt: new Date(),
+        })
+        .where(eq(userContentProgress.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new progress record
+      const [newProgress] = await db
+        .insert(userContentProgress)
         .values({
           userId: userId!,
           contentItemId: contentItemId!,
@@ -399,11 +443,11 @@ export class DatabaseStorage implements IStorage {
     // Count completed items
     const completedItems = await db
       .select()
-      .from(userProgress)
+      .from(userContentProgress)
       .where(
         and(
-          eq(userProgress.userId, userId),
-          eq(userProgress.status, "completed")
+          eq(userContentProgress.userId, userId),
+          eq(userContentProgress.status, "completed")
         )
       );
     
