@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -16,6 +16,7 @@ import { LogOut } from "lucide-react";
 import logoImage from "@assets/image_1760460046116.png";
 import type { Course, TrainingWeek } from "@shared/schema";
 import type { UploadResult } from "@uppy/core";
+import { FilePreview } from "@/components/FilePreview";
 import {
   Accordion,
   AccordionContent,
@@ -31,6 +32,7 @@ export default function CourseWeeks() {
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteWeekId, setDeleteWeekId] = useState<string | null>(null);
+  const [viewingFile, setViewingFile] = useState<{ url: string; name: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -271,7 +273,7 @@ export default function CourseWeeks() {
             {isAdmin ? "No weeks yet. Click 'Add Week' to get started!" : "No weeks in this course yet."}
           </div>
         ) : (
-          <Accordion type="multiple" className="space-y-4">
+          <Accordion type="multiple" className="p-6 space-y-4">
             {sortedWeeks.map((week) => (
               <AccordionItem
                 key={week.id}
@@ -289,110 +291,118 @@ export default function CourseWeeks() {
                     </p>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="px-4 py-4 bg-muted/5 space-y-4">
-                  {/* Competency Focus */}
-                  <div>
-                    <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
-                      Competency Focus
-                    </label>
-                    {editingCell?.id === week.id && editingCell?.field === "competencyFocus" && isAdmin ? (
-                      <div className="space-y-2">
-                        <Textarea
-                          ref={textareaRef}
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          data-testid={`textarea-competency-${week.id}`}
-                          className="min-h-[80px]"
-                        />
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={handleCellSave} disabled={updateWeekMutation.isPending}>
-                            Save
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={handleCellCancel}>
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm" onClick={() => isAdmin && handleCellEdit(week.id, "competencyFocus", week.competencyFocus || "")} role={isAdmin ? "button" : undefined}>
-                        {week.competencyFocus || "Click to add..."}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Objective */}
-                  <div>
-                    <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
-                      Learning Objective
-                    </label>
-                    {editingCell?.id === week.id && editingCell?.field === "objective" && isAdmin ? (
-                      <div className="space-y-2">
-                        <Textarea
-                          ref={textareaRef}
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          data-testid={`textarea-objective-${week.id}`}
-                          className="min-h-[80px]"
-                        />
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={handleCellSave} disabled={updateWeekMutation.isPending}>
-                            Save
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={handleCellCancel}>
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-sm" onClick={() => isAdmin && handleCellEdit(week.id, "objective", week.objective || "")} role={isAdmin ? "button" : undefined}>
-                        {week.objective || "Click to add..."}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Deck Files */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold uppercase text-muted-foreground/60">
-                        Files ({week.deckFiles?.length || 0})
+                <AccordionContent className="px-4 py-4 bg-muted/5">
+                  <div className="space-y-4">
+                    {/* Competency Focus */}
+                    <div>
+                      <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
+                        Competency Focus
                       </label>
-                      {isAdmin && (
-                        <ObjectUploader
-                          onComplete={handleUploadComplete(week.id)}
-                          onGetUploadParameters={handleGetUploadParams}
-                          maxNumberOfFiles={10}
-                        />
+                      {editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            ref={textareaRef}
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            data-testid={`textarea-competency-${week.id}`}
+                            className="min-h-[80px]"
+                          />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={handleCellSave} disabled={updateWeekMutation.isPending}>
+                              Save
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={handleCellCancel}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => isAdmin && handleCellEdit(week.id, "competencyFocus", week.competencyFocus || "")}
+                          className={`p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center ${isAdmin ? "cursor-text hover:bg-muted/50" : ""}`}
+                          data-testid={`text-competency-${week.id}`}
+                        >
+                          {week.competencyFocus || "Click to add competency focus"}
+                        </div>
                       )}
                     </div>
-                    {week.deckFiles && week.deckFiles.length > 0 ? (
-                      <div className="space-y-2">
-                        {week.deckFiles.map((file) => (
-                          <div key={file.id} className="flex items-center justify-between p-2 bg-muted/30 rounded">
-                            <div>
-                              <p className="text-sm font-medium">{file.fileName}</p>
-                              <p className="text-xs text-muted-foreground">{formatFileSize(file.fileSize)}</p>
-                            </div>
-                            {isAdmin && (
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
-                                disabled={deleteDeckFileMutation.isPending}
-                                className="h-8 w-8"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No files uploaded yet</p>
-                    )}
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2">
+                    {/* Objective */}
+                    <div>
+                      <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
+                        Objective
+                      </label>
+                      {editingCell?.id === week.id && editingCell?.field === "objective" ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            ref={textareaRef}
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            data-testid={`textarea-objective-${week.id}`}
+                            className="min-h-[80px]"
+                          />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={handleCellSave} disabled={updateWeekMutation.isPending}>
+                              Save
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={handleCellCancel}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => isAdmin && handleCellEdit(week.id, "objective", week.objective || "")}
+                          className={`p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center ${isAdmin ? "cursor-text hover:bg-muted/50" : ""}`}
+                          data-testid={`text-objective-${week.id}`}
+                        >
+                          {week.objective || "Click to add objective"}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Files Section */}
+                    <div>
+                      <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
+                        Presentation Files
+                      </label>
+                      <ObjectUploader
+                        onGetUploadParameters={handleGetUploadParams}
+                        onComplete={handleUploadComplete(week.id)}
+                        maxNumberOfFiles={10}
+                        key={`uploader-${week.id}`}
+                      />
+                      {week.deckFiles && week.deckFiles.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {week.deckFiles.map((file) => (
+                            <div key={file.id} className="flex items-center justify-between p-2 border rounded bg-muted/30">
+                              <span className="text-sm truncate">{file.fileName}</span>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
+                                  data-testid={`button-view-${file.id}`}
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
+                                  data-testid={`button-delete-file-${file.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2 pt-2">
                     {!isAdmin && (
                       <Button
                         size="sm"
@@ -414,6 +424,7 @@ export default function CourseWeeks() {
                         Delete
                       </Button>
                     )}
+                    </div>
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -443,6 +454,14 @@ export default function CourseWeeks() {
             </div>
           </div>
         </div>
+      )}
+
+      {viewingFile && (
+        <FilePreview
+          url={viewingFile.url}
+          name={viewingFile.name}
+          onClose={() => setViewingFile(null)}
+        />
       )}
     </div>
   );
