@@ -1901,7 +1901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const progressRecords = await storage.getAllTeacherContentProgressForWeek(teacherId, weekId);
       
       // Map deck files with their progress and unlock status
-      const contentWithProgress = week.deckFiles.map((file, index) => {
+      const contentWithProgress = week.deckFiles!.map((file, index) => {
         const progress = progressRecords.find(p => p.deckFileId === file.id);
         const isFirst = index === 0;
         
@@ -1915,7 +1915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           status = progress?.status || "available";
         } else {
           // Other files: check if previous file is completed
-          const previousFile = week.deckFiles[index - 1];
+          const previousFile = week.deckFiles![index - 1];
           const previousProgress = progressRecords.find(p => p.deckFileId === previousFile.id);
           const isPreviousCompleted = previousProgress?.status === "completed";
           

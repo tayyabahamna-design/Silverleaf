@@ -1498,20 +1498,20 @@ export class DatabaseStorage implements IStorage {
       return { trainerId, teachers: [] };
     }
     
-    const teachers = await db
+    const teacherResults = await db
       .select({ 
-        teacher: teachers,
+        teacher: users,
         batchCount: sqlOp`COUNT(DISTINCT ${batchTeachers.batchId})::int`,
       })
       .from(batchTeachers)
-      .innerJoin(teachers, eq(batchTeachers.teacherId, teachers.id))
+      .innerJoin(users, eq(batchTeachers.teacherId, users.id))
       .where(sqlOp`${batchTeachers.batchId} IN (${batchIds.join(",")})`)
-      .groupBy(teachers.id);
+      .groupBy(users.id);
     
     return {
       trainerId,
-      teacherCount: teachers.length,
-      teachers: teachers.map(t => ({ ...t.teacher, assignedBatches: t.batchCount })),
+      teacherCount: teacherResults.length,
+      teachers: teacherResults.map((t: any) => ({ ...t.teacher, assignedBatches: t.batchCount })),
     };
   }
 }
