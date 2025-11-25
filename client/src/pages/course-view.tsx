@@ -570,7 +570,7 @@ export default function CourseView() {
                     selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
                     <div className="flex flex-col items-center p-8 pb-24">
                       {/* Slides Viewer */}
-                      <div className="w-full max-w-5xl flex flex-col items-center">
+                      <div className="w-full max-w-5xl flex flex-col items-center gap-6">
                         {viewUrl && (
                           <Document
                             file={viewUrl}
@@ -585,6 +585,19 @@ export default function CourseView() {
                               renderAnnotationLayer={true}
                             />
                           </Document>
+                        )}
+                        {viewUrl && (
+                          <div className="flex gap-3 justify-center">
+                            <Button
+                              onClick={() => setIsFullscreen(true)}
+                              variant="default"
+                              size="lg"
+                              data-testid="button-fullscreen"
+                            >
+                              <Maximize2 className="h-5 w-5 mr-2" />
+                              Fullscreen View
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </div>
