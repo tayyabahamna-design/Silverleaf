@@ -564,11 +564,11 @@ export default function CourseWeeks() {
               items={sortedWeeks.map((w) => w.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="space-y-4">
+              <Accordion type="multiple" className="space-y-4">
                 {sortedWeeks.map((week) => (
                   <SortableWeekItem key={week.id} week={week} />
                 ))}
-              </div>
+              </Accordion>
             </SortableContext>
             <DragOverlay dropAnimation={null}>
               {activeId ? (
