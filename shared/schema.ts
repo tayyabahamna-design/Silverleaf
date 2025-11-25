@@ -480,7 +480,7 @@ export const batchCourses = pgTable("batch_courses", {
   assignedBy: varchar("assigned_by").notNull().references(() => users.id, { onDelete: "cascade" }),
   assignedAt: timestamp("assigned_at").defaultNow(),
 }, (table) => [
-  index("idx_batch_courses").on(table.batchId, table.courseId),
+  uniqueIndex("idx_batch_courses_unique").on(table.batchId, table.courseId),
 ]);
 
 export const insertBatchCourseSchema = createInsertSchema(batchCourses).omit({

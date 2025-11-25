@@ -35,6 +35,13 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
 - **File Management**: Supports file uploads via Uppy.js, storing files in Replit Object Storage (Google Cloud Storage) with presigned URLs for secure access. Allows for multiple deck files per training week.
 - **Inline Editing**: Provides click-to-edit functionality for key fields for admin users, with optimized cache updates for a smooth user experience.
 
+### Data Integrity Constraints
+- **Course Assignment Uniqueness**: Database enforces unique constraint on `(batch_id, course_id)` in batch_courses table. This guarantees each course can be assigned to a batch only once, preventing duplicates at the database level.
+- **Duplicate Prevention**: Multiple layers prevent course duplicate assignments:
+  - Database-level unique constraint (primary defense)
+  - Application-level validation in `assignCourseToBatch` method (secondary defense)
+  - Backend deduplication in teacher assigned courses using `getCoursesForTeacher` method
+
 ### Feature Specifications
 - **Training Week Management**: Admins can add, edit, and delete training weeks, including competency focus, objectives, and presentation files.
 - **Role-Based Access Control**: Three user roles with distinct permissions:
