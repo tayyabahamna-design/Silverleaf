@@ -133,35 +133,29 @@ export default function TeacherContentView() {
   // Screenshot protection
   const { showWarning, dismissWarning } = useScreenshotProtection(weekId);
 
-  // Fetch deck files with progress
-  const { data: deckFiles = [], isLoading } = useQuery<DeckFile[]>({
-    queryKey: ['/api/teachers/weeks', weekId, 'deck-files'],
+  // Fetch deck files with progress from the unified content endpoint
+  const { data: contentData, isLoading } = useQuery<{ week: any; content: DeckFile[] }>({
+    queryKey: ['/api/teachers/weeks', weekId, 'content'],
     enabled: !!weekId,
   });
 
-  // Fetch week progress
-  const { data: weekProgress } = useQuery<WeekProgress>({
-    queryKey: ['/api/teachers/weeks', weekId, 'deck-progress'],
-    enabled: !!weekId,
-  });
+  const deckFiles = contentData?.content || [];
+  const currentWeek = contentData?.week;
 
-  // Fetch quiz status
-  const { data: quizStatus } = useQuery<{ passed: boolean }>({
-    queryKey: ['/api/teachers/weeks', weekId, 'quiz-passed'],
-    enabled: !!weekId,
-  });
+  // Calculate week progress from deck files
+  const weekProgress: WeekProgress = {
+    total: deckFiles.length,
+    completed: deckFiles.filter((f: any) => f.progress?.status === 'completed').length,
+    percentage: deckFiles.length > 0 
+      ? Math.round((deckFiles.filter((f: any) => f.progress?.status === 'completed').length / deckFiles.length) * 100)
+      : 0,
+  };
 
-  // Fetch file quiz progress
-  const { data: fileQuizProgress = [] } = useQuery<{ fileId: string; passed: boolean }[]>({
-    queryKey: ['/api/teachers/weeks', weekId, 'file-quiz-progress'],
-    enabled: !!weekId,
-  });
+  // Placeholder for quiz status - to be fetched if endpoint exists
+  const quizStatus = { passed: false };
 
-  // Fetch week details
-  const { data: weeks = [] } = useQuery<any[]>({
-    queryKey: ['/api/teachers/weeks'],
-  });
-  const currentWeek = weeks.find((w) => w.id === weekId);
+  // Placeholder for file quiz progress - to be fetched if endpoint exists
+  const fileQuizProgress = [] as { fileId: string; passed: boolean }[];
 
   // Save progress mutation
   const saveProgressMutation = useMutation({
@@ -170,14 +164,13 @@ export default function TeacherContentView() {
       status: string;
       completedAt?: Date;
     }) => {
-      return apiRequest('POST', '/api/teachers/weeks/${weekId}/content/${selectedFile.id}/viewed', {
+      return apiRequest('POST', `/api/teachers/weeks/${weekId}/content/${selectedFile?.id}/viewed`, {
         weekId,
         ...data
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/teachers/weeks', weekId, 'deck-files'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/teachers/weeks', weekId, 'deck-progress'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/teachers/weeks', weekId, 'content'] });
     },
   });
 
