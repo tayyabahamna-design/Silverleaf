@@ -65,6 +65,7 @@ export default function ApprovalsPage() {
 
   const { data: approvalHistory = [], isLoading: historyLoading } = useQuery<ApprovalHistoryItem[]>({
     queryKey: ["/api/approval-history"],
+    enabled: !!(currentUser?.role === "admin" || currentUser?.role === "trainer"),
   });
 
   const approveTrainer = useMutation({
