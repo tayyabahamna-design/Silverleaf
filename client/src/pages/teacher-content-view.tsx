@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, ChevronDown, FileText, CheckCircle2, Circle, Maximize2, Minimize2, ZoomIn, ZoomOut, X, Award, List, PanelLeftClose, PanelLeftOpen, Menu } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown, FileText, CheckCircle2, Circle, Maximize2, Minimize2, ZoomIn, ZoomOut, X, Award, List, PanelLeftClose, PanelLeftOpen, Menu, Lock } from "lucide-react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
