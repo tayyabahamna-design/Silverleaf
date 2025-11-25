@@ -550,7 +550,7 @@ export default function CourseView() {
             {selectedFile ? (
               <div className="flex-1 flex flex-col">
                 {/* Content Header */}
-                <div className="p-6 border-b bg-card">
+                <div className="p-6 border-b bg-card flex-shrink-0">
                   <h1 className="text-2xl font-bold mb-1">{selectedFile.fileName}</h1>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>Presentation File</span>
@@ -563,12 +563,12 @@ export default function CourseView() {
                   </div>
                 </div>
 
-                {/* Content Display */}
-                <div className="flex-1 overflow-auto bg-muted/20">
+                {/* Content Display - Takes remaining space with internal scroll */}
+                <div className="flex-1 overflow-y-auto bg-muted/20 flex flex-col">
                   {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                     selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                     selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                    <div className="h-full flex flex-col items-center p-8 pb-32">
+                    <div className="flex flex-col items-center p-8">
                       {/* Slides Viewer */}
                       <div className="w-full max-w-5xl flex flex-col items-center">
                         {viewUrl && (
@@ -591,7 +591,7 @@ export default function CourseView() {
                   ) : (selectedFile.fileName.toLowerCase().endsWith('.mp4') ||
                     selectedFile.fileName.toLowerCase().endsWith('.webm') ||
                     selectedFile.fileName.toLowerCase().endsWith('.mov')) ? (
-                    <div className="h-full flex flex-col items-center justify-center p-8">
+                    <div className="flex flex-col items-center justify-center p-8">
                       {/* Video Player */}
                       {viewUrl && (
                         <div className="w-full max-w-5xl">
@@ -608,21 +608,21 @@ export default function CourseView() {
                       )}
                     </div>
                   ) : (
-                    <div className="flex-1 flex flex-col bg-muted/20">
-                      <div className="flex-1 overflow-auto flex items-start justify-center py-8 px-6">
+                    <div className="flex flex-col bg-muted/20">
+                      <div className="flex items-start justify-center py-8 px-6">
                         {viewUrl ? (
                           <div className="w-full max-w-4xl flex flex-col gap-6">
                             {selectedFile.fileName.toLowerCase().endsWith('.txt') ? (
                               <textarea
                                 readOnly
-                                className="w-full flex-1 min-h-[600px] rounded-lg shadow-md border-0 p-6 bg-white dark:bg-slate-900 text-black dark:text-white font-mono resize-none"
+                                className="w-full min-h-[600px] rounded-lg shadow-md border-0 p-6 bg-white dark:bg-slate-900 text-black dark:text-white font-mono resize-none"
                                 data-testid="text-viewer"
                                 style={{ lineHeight: '1.5' }}
                                 onContextMenu={(e) => e.preventDefault()}
                               />
                             ) : (selectedFile.fileName.toLowerCase().endsWith('.docx') || 
                                  selectedFile.fileName.toLowerCase().endsWith('.doc')) ? (
-                              <div className="rounded-lg shadow-md overflow-y-auto max-h-[600px] bg-white dark:bg-slate-900">
+                              <div className="rounded-lg shadow-md overflow-hidden bg-white dark:bg-slate-900">
                                 <DocumentViewer url={viewUrl} />
                               </div>
                             ) : (
@@ -651,7 +651,7 @@ export default function CourseView() {
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-center h-full">
+                          <div className="flex items-center justify-center">
                             <p className="text-muted-foreground">Loading file...</p>
                           </div>
                         )}
@@ -660,7 +660,7 @@ export default function CourseView() {
                   )}
                 </div>
 
-                {/* Persistent Control Bar - PDF/PPTX Files Only */}
+                {/* Persistent Control Bar - PDF/PPTX Files Only - Always visible */}
                 {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                   selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                   selectedFile.fileName.toLowerCase().endsWith('.ppt')) && viewUrl && (
