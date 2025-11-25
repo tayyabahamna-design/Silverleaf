@@ -717,7 +717,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const objectFile = await objectStorageService.getObjectEntityFile(url);
       const buffer = await objectStorageService.getObjectBuffer(objectFile);
 
-      const result = await mammoth.convertToHtml({ arrayBuffer: buffer });
+      // Convert Node Buffer to ArrayBuffer for mammoth
+      const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+      
+      const result = await mammoth.convertToHtml({ arrayBuffer });
       
       res.setHeader('Content-Type', 'application/json');
       res.json({ 
