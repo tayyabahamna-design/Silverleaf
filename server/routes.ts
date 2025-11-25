@@ -1245,6 +1245,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get existing quiz for a specific file (for teachers to attempt pre-generated quizzes)
+  app.get("/api/training-weeks/:weekId/files/:fileId/quiz", isAuthenticated, async (req, res) => {
+    try {
+      const { weekId, fileId } = req.params;
+
+      const cachedQuiz = await storage.getCachedQuiz(weekId, fileId);
+      if (cachedQuiz && cachedQuiz.questions.length > 0) {
+        res.json({ questions: cachedQuiz.questions });
+      } else {
+        // No quiz available
+        res.status(404).json({ error: "No quiz available for this file" });
+      }
+    } catch (error) {
+      console.error("[FILE-QUIZ] Get quiz error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Check if user has passed quiz for a specific file
   app.get("/api/training-weeks/:weekId/files/:fileId/quiz-passed", isAuthenticated, async (req, res) => {
     try {
