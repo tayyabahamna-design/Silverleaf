@@ -134,7 +134,11 @@ export default function CoursesList() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/courses", "assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
+      // Invalidate all course assignment queries
+      queryClient.invalidateQueries({ 
+        predicate: (query) => JSON.stringify(query.queryKey).includes("/api/courses") && JSON.stringify(query.queryKey).includes("assignments")
+      });
       if (user?.role === 'teacher') {
         queryClient.invalidateQueries({ queryKey: ["/api/teacher", user?.id, "courses"] });
       }
