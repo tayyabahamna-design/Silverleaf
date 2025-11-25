@@ -1,9 +1,24 @@
+import { useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { Users, Award, BarChart3, ArrowRight, FileText } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface DashboardStats {
   totalTrainers: number;
@@ -15,10 +30,29 @@ interface DashboardStats {
 export default function AdminHome() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  
+  // Reset password state
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
+  const [resetUserIdentifier, setResetUserIdentifier] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState("");
 
   // Fetch dashboard stats
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/admin/dashboard-stats"],
+  });
+
+  // Reset password mutation
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ userIdentifier, newPassword }: { userIdentifier: string; newPassword: string }) => {
+      return apiRequest("POST", "/api/admin/reset-user-password", { userIdentifier, newPassword });
+    },
+    onSuccess: () => {
+      toast({ title: "Password reset successfully" });
+      setResetPasswordOpen(false);
+      setResetUserIdentifier("");
+      setResetNewPassword("");
+    },
   });
 
   if (user?.role !== "admin") {
@@ -41,11 +75,63 @@ export default function AdminHome() {
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
-            Manage trainers, teachers, and view system statistics
-          </p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
+            <p className="text-muted-foreground">
+              Manage trainers, teachers, and view system statistics
+            </p>
+          </div>
+          <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" data-testid="button-reset-password">
+                Reset User Password
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Reset User Password</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="userIdentifier">Username or Email</Label>
+                  <Input
+                    id="userIdentifier"
+                    placeholder="admin or admin@example.com"
+                    value={resetUserIdentifier}
+                    onChange={(e) => setResetUserIdentifier(e.target.value)}
+                    data-testid="input-user-identifier"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="newPassword">New Password</Label>
+                  <PasswordInput
+                    id="newPassword"
+                    placeholder="Enter new password (min 6 characters)"
+                    value={resetNewPassword}
+                    onChange={(e) => setResetNewPassword(e.target.value)}
+                    data-testid="input-new-password"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setResetPasswordOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    resetPasswordMutation.mutate({
+                      userIdentifier: resetUserIdentifier,
+                      newPassword: resetNewPassword,
+                    });
+                  }}
+                  disabled={resetPasswordMutation.isPending}
+                >
+                  Reset
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Stats Grid */}
