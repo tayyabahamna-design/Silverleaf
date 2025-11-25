@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, ExternalLink, GripVertical, FileText, X } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, ExternalLink, GripVertical, FileText, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -17,6 +17,11 @@ import logoImage from "@assets/image_1760460046116.png";
 import type { Course, TrainingWeek } from "@shared/schema";
 import type { UploadResult } from "@uppy/core";
 import { FilePreview } from "@/components/FilePreview";
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 import {
   DndContext,
   closestCenter,
@@ -54,6 +59,11 @@ export default function CourseWeeks() {
   const [deleteWeekId, setDeleteWeekId] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<{ url: string; name: string } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [scale, setScale] = useState(1.5);
+  const [numPages, setNumPages] = useState(0);
+  const [documentLoadError, setDocumentLoadError] = useState(false);
+  const [convertedUrl, setConvertedUrl] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -84,6 +94,37 @@ export default function CourseWeeks() {
       }
     }
   }, [editingCell]);
+
+  // Handle file URL conversion and reset viewer state
+  useEffect(() => {
+    setPageNumber(1);
+    setNumPages(0);
+    setDocumentLoadError(false);
+    setConvertedUrl(null);
+
+    if (!viewingFile) return;
+
+    const fileName = viewingFile.name.toLowerCase();
+    
+    // For PPTX/PPT files, convert to PDF
+    if (fileName.endsWith('.pptx') || fileName.endsWith('.ppt')) {
+      const params = new URLSearchParams({ url: viewingFile.url });
+      setConvertedUrl(`/api/files/convert-to-pdf?${params}`);
+    } 
+    // For DOCX/DOC files, convert to HTML
+    else if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
+      const params = new URLSearchParams({ url: viewingFile.url });
+      setConvertedUrl(`/api/files/convert-to-html?${params}`);
+    } 
+    // For regular PDF, use directly
+    else if (fileName.endsWith('.pdf')) {
+      setConvertedUrl(viewingFile.url);
+    } 
+    // For other files (videos, text, etc), use directly
+    else {
+      setConvertedUrl(viewingFile.url);
+    }
+  }, [viewingFile]);
 
   // Fetch course
   const { data: courseData, isLoading: isLoadingCourse } = useQuery<Course>({
