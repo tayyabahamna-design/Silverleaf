@@ -43,13 +43,13 @@ export default function CoursesView({ mode = "courses" }: { mode?: "courses" | "
         <div className="border-b bg-card shadow-sm sticky top-0 z-40">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div className="flex items-center gap-4">
-              <Button onClick={() => navigate("/")} variant="ghost" size="icon">
+              <Button onClick={() => navigate("/courses")} variant="ghost" size="icon">
                 <ChevronLeft className="h-5 w-5" />
               </Button>
               <div className="flex-1 min-w-0">
                 <h1 className="text-3xl sm:text-4xl font-bold truncate">{course.name}</h1>
                 <p className="text-muted-foreground text-sm sm:text-base">
-                  {course.weeks?.length || 0} weeks • Read-only view
+                  {course.weeks?.length || 0} weeks • {user?.role === "admin" ? "Admin View" : "View Only"}
                 </p>
               </div>
             </div>
@@ -102,7 +102,9 @@ export default function CoursesView({ mode = "courses" }: { mode?: "courses" | "
             </Button>
             <div className="flex-1">
               <h1 className="text-3xl sm:text-4xl font-bold">Courses</h1>
-              <p className="text-muted-foreground text-sm sm:text-base">Browse available courses (Read-only)</p>
+              <p className="text-muted-foreground text-sm sm:text-base">
+                {user?.role === "admin" ? "Manage all courses and weeks" : "Browse available courses"}
+              </p>
             </div>
           </div>
         </div>

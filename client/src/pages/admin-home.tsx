@@ -169,55 +169,59 @@ export default function AdminHome() {
             </Button>
           </Card>
 
-          <Card className="p-8 hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => navigate("/admin/trainers")}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-2xl font-bold mb-2">Trainers</h3>
-                <p className="text-muted-foreground">
-                  Manage all trainers and their approvals
-                </p>
-              </div>
-              <Award className="h-12 w-12 text-primary/20" />
-            </div>
-            <Button 
-              variant="outline" 
-              className="mt-4 w-full"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate("/admin/trainers");
-              }}
-              data-testid="button-go-trainers"
-            >
-              View Trainers
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Card>
+          {user?.role === "admin" && (
+            <>
+              <Card className="p-8 hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => navigate("/admin/trainers")}>
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-2xl font-bold mb-2">Trainers</h3>
+                    <p className="text-muted-foreground">
+                      Manage all trainers and their approvals
+                    </p>
+                  </div>
+                  <Award className="h-12 w-12 text-primary/20" />
+                </div>
+                <Button 
+                  variant="outline" 
+                  className="mt-4 w-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate("/admin/trainers");
+                  }}
+                  data-testid="button-go-trainers"
+                >
+                  View Trainers
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Card>
 
-          <Card className="p-8 hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => navigate("/admin/teachers")}>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="text-2xl font-bold mb-2">Teachers</h3>
-                <p className="text-muted-foreground">
-                  Manage all teachers and view their progress
-                </p>
-              </div>
-              <Users className="h-12 w-12 text-primary/20" />
-            </div>
-            <Button 
-              variant="outline" 
-              className="mt-4 w-full"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate("/admin/teachers");
-              }}
-              data-testid="button-go-teachers"
-            >
-              View Teachers
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Card>
+              <Card className="p-8 hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => navigate("/admin/teachers")}>
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-2xl font-bold mb-2">Teachers</h3>
+                    <p className="text-muted-foreground">
+                      Manage all teachers and view their progress
+                    </p>
+                  </div>
+                  <Users className="h-12 w-12 text-primary/20" />
+                </div>
+                <Button 
+                  variant="outline" 
+                  className="mt-4 w-full"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate("/admin/teachers");
+                  }}
+                  data-testid="button-go-teachers"
+                >
+                  View Teachers
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Card>
+            </>
+          )}
         </div>
       </div>
     </div>

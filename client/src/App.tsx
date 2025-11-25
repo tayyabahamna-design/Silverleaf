@@ -42,9 +42,9 @@ function Router() {
       <ProtectedRoute path="/admin/teachers/:id" component={AdminTeacherDetail} />
       <ProtectedRoute path="/admin/courses" component={AdminCourses} />
       <ProtectedRoute path="/admin/courses/:courseId" component={AdminCourseWeeks} />
-      {/* Teacher/Trainer course views (read-only) */}
-      <Route path="/courses" component={() => <CoursesView mode="courses" />} />
-      <Route path="/courses/:courseId" component={() => <CoursesView mode="weeks" />} />
+      {/* Teacher/Trainer course views (read-only, all authenticated users) */}
+      <ProtectedRoute path="/courses" component={() => <CoursesView mode="courses" />} />
+      <ProtectedRoute path="/courses/:courseId" component={() => <CoursesView mode="weeks" />} />
       {/* UPDATED: New unified auth page for all roles (Admin, Teacher, Trainer) */}
       <Route path="/auth" component={UnifiedAuth} />
       <Route path="/login" component={UnifiedAuth} />
