@@ -757,14 +757,6 @@ export default function CourseView() {
             {/* Fullscreen header */}
             <div className="flex items-center justify-between p-4 border-b bg-card flex-shrink-0">
               <h2 className="text-lg font-semibold">{selectedFile?.fileName}</h2>
-              <Button
-                onClick={() => setIsFullscreen(false)}
-                variant="ghost"
-                size="icon"
-                data-testid="button-close-fullscreen"
-              >
-                <X className="h-5 w-5" />
-              </Button>
             </div>
 
             {/* Fullscreen content - scrollable with fixed control bar */}
