@@ -972,6 +972,7 @@ export default function CourseView() {
           fileName={deckFiles.find(f => f.id === selectedQuizFileId)?.fileName || ''}
           open={fileQuizDialogOpen}
           onOpenChange={setFileQuizDialogOpen}
+          canGenerateQuiz={isTrainer}
         />
       )}
 

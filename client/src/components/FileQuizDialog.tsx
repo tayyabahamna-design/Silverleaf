@@ -28,10 +28,11 @@ interface FileQuizDialogProps {
   fileName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  canGenerateQuiz: boolean; // Only trainers can generate quizzes
 }
 
-export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }: FileQuizDialogProps) {
-  console.log('[FILE-QUIZ-DIALOG] 🏗️ Component mounted/updated, open:', open, 'weekId:', weekId, 'fileId:', fileId);
+export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, canGenerateQuiz }: FileQuizDialogProps) {
+  console.log('[FILE-QUIZ-DIALOG] 🏗️ Component mounted/updated, open:', open, 'weekId:', weekId, 'fileId:', fileId, 'canGenerateQuiz:', canGenerateQuiz);
   const { toast } = useToast();
   const [quizState, setQuizState] = useState<'setup' | 'loading' | 'quiz' | 'results'>('setup');
   const [numQuestions, setNumQuestions] = useState<number>(5);
@@ -184,6 +185,29 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange }:
       setHasStartedGeneration(false);
     }
   }, [open]);
+
+  // Teachers cannot generate quizzes - this dialog is quiz-generation only
+  if (!canGenerateQuiz) {
+    return (
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Quiz Not Available</DialogTitle>
+          </DialogHeader>
+          <div className="py-6 text-center">
+            <p className="text-muted-foreground">
+              Only trainers can generate quizzes for this file. Please ask your trainer to generate a quiz for you to attempt.
+            </p>
+          </div>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button onClick={() => onOpenChange(false)} data-testid="button-close-dialog">
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

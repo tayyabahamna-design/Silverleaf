@@ -979,6 +979,7 @@ export default function TeacherContentView() {
           fileName={deckFiles.find(f => f.id === selectedQuizFileId)?.fileName || ''}
           open={fileQuizDialogOpen}
           onOpenChange={setFileQuizDialogOpen}
+          canGenerateQuiz={false}
         />
       )}
 
