@@ -1160,11 +1160,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Save to cache for future instant retrieval
-      await storage.saveCachedQuiz({
+      console.log(`[FILE-QUIZ] 💾 About to save ${questions.length} questions to cache for weekId=${weekId}, fileId=${fileId}`);
+      const savedQuiz = await storage.saveCachedQuiz({
         weekId,
         deckFileId: fileId,
         questions
       });
+      console.log(`[FILE-QUIZ] ✅ Successfully saved quiz, cached questions count:`, savedQuiz.questions.length);
 
       const totalTime = Date.now() - startTime;
       console.log(`[FILE-QUIZ] ✅ Generated and cached ${questions.length} questions in ${totalTime}ms`);
@@ -1250,11 +1252,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { weekId, fileId } = req.params;
 
+      console.log(`[FILE-QUIZ] 🔍 Fetching cached quiz for weekId=${weekId}, fileId=${fileId}`);
       const cachedQuiz = await storage.getCachedQuiz(weekId, fileId);
+      
       if (cachedQuiz && cachedQuiz.questions.length > 0) {
+        console.log(`[FILE-QUIZ] ✅ Found cached quiz with ${cachedQuiz.questions.length} questions`);
         res.json({ questions: cachedQuiz.questions });
       } else {
         // No quiz available
+        console.log(`[FILE-QUIZ] ❌ No cached quiz found for weekId=${weekId}, fileId=${fileId}`);
         res.status(404).json({ error: "No quiz available for this file" });
       }
     } catch (error) {

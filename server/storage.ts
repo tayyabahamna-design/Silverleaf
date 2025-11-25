@@ -728,10 +728,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async saveCachedQuiz(cache: InsertQuizCache): Promise<QuizCache> {
+    // First, delete any existing quiz for this week/file combo to handle updates
+    await db
+      .delete(quizCache)
+      .where(
+        and(
+          eq(quizCache.weekId, cache.weekId),
+          eq(quizCache.deckFileId, cache.deckFileId)
+        )
+      );
+    
+    // Then insert the new one
     const [cached] = await db
       .insert(quizCache)
       .values(cache as any)
       .returning();
+    
+    console.log(`[STORAGE] 💾 Cached quiz saved for weekId=${cache.weekId}, fileId=${cache.deckFileId}, questions=${cached.questions.length}`);
     return cached;
   }
 
