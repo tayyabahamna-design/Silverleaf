@@ -349,16 +349,34 @@ export default function CourseWeeks() {
 
           {/* Card Content */}
           <div className="flex-1 min-w-0">
-            <AccordionTrigger className="w-full px-4 py-3 hover:bg-muted/50">
-              <div className="flex items-center gap-3 text-left w-full">
-                <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 flex-shrink-0">
-                  <span className="text-sm font-bold text-primary">Week {week.weekNumber}</span>
+            {isAdmin ? (
+              <AccordionTrigger className="w-full px-4 py-3 hover:bg-muted/50">
+                <div className="flex items-center gap-3 text-left w-full">
+                  <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 flex-shrink-0">
+                    <span className="text-sm font-bold text-primary">Week {week.weekNumber}</span>
+                  </div>
+                  <p className="text-muted-foreground truncate text-sm flex-1">
+                    {week.competencyFocus || "No competency focus set"}
+                  </p>
                 </div>
-                <p className="text-muted-foreground truncate text-sm flex-1">
-                  {week.competencyFocus || "No competency focus set"}
-                </p>
-              </div>
-            </AccordionTrigger>
+              </AccordionTrigger>
+            ) : (
+              <button
+                onClick={() => navigate(`/courses/${courseId}/weeks/${week.id}`)}
+                className="w-full px-4 py-3 hover:bg-muted/50 flex items-center justify-between"
+                data-testid={`button-open-week-${week.id}`}
+              >
+                <div className="flex items-center gap-3 text-left w-full">
+                  <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 flex-shrink-0">
+                    <span className="text-sm font-bold text-primary">Week {week.weekNumber}</span>
+                  </div>
+                  <p className="text-muted-foreground truncate text-sm flex-1">
+                    {week.competencyFocus || "No competency focus set"}
+                  </p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              </button>
+            )}
           </div>
 
           {/* Delete Button - Only for Admin */}
@@ -381,9 +399,9 @@ export default function CourseWeeks() {
           )}
         </div>
 
-        <AccordionContent className={`${isAdmin ? "px-4 py-4 bg-muted/5 border-t" : "p-0 bg-muted/5 border-t"}`}>
-          {isAdmin ? (
-            /* ADMIN: Simple editing interface */
+        {/* Accordion content only for admin */}
+        {isAdmin && (
+          <AccordionContent className="px-4 py-4 bg-muted/5 border-t">
             <div className="space-y-4">
               {/* Competency Focus */}
               <div>
@@ -410,8 +428,8 @@ export default function CourseWeeks() {
                   </div>
                 ) : (
                   <div
-                    onClick={() => isAdmin && handleCellEdit(week.id, "competencyFocus", week.competencyFocus || "")}
-                    className={`p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center ${isAdmin ? "cursor-text hover:bg-muted/50" : ""}`}
+                    onClick={() => handleCellEdit(week.id, "competencyFocus", week.competencyFocus || "")}
+                    className="p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center cursor-text hover:bg-muted/50"
                     data-testid={`text-competency-${week.id}`}
                   >
                     {week.competencyFocus || "Click to add competency focus"}
@@ -444,8 +462,8 @@ export default function CourseWeeks() {
                   </div>
                 ) : (
                   <div
-                    onClick={() => isAdmin && handleCellEdit(week.id, "objective", week.objective || "")}
-                    className={`p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center ${isAdmin ? "cursor-text hover:bg-muted/50" : ""}`}
+                    onClick={() => handleCellEdit(week.id, "objective", week.objective || "")}
+                    className="p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center cursor-text hover:bg-muted/50"
                     data-testid={`text-objective-${week.id}`}
                   >
                     {week.objective || "Click to add objective"}
@@ -493,189 +511,8 @@ export default function CourseWeeks() {
                 )}
               </div>
             </div>
-          ) : (
-            /* TRAINER/TEACHER: Two-column layout */
-            <div className="flex gap-0 min-h-[600px]">
-              {/* Left Sidebar */}
-              <div className="w-64 bg-card border-r p-4 overflow-y-auto space-y-6">
-                {/* Competency Focus */}
-                <div>
-                  <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
-                    Competency Focus
-                  </label>
-                  <div className="p-3 rounded border bg-muted/30 text-xs min-h-[60px] flex items-center">
-                    {week.competencyFocus || "No competency focus set"}
-                  </div>
-                </div>
-
-                {/* Objective */}
-                <div>
-                  <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
-                    Objective
-                  </label>
-                  <div className="p-3 rounded border bg-muted/30 text-xs min-h-[60px] flex items-center">
-                    {week.objective || "No objective set"}
-                  </div>
-                </div>
-
-                {/* Files Section */}
-                <div>
-                  <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
-                    Lesson Files
-                  </label>
-                  {week.deckFiles && week.deckFiles.length > 0 ? (
-                    <div className="space-y-2">
-                      {week.deckFiles.map((file) => (
-                        <div key={file.id} className="flex items-center justify-between p-2 border rounded bg-muted/30 text-xs">
-                          <span className="truncate flex-1">{file.fileName}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
-                            data-testid={`button-view-${file.id}`}
-                            className="h-7 w-7"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">No files added yet</p>
-                  )}
-                </div>
-
-                {/* View Week Button */}
-                <Button
-                  size="sm"
-                  onClick={() => navigate(`/courses/${courseId}/weeks/${week.id}`)}
-                  data-testid={`button-view-week-${week.id}`}
-                  className="w-full"
-                >
-                  <ChevronRight className="mr-1 h-4 w-4" />
-                  View Week
-                </Button>
-              </div>
-
-              {/* Right Panel - File Viewer Area */}
-              <div className="flex-1 bg-background flex flex-col overflow-hidden">
-                {viewingFile ? (
-                  <>
-                    {/* Header */}
-                    <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
-                      <h3 className="font-semibold text-sm truncate">{viewingFile.name}</h3>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setViewingFile(null)}
-                        data-testid="button-close-viewer"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {/* Viewer Content */}
-                    <div className="flex-1 overflow-auto bg-muted/20 flex items-center justify-center">
-                      {/* PDF/PPTX Viewer */}
-                      {(viewingFile.name.toLowerCase().endsWith('.pdf') || 
-                        viewingFile.name.toLowerCase().endsWith('.pptx') || 
-                        viewingFile.name.toLowerCase().endsWith('.ppt')) ? (
-                        <div className="flex flex-col items-center justify-center p-4">
-                          {convertedUrl ? (
-                            <>
-                              <Document
-                                file={convertedUrl}
-                                onLoadSuccess={({ numPages }) => {
-                                  setNumPages(numPages);
-                                  setDocumentLoadError(false);
-                                }}
-                                onLoadError={(error) => {
-                                  console.error('PDF load error:', error);
-                                  setDocumentLoadError(true);
-                                }}
-                                className="shadow-lg rounded-lg"
-                              >
-                                <Page
-                                  pageNumber={pageNumber}
-                                  scale={scale}
-                                  renderTextLayer={true}
-                                  renderAnnotationLayer={true}
-                                />
-                              </Document>
-                              {documentLoadError && (
-                                <div className="h-64 bg-muted rounded-lg flex items-center justify-center mt-4">
-                                  <p className="text-xs text-muted-foreground">Preview not available</p>
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            <p className="text-muted-foreground">Loading document...</p>
-                          )}
-                        </div>
-                      ) : (
-                        <FilePreview
-                          fileName={viewingFile.name}
-                          fileUrl={viewingFile.url}
-                          className="w-full h-full"
-                        />
-                      )}
-                    </div>
-
-                    {/* Control Bar for PDF/PPTX */}
-                    {(viewingFile.name.toLowerCase().endsWith('.pdf') || 
-                      viewingFile.name.toLowerCase().endsWith('.pptx') || 
-                      viewingFile.name.toLowerCase().endsWith('.ppt')) && convertedUrl && numPages > 0 && (
-                      <div className="flex-shrink-0 bg-card border-t p-3 flex items-center justify-center gap-3">
-                        <Button
-                          onClick={() => setPageNumber(p => Math.max(1, p - 1))}
-                          disabled={pageNumber <= 1}
-                          variant="outline"
-                          size="sm"
-                        >
-                          Previous
-                        </Button>
-                        <span className="text-sm text-muted-foreground">
-                          {pageNumber} / {numPages}
-                        </span>
-                        <Button
-                          onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
-                          disabled={pageNumber >= numPages}
-                          variant="outline"
-                          size="sm"
-                        >
-                          Next
-                        </Button>
-                        <Button
-                          onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
-                          variant="outline"
-                          size="sm"
-                          data-testid="button-zoom-out"
-                        >
-                          <ZoomOut className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
-                          variant="outline"
-                          size="sm"
-                          data-testid="button-zoom-in"
-                        >
-                          <ZoomIn className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center text-muted-foreground">
-                      <FileText className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                      <p className="text-sm">Select a file to preview</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </AccordionContent>
+          </AccordionContent>
+        )}
       </AccordionItem>
     );
   }
