@@ -1243,6 +1243,21 @@ export class DatabaseStorage implements IStorage {
 
   // Batch course operations
   async assignCourseToBatch(batchCourse: InsertBatchCourse): Promise<BatchCourse> {
+    // Check if this course is already assigned to this batch
+    const existing = await db
+      .select()
+      .from(batchCourses)
+      .where(
+        and(
+          eq(batchCourses.batchId, batchCourse.batchId),
+          eq(batchCourses.courseId, batchCourse.courseId)
+        )
+      );
+    
+    if (existing.length > 0) {
+      throw new Error("This course is already assigned to this batch");
+    }
+    
     const [result] = await db.insert(batchCourses).values(batchCourse).returning();
     return result;
   }

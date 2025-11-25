@@ -2535,7 +2535,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(assignment);
     } catch (error) {
       console.error("Error assigning course:", error);
-      res.status(500).json({ error: "Internal server error" });
+      const errorMessage = error instanceof Error ? error.message : "Internal server error";
+      if (errorMessage.includes("already assigned")) {
+        res.status(409).json({ error: errorMessage });
+      } else {
+        res.status(500).json({ error: "Internal server error" });
+      }
     }
   });
 
