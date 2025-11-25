@@ -116,7 +116,32 @@ export default function AdminHome() {
         )}
 
         {/* Quick Navigation */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="p-8 hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => navigate("/admin/courses")}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-2xl font-bold mb-2">Courses</h3>
+                <p className="text-muted-foreground">
+                  Manage courses and their weeks
+                </p>
+              </div>
+              <BarChart3 className="h-12 w-12 text-primary/20" />
+            </div>
+            <Button 
+              variant="outline" 
+              className="mt-4 w-full"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate("/admin/courses");
+              }}
+              data-testid="button-go-courses"
+            >
+              View Courses
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Card>
+
           <Card className="p-8 hover:shadow-lg transition-shadow cursor-pointer"
             onClick={() => navigate("/admin/trainers")}>
             <div className="flex items-start justify-between mb-4">

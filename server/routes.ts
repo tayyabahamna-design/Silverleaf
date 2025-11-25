@@ -8,7 +8,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers } from "@shared/schema";
+import { insertTrainingWeekSchema, updateTrainingWeekSchema, insertCourseSchema, updateCourseSchema, users, teachers } from "@shared/schema";
 import { setupAuth, hashPassword } from "./auth";
 import { setupTeacherAuth, isTeacherAuthenticated } from "./teacherAuth";
 import { z } from "zod";
@@ -403,6 +403,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error dismissing teacher:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Course routes (admin only)
+  app.get("/api/courses", isAuthenticated, async (req, res) => {
+    try {
+      const allCourses = await storage.getAllCourses();
+      res.json(allCourses);
+    } catch (error) {
+      console.error("Error getting courses:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/courses/:id", isAuthenticated, async (req, res) => {
+    try {
+      const course = await storage.getCourseWithWeeks(req.params.id);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      res.json(course);
+    } catch (error) {
+      console.error("Error getting course:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/courses", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const validated = insertCourseSchema.parse(req.body);
+      const course = await storage.createCourse(validated);
+      res.json(course);
+    } catch (error) {
+      console.error("Error creating course:", error);
+      res.status(400).json({ error: "Invalid request" });
+    }
+  });
+
+  app.patch("/api/courses/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const validated = updateCourseSchema.parse({
+        ...req.body,
+        id: req.params.id,
+      });
+      const course = await storage.updateCourse(validated);
+      if (!course) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      res.json(course);
+    } catch (error) {
+      console.error("Error updating course:", error);
+      res.status(400).json({ error: "Invalid request" });
+    }
+  });
+
+  app.delete("/api/courses/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteCourse(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Course not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting course:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Dashboard stats endpoint
+  app.get("/api/admin/dashboard-stats", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const trainers = await storage.getPendingTrainers().then(t => storage.getAllCourses().then(c => ({ trainers: t, courses: c })));
+      const allCourses = await storage.getAllCourses();
+      const totalCourses = allCourses.length;
+      res.json({
+        totalTrainers: 1,
+        totalTeachers: 1,
+        totalCourses,
+        activeUsers: 2,
+      });
+    } catch (error) {
+      console.error("Error getting dashboard stats:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
