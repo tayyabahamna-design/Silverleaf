@@ -528,19 +528,46 @@ export default function CourseView() {
                         )}
                       </div>
                     </div>
+                  ) : (selectedFile.fileName.toLowerCase().endsWith('.mp4') ||
+                    selectedFile.fileName.toLowerCase().endsWith('.webm') ||
+                    selectedFile.fileName.toLowerCase().endsWith('.mov')) ? (
+                    <div className="h-full flex flex-col items-center justify-center p-8">
+                      {/* Video Player */}
+                      {viewUrl && (
+                        <div className="w-full max-w-5xl">
+                          <video
+                            src={viewUrl}
+                            controls
+                            className="w-full h-auto rounded-xl shadow-2xl bg-black"
+                            data-testid="video-viewer"
+                          >
+                            Your browser does not support the video tag.
+                          </video>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div className="flex-1 flex flex-col">
                       <div className="flex-1 bg-muted/20 p-6">
                         {viewUrl ? (
                           <div className="h-full flex flex-col items-center">
                             <div className="w-full max-w-7xl h-full flex flex-col">
-                              <iframe
-                                src={viewUrl}
-                                className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0 select-none pointer-events-auto"
-                                title={selectedFile.fileName}
-                                data-testid="file-viewer"
-                                style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
-                              />
+                              {selectedFile.fileName.toLowerCase().endsWith('.txt') ? (
+                                <textarea
+                                  readOnly
+                                  className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0 p-4 bg-white dark:bg-slate-900 text-black dark:text-white font-mono resize-none"
+                                  data-testid="text-viewer"
+                                  style={{ lineHeight: '1.5' }}
+                                />
+                              ) : (
+                                <iframe
+                                  src={viewUrl}
+                                  className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0 select-none pointer-events-auto"
+                                  title={selectedFile.fileName}
+                                  data-testid="file-viewer"
+                                  style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+                                />
+                              )}
                               <div className="mt-4 flex gap-3 justify-center">
                                 <Button
                                   onClick={() => setIsFullscreen(true)}
@@ -556,7 +583,7 @@ export default function CourseView() {
                           </div>
                         ) : (
                           <div className="flex items-center justify-center h-full">
-                            <p className="text-muted-foreground">Loading presentation...</p>
+                            <p className="text-muted-foreground">Loading file...</p>
                           </div>
                         )}
                       </div>
@@ -760,6 +787,19 @@ export default function CourseView() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                ) : (selectedFile.fileName.toLowerCase().endsWith('.mp4') ||
+                 selectedFile.fileName.toLowerCase().endsWith('.webm') ||
+                 selectedFile.fileName.toLowerCase().endsWith('.mov')) ? (
+                  <div className="h-full flex flex-col items-center justify-center">
+                    <video
+                      src={viewUrl}
+                      controls
+                      className="w-full h-full object-contain bg-black"
+                      data-testid="video-viewer-fullscreen"
+                    >
+                      Your browser does not support the video tag.
+                    </video>
                   </div>
                 ) : (
                   <iframe
