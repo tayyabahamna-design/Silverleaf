@@ -599,8 +599,8 @@ export default function CourseView() {
                               />
                             </Document>
                             {documentLoadError && (
-                              <div className="p-8 text-center text-destructive">
-                                Failed to load document. Please try another file.
+                              <div className="h-96 bg-muted rounded-xl flex items-center justify-center">
+                                <p className="text-xs text-muted-foreground">Preview not available</p>
                               </div>
                             )}
                           </>
@@ -813,8 +813,8 @@ export default function CourseView() {
                           </Document>
                         </div>
                         {documentLoadError && (
-                          <div className="p-8 text-center text-destructive mt-4">
-                            Failed to load document. Please try another file.
+                          <div className="h-96 bg-muted rounded-xl flex items-center justify-center mt-4">
+                            <p className="text-xs text-muted-foreground">Preview not available</p>
                           </div>
                         )}
                       </>
