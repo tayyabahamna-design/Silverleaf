@@ -102,7 +102,7 @@ export type Course = typeof courses.$inferSelect;
 // Training weeks table
 export const trainingWeeks = pgTable("training_weeks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  courseId: varchar("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+  courseId: varchar("course_id").references(() => courses.id, { onDelete: "cascade" }),
   weekNumber: integer("week_number").notNull(),
   competencyFocus: text("competency_focus").notNull().default(""),
   objective: text("objective").notNull().default(""),
