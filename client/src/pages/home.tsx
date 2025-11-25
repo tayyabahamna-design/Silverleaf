@@ -60,7 +60,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import type { TrainingWeek, Course } from "@shared/schema";
+import type { TrainingWeek } from "@shared/schema";
 import type { UploadResult } from "@uppy/core";
 import logoImage from "@assets/image_1760460046116.png";
 import { FilePreview } from "@/components/FilePreview";
@@ -92,13 +92,6 @@ export default function Home() {
       }
     }
   }, [editingCell]);
-
-  const { data: courses = [], isLoading: isLoadingCourses } = useQuery<Course[]>({
-    queryKey: ["/api/courses"],
-    refetchOnWindowFocus: false,
-    refetchInterval: false,
-    staleTime: Infinity,
-  });
 
   const { data: weeks = [], isLoading: isLoadingWeeks } = useQuery<TrainingWeek[]>({
     queryKey: ["/api/training-weeks"],
@@ -719,7 +712,7 @@ export default function Home() {
 
       <main className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
-          <h2 className="text-xl sm:text-2xl font-semibold">Courses</h2>
+          <h2 className="text-xl sm:text-2xl font-semibold">Training Weeks</h2>
           {isAdmin && (
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
@@ -814,67 +807,93 @@ export default function Home() {
           )}
         </div>
 
-        {isLoadingUser || isLoadingCourses ? (
+        {isLoadingUser || isLoadingWeeks ? (
           <div className="text-center py-12 text-muted-foreground">Loading...</div>
-        ) : courses.length === 0 ? (
+        ) : weeks.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            No courses yet. {isAdmin && 'Go to Admin Dashboard to create courses!'}
+            No training weeks yet. {isAdmin && 'Click "Add New Week" to get started!'}
           </div>
-        ) : (
-          // Display courses with their weeks
-          <div className="space-y-6">
-            {courses.map((course) => {
-              const courseWeeks = weeks.filter(w => w.courseId === course.id).sort((a, b) => a.weekNumber - b.weekNumber);
-              
-              return (
-                <div key={course.id} className="border rounded-lg bg-card shadow-sm overflow-hidden" data-testid={`card-course-${course.id}`}>
-                  {/* Course Header */}
-                  <div className="px-4 sm:px-6 py-4 sm:py-5 bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-                    <h3 className="text-lg sm:text-xl font-bold text-foreground">{course.name}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {courseWeeks.length} week{courseWeeks.length !== 1 ? 's' : ''}
+        ) : !isAdmin ? (
+          // Teacher view: Clickable cards that navigate to course view
+          <div className="space-y-4">
+            {weeks.map((week) => (
+              <button
+                key={week.id}
+                onClick={() => navigate(`/course/${week.id}`)}
+                className="w-full border rounded-lg bg-card shadow-sm hover:shadow-md transition-all duration-200 text-left hover-elevate active-elevate-2 group"
+                data-testid={`card-week-${week.id}`}
+              >
+                <div className="flex items-center gap-4 px-4 py-4">
+                  {/* Week Number Badge */}
+                  <div className="h-12 w-12 rounded-lg bg-primary/10 dark:bg-primary/20 border border-primary/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-primary font-bold text-lg">{week.weekNumber}</span>
+                  </div>
+
+                  {/* Week Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-base sm:text-lg leading-tight mb-1">
+                      Week {week.weekNumber}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                      {week.competencyFocus || "No competency focus set"}
                     </p>
                   </div>
 
-                  {/* Weeks List */}
-                  {courseWeeks.length > 0 ? (
-                    <div className="divide-y">
-                      {courseWeeks.map((week) => (
-                        <button
-                          key={week.id}
-                          onClick={() => navigate(`/course/${week.id}`)}
-                          className="w-full px-4 sm:px-6 py-4 sm:py-5 hover:bg-muted/50 transition-colors text-left hover-elevate group"
-                          data-testid={`card-week-${week.id}`}
-                        >
-                          <div className="flex items-start gap-4">
-                            {/* Week Number Badge */}
-                            <div className="h-10 w-10 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0 text-sm font-bold text-primary">
-                              {week.weekNumber}
+                  {/* Arrow Icon */}
+                  <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform duration-200 group-hover:translate-x-1 flex-shrink-0" />
+                </div>
+              </button>
+            ))}
+          </div>
+        ) : (
+          // Admin view: Drag-and-drop accordion for editing
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={weeks.map((w) => w.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <Accordion type="multiple" className="space-y-4" data-testid="accordion-training-weeks">
+                {weeks.map((week) => (
+                  <SortableWeekItem key={week.id} week={week} />
+                ))}
+              </Accordion>
+            </SortableContext>
+            <DragOverlay dropAnimation={null}>
+              {activeId ? (
+                <div className="mb-6 border-0 rounded-xl bg-card shadow-2xl ring-2 ring-primary scale-105 opacity-95">
+                  <div className="flex items-stretch rounded-xl overflow-hidden border border-primary">
+                    <div className="flex items-center px-4 sm:px-5 md:px-6 bg-primary/10 dark:bg-primary/15 border-r border-primary/30 min-w-[48px] sm:min-w-[56px]">
+                      <GripVertical className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0 px-5 sm:px-7 py-5 sm:py-6">
+                      {(() => {
+                        const activeWeek = weeks.find(w => w.id === activeId);
+                        return activeWeek ? (
+                          <div className="flex flex-col gap-2.5 w-full min-w-0">
+                            <div className="inline-flex items-center gap-2">
+                              <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-primary/10 dark:bg-primary/15 border border-primary/30 shadow-sm">
+                                <span className="text-primary font-bold text-base sm:text-lg">Week {activeWeek.weekNumber}</span>
+                              </span>
                             </div>
-
-                            {/* Week Info */}
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-foreground">Week {week.weekNumber}</p>
-                              <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                                {week.competencyFocus || "No competency focus set"}
+                            <div className="flex-1 min-w-0 text-left">
+                              <p className="text-sm sm:text-base text-muted-foreground truncate leading-relaxed">
+                                {activeWeek.competencyFocus || "No competency focus set"}
                               </p>
                             </div>
-
-                            {/* Arrow Icon */}
-                            <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform duration-200 group-hover:translate-x-1 flex-shrink-0 mt-1" />
                           </div>
-                        </button>
-                      ))}
+                        ) : null;
+                      })()}
                     </div>
-                  ) : (
-                    <div className="px-4 sm:px-6 py-8 text-center text-muted-foreground text-sm">
-                      No weeks in this course yet.
-                    </div>
-                  )}
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </main>
 
