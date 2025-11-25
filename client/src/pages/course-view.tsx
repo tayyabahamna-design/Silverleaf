@@ -586,19 +586,6 @@ export default function CourseView() {
                             />
                           </Document>
                         )}
-                        {viewUrl && (
-                          <div className="flex gap-3 justify-center">
-                            <Button
-                              onClick={() => setIsFullscreen(true)}
-                              variant="default"
-                              size="lg"
-                              data-testid="button-fullscreen"
-                            >
-                              <Maximize2 className="h-5 w-5 mr-2" />
-                              Fullscreen View
-                            </Button>
-                          </div>
-                        )}
                       </div>
                     </div>
                   ) : (selectedFile.fileName.toLowerCase().endsWith('.mp4') ||
