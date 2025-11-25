@@ -7,7 +7,7 @@ import type { UploadResult } from "@uppy/core";
 interface ObjectUploaderProps {
   maxNumberOfFiles?: number;
   maxFileSize?: number;
-  onGetUploadParameters: () => Promise<{
+  onGetUploadParameters: (file?: any) => Promise<{
     method: "PUT";
     url: string;
   }>;
@@ -26,6 +26,18 @@ export function ObjectUploader({
 
   // Initialize Uppy instance
   if (!uppyRef.current) {
+    const wrappedGetUploadParameters = async (file: any) => {
+      try {
+        console.log("[ObjectUploader] Getting upload parameters for file:", file?.name);
+        const params = await onGetUploadParameters(file);
+        console.log("[ObjectUploader] Got parameters for", file?.name, ":", params);
+        return params;
+      } catch (error) {
+        console.error("[ObjectUploader] Error getting upload parameters:", error);
+        throw error;
+      }
+    };
+
     uppyRef.current = new Uppy({
       restrictions: {
         maxNumberOfFiles,
@@ -35,10 +47,14 @@ export function ObjectUploader({
     })
       .use(AwsS3, {
         shouldUseMultipart: false,
-        getUploadParameters: onGetUploadParameters,
+        getUploadParameters: wrappedGetUploadParameters,
       })
       .on("complete", (result) => {
+        console.log("[ObjectUploader] Upload complete:", result);
         onComplete?.(result);
+      })
+      .on("error", (error) => {
+        console.error("[ObjectUploader] Uppy error:", error);
       });
   }
 

@@ -41,6 +41,7 @@ function SortableWeekItem({ week, onFilesUploaded, onWeekUpdated }: { week: Trai
   const [editValue, setEditValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isSavingRef = useRef(false);
+  const filePresignedUrlsRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     if (editingField === "objective" && textareaRef.current) {
@@ -62,19 +63,58 @@ function SortableWeekItem({ week, onFilesUploaded, onWeekUpdated }: { week: Trai
     },
   });
 
-  const handleUploadSuccess = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+  const handleUploadSuccess = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
     if (result.successful && result.successful.length > 0) {
-      onFilesUploaded?.();
-      toast({ title: `${result.successful.length} file(s) uploaded successfully` });
+      try {
+        // Register files with the week
+        const files = result.successful.map((file: any) => {
+          // Get the presigned URL for this file and extract the base URL without query parameters
+          const presignedUrl = filePresignedUrlsRef.current.get(file.name) || "";
+          const urlWithoutQuery = presignedUrl.split('?')[0];
+          
+          console.log(`[Admin] Mapping file ${file.name} to URL: ${urlWithoutQuery}`);
+          
+          return {
+            fileUrl: urlWithoutQuery,
+            fileName: file.name,
+            fileSize: file.size,
+          };
+        });
+        
+        console.log("[Admin] Registering files with backend:", files);
+        await apiRequest("POST", `/api/training-weeks/${week.id}/deck`, { files });
+        onFilesUploaded?.();
+        toast({ title: `${result.successful.length} file(s) uploaded successfully` });
+      } catch (error) {
+        console.error("Error registering files:", error);
+        toast({ title: "Files uploaded but failed to register", variant: "destructive" });
+      } finally {
+        // Clear the URLs after upload attempt
+        filePresignedUrlsRef.current.clear();
+      }
     }
   };
 
-  const handleGetUploadParameters = async () => {
-    const response = await apiRequest("POST", `/api/training-weeks/${week.id}/upload-url`, {});
-    return {
-      method: "PUT" as const,
-      url: response.url,
-    };
+  const handleGetUploadParameters = async (file?: any) => {
+    try {
+      console.log("[Admin] Calling /api/objects/upload for file:", file?.name);
+      const response = await apiRequest("POST", `/api/objects/upload`, {});
+      console.log("[Admin] Got response:", response);
+      
+      // Store the presigned URL for this file
+      if (file?.name) {
+        filePresignedUrlsRef.current.set(file.name, response.uploadURL);
+        console.log(`[Admin] Stored URL for ${file.name}: ${response.uploadURL}`);
+      }
+      
+      return {
+        method: "PUT" as const,
+        url: response.uploadURL,
+      };
+    } catch (error) {
+      console.error("[Admin] Error getting upload parameters:", error);
+      throw error;
+    }
   };
 
   const handleStartEdit = (field: "focus" | "objective") => {
