@@ -25,6 +25,7 @@ import type { TocEntry } from "@shared/schema";
 function DocumentViewer({ url }: { url: string }) {
   const [html, setHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchDocument = async () => {
@@ -43,12 +44,13 @@ function DocumentViewer({ url }: { url: string }) {
   }, [url]);
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">Loading document...</p></div>;
+    return <div className="flex items-center justify-center w-full h-32"><p className="text-muted-foreground">Loading document...</p></div>;
   }
 
   return (
     <div 
-      className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0 p-6 bg-white dark:bg-slate-900 text-black dark:text-white overflow-auto prose dark:prose-invert max-w-none"
+      ref={contentRef}
+      className="w-full rounded-xl shadow-2xl border-0 p-6 bg-white dark:bg-slate-900 text-black dark:text-white prose dark:prose-invert max-w-none"
       dangerouslySetInnerHTML={{ __html: html }}
       onContextMenu={(e) => e.preventDefault()}
     />
