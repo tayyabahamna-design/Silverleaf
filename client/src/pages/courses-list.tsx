@@ -9,13 +9,14 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Plus, Trash2, Pencil, ChevronRight, LogOut, BarChart3, FileText, CheckCircle, Users } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Link } from "wouter";
 import logoImage from "@assets/image_1760460046116.png";
-import type { Course } from "@shared/schema";
+import type { Course, Batch } from "@shared/schema";
 
 interface CourseWithAssignment extends Course {
   assignedAt?: Date;
@@ -34,6 +35,7 @@ export default function CoursesList() {
   const [newCourseDescription, setNewCourseDescription] = useState("");
   const [assignOpen, setAssignOpen] = useState(false);
   const [assigningCourseId, setAssigningCourseId] = useState<string | null>(null);
+  const [selectedBatchId, setSelectedBatchId] = useState<string>("");
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [resetUserIdentifier, setResetUserIdentifier] = useState("");
   const [resetNewPassword, setResetNewPassword] = useState("");
@@ -42,6 +44,12 @@ export default function CoursesList() {
   const { data: courses = [], isLoading } = useQuery<CourseWithAssignment[]>({
     queryKey: user?.role === 'teacher' ? ["/api/teacher", user?.id, "courses"] : ["/api/courses"],
     refetchOnWindowFocus: false,
+  });
+
+  // Fetch batches for trainers
+  const { data: batches = [] } = useQuery<Batch[]>({
+    queryKey: ["/api/batches"],
+    enabled: isTrainer,
   });
 
   // Create course mutation
@@ -110,7 +118,15 @@ export default function CoursesList() {
       }
       setAssignOpen(false);
       setAssigningCourseId(null);
-      toast({ title: "Course assigned" });
+      setSelectedBatchId("");
+      toast({ title: "Course assigned successfully" });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to assign course",
+        description: error.message || "An error occurred",
+      });
     },
   });
 
@@ -468,14 +484,59 @@ export default function CoursesList() {
                               <DialogHeader>
                                 <DialogTitle>Assign Course</DialogTitle>
                                 <DialogDescription>
-                                  Assign "{course.name}" to a batch or teacher
+                                  Assign "{course.name}" to a batch
                                 </DialogDescription>
                               </DialogHeader>
                               <div className="space-y-4 py-4">
-                                <p className="text-sm text-muted-foreground">
-                                  Assign to batch or individual teacher functionality coming soon
-                                </p>
+                                <div className="space-y-2">
+                                  <Label htmlFor="batch-select">Select Batch</Label>
+                                  <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
+                                    <SelectTrigger id="batch-select" data-testid="select-batch">
+                                      <SelectValue placeholder="Choose a batch..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {batches.length === 0 ? (
+                                        <div className="p-2 text-sm text-muted-foreground text-center">
+                                          No batches available. Create a batch first.
+                                        </div>
+                                      ) : (
+                                        batches.map((batch) => (
+                                          <SelectItem key={batch.id} value={batch.id}>
+                                            {batch.name}
+                                          </SelectItem>
+                                        ))
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                               </div>
+                              <DialogFooter>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setAssignOpen(false);
+                                    setAssigningCourseId(null);
+                                    setSelectedBatchId("");
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  onClick={() => {
+                                    if (assigningCourseId && selectedBatchId) {
+                                      assignMutation.mutate({
+                                        courseId: assigningCourseId,
+                                        targetId: selectedBatchId,
+                                        targetType: "batch",
+                                      });
+                                    }
+                                  }}
+                                  disabled={!selectedBatchId || assignMutation.isPending}
+                                  data-testid="button-assign-course-submit"
+                                >
+                                  Assign Course
+                                </Button>
+                              </DialogFooter>
                             </DialogContent>
                           </Dialog>
                         )}
