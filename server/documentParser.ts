@@ -1,6 +1,10 @@
+import { createRequire } from 'module';
 import PizZip from 'pizzip';
 import mammoth from 'mammoth';
 import { objectStorageService } from './objectStorage';
+
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 
 /**
  * Extract text content from a PDF file
@@ -8,11 +12,8 @@ import { objectStorageService } from './objectStorage';
 export async function extractTextFromPDF(fileUrl: string): Promise<string> {
   try {
     const buffer = await objectStorageService.getObjectEntity(fileUrl);
-    // Use dynamic import for pdf-parse (CommonJS module)
-    const pdfParseModule = await import('pdf-parse');
-    const pdfParse = (pdfParseModule as any).default || pdfParseModule;
     const data = await pdfParse(buffer);
-    return data.text;
+    return data.text || '';
   } catch (error) {
     console.error('Error extracting text from PDF:', error);
     throw new Error('Failed to extract text from PDF file');
