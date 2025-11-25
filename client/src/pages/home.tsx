@@ -22,7 +22,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-card shadow-sm sticky top-0 z-40">
+      <header className="border-b bg-gradient-to-r from-primary to-primary/80 shadow-lg sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between gap-4">
             {/* Logo & Title */}
@@ -33,8 +33,8 @@ export default function Home() {
                 className="h-10 w-10 flex-shrink-0 rounded-md object-cover"
               />
               <div className="flex-1 min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-primary">SILVERLEAF</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground">{user?.username}</p>
+                <h1 className="text-lg sm:text-xl font-bold text-white">SILVERLEAF</h1>
+                <p className="text-xs sm:text-sm text-white/80">{user?.username}</p>
               </div>
             </div>
 
@@ -48,7 +48,7 @@ export default function Home() {
                       size="icon"
                       title="Admin Dashboard"
                       data-testid="button-admin-dashboard"
-                      className="hover-elevate"
+                      className="hover-elevate text-white hover:bg-white/20"
                     >
                       <BarChart3 className="h-5 w-5" />
                     </Button>
@@ -59,7 +59,7 @@ export default function Home() {
                       size="icon"
                       title="Manage Courses"
                       data-testid="button-manage-courses"
-                      className="hover-elevate"
+                      className="hover-elevate text-white hover:bg-white/20"
                     >
                       <Users className="h-5 w-5" />
                     </Button>
@@ -74,7 +74,7 @@ export default function Home() {
                 disabled={logoutMutation.isPending}
                 title="Logout"
                 data-testid="button-logout"
-                className="hover-elevate"
+                className="hover-elevate text-white hover:bg-white/20"
               >
                 <LogOut className="h-5 w-5" />
               </Button>
