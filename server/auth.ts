@@ -94,34 +94,21 @@ export function setupAuth(app: Express) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
-      // Admin accounts are auto-approved, trainers need admin approval
-      const isAdmin = req.body.role === "admin";
+      // Public registration only allows trainer accounts - admins must be created by existing admins
+      // Force role to trainer and require approval
       const user = await storage.createUser({
         ...req.body,
+        role: "trainer", // Force trainer role - admin accounts cannot be created through public registration
         password: await hashPassword(req.body.password),
-        approvalStatus: isAdmin ? "approved" : "pending",
+        approvalStatus: "pending",
       });
 
+      // Don't auto-login - trainers need admin approval first
       const { password, ...userWithoutPassword } = user;
-      
-      if (isAdmin) {
-        // Auto-login admin accounts
-        req.login(user, (err) => {
-          if (err) {
-            return res.status(201).json({
-              ...userWithoutPassword,
-              message: "Admin account created successfully."
-            });
-          }
-          res.status(201).json(userWithoutPassword);
-        });
-      } else {
-        // Don't auto-login - trainers need approval first
-        res.status(201).json({
-          ...userWithoutPassword,
-          message: "Account created successfully. Your account is pending admin approval."
-        });
-      }
+      res.status(201).json({
+        ...userWithoutPassword,
+        message: "Account created successfully. Your account is pending admin approval."
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Registration failed" });
     }
