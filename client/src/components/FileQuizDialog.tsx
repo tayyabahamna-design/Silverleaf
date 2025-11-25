@@ -47,10 +47,26 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
 
   // For teachers: fetch existing quiz if available
-  const { data: existingQuiz, isLoading: isLoadingExistingQuiz } = useQuery<{ questions: QuizQuestion[] } | null>({
+  const { data: existingQuiz, isLoading: isLoadingExistingQuiz, error: quizError } = useQuery<{ questions: QuizQuestion[] } | null>({
     queryKey: ['/api/training-weeks', weekId, 'files', fileId, 'quiz'],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest('GET', `/api/training-weeks/${weekId}/files/${fileId}/quiz`);
+        if (!response.ok) {
+          console.log('[FILE-QUIZ-DIALOG] Quiz endpoint returned:', response.status);
+          return null;
+        }
+        const data = await response.json();
+        console.log('[FILE-QUIZ-DIALOG] 📥 Fetched existing quiz:', data.questions?.length, 'questions');
+        return data;
+      } catch (error) {
+        console.log('[FILE-QUIZ-DIALOG] No quiz found:', error);
+        return null;
+      }
+    },
     enabled: open && !canGenerateQuiz, // Only fetch for teachers when dialog is open
-    retry: false,
+    retry: 0,
+    staleTime: 0, // Always refetch when enabled
   });
 
   const generateQuizMutation = useMutation({
@@ -74,6 +90,11 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
     },
     onSuccess: (generatedQuestions: QuizQuestion[]) => {
       console.log('[FILE-QUIZ-DIALOG] Got', generatedQuestions.length, 'questions');
+      
+      // Invalidate the teacher's quiz query so they can fetch the newly generated quiz
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/training-weeks', weekId, 'files', fileId, 'quiz'] 
+      });
       
       // Handle empty result
       if (generatedQuestions.length === 0) {
@@ -195,17 +216,20 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
 
   // For teachers: when quiz exists, load it automatically
   useEffect(() => {
-    if (!canGenerateQuiz && open && existingQuiz && existingQuiz.questions) {
-      console.log('[FILE-QUIZ-DIALOG] 📥 Loading existing quiz for teacher attempt');
-      setQuestions(existingQuiz.questions);
-      setAnswers({});
-      setResults(null);
-      setQuizState('quiz');
-    } else if (!canGenerateQuiz && open && isLoadingExistingQuiz) {
-      setQuizState('loading');
-    } else if (!canGenerateQuiz && open && !existingQuiz && !isLoadingExistingQuiz) {
-      console.log('[FILE-QUIZ-DIALOG] ❌ No quiz available for this file');
-      setQuizState('unavailable');
+    if (!canGenerateQuiz && open) {
+      if (isLoadingExistingQuiz) {
+        console.log('[FILE-QUIZ-DIALOG] ⏳ Loading quiz...');
+        setQuizState('loading');
+      } else if (existingQuiz && existingQuiz.questions && existingQuiz.questions.length > 0) {
+        console.log('[FILE-QUIZ-DIALOG] 📥 Loading existing quiz for teacher attempt, questions:', existingQuiz.questions.length);
+        setQuestions(existingQuiz.questions);
+        setAnswers({});
+        setResults(null);
+        setQuizState('quiz');
+      } else {
+        console.log('[FILE-QUIZ-DIALOG] ❌ No quiz available for this file. existingQuiz:', existingQuiz);
+        setQuizState('unavailable');
+      }
     }
   }, [existingQuiz, isLoadingExistingQuiz, canGenerateQuiz, open]);
 
