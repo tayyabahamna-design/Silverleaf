@@ -164,10 +164,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const approvedBy = req.user!.id;
       
+      // Get trainer info before approving
+      const trainerBefore = await storage.getUser(id);
+      if (!trainerBefore) {
+        return res.status(404).json({ error: "Trainer not found" });
+      }
+      
       const approvedUser = await storage.approveUser(id, approvedBy);
       if (!approvedUser) {
         return res.status(404).json({ error: "Trainer not found" });
       }
+      
+      // Record approval history
+      await storage.addApprovalHistory({
+        targetType: "trainer",
+        targetId: id,
+        targetName: approvedUser.username,
+        targetEmail: approvedUser.email || undefined,
+        action: "approved",
+        performedBy: approvedBy,
+        performedByName: req.user!.username,
+        performedByRole: "admin",
+      });
       
       const { password, ...sanitized } = approvedUser;
       res.json({ 
@@ -177,6 +195,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error approving trainer:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/admin/dismiss-trainer/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get trainer info before dismissing
+      const trainer = await storage.getUser(id);
+      if (!trainer) {
+        return res.status(404).json({ error: "Trainer not found" });
+      }
+      
+      // Record dismissal history before deleting
+      await storage.addApprovalHistory({
+        targetType: "trainer",
+        targetId: id,
+        targetName: trainer.username,
+        targetEmail: trainer.email || undefined,
+        action: "dismissed",
+        performedBy: req.user!.id,
+        performedByName: req.user!.username,
+        performedByRole: "admin",
+      });
+      
+      const dismissed = await storage.dismissUser(id);
+      if (!dismissed) {
+        return res.status(404).json({ error: "Trainer not found" });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Trainer ${trainer.username} has been dismissed`,
+      });
+    } catch (error) {
+      console.error("Error dismissing trainer:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -192,6 +247,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Teacher not found" });
       }
       
+      // Record approval history
+      await storage.addApprovalHistory({
+        targetType: "teacher",
+        targetId: id,
+        targetName: approvedTeacher.name,
+        targetEmail: approvedTeacher.email,
+        action: "approved",
+        performedBy: approvedBy,
+        performedByName: req.user!.username,
+        performedByRole: "admin",
+      });
+      
       const { password, ...sanitized } = approvedTeacher;
       res.json({ 
         success: true, 
@@ -200,6 +267,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error approving teacher:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/admin/dismiss-teacher/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get teacher info before dismissing
+      const teacher = await storage.getTeacher(id);
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      // Record dismissal history before deleting
+      await storage.addApprovalHistory({
+        targetType: "teacher",
+        targetId: id,
+        targetName: teacher.name,
+        targetEmail: teacher.email,
+        action: "dismissed",
+        performedBy: req.user!.id,
+        performedByName: req.user!.username,
+        performedByRole: "admin",
+      });
+      
+      const dismissed = await storage.dismissTeacher(id);
+      if (!dismissed) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Teacher ${teacher.name} has been dismissed`,
+      });
+    } catch (error) {
+      console.error("Error dismissing teacher:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Approval history route
+  app.get("/api/approval-history", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const history = await storage.getApprovalHistory(100);
+      res.json(history);
+    } catch (error) {
+      console.error("Error getting approval history:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -228,6 +343,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Teacher not found" });
       }
       
+      // Record approval history
+      await storage.addApprovalHistory({
+        targetType: "teacher",
+        targetId: id,
+        targetName: approvedTeacher.name,
+        targetEmail: approvedTeacher.email,
+        action: "approved",
+        performedBy: approvedBy,
+        performedByName: req.user!.username,
+        performedByRole: "trainer",
+      });
+      
       const { password, ...sanitized } = approvedTeacher;
       res.json({ 
         success: true, 
@@ -236,6 +363,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error("Error approving teacher:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/trainer/dismiss-teacher/:id", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get teacher info before dismissing
+      const teacher = await storage.getTeacher(id);
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      // Record dismissal history before deleting
+      await storage.addApprovalHistory({
+        targetType: "teacher",
+        targetId: id,
+        targetName: teacher.name,
+        targetEmail: teacher.email,
+        action: "dismissed",
+        performedBy: req.user!.id,
+        performedByName: req.user!.username,
+        performedByRole: "trainer",
+      });
+      
+      const dismissed = await storage.dismissTeacher(id);
+      if (!dismissed) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Teacher ${teacher.name} has been dismissed`,
+      });
+    } catch (error) {
+      console.error("Error dismissing teacher:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

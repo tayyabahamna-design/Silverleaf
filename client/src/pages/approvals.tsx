@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Clock, User, GraduationCap } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { CheckCircle, Clock, User, GraduationCap, XCircle, History } from "lucide-react";
+import { formatDistanceToNow, format } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type User = {
   id: string;
@@ -31,6 +32,19 @@ type CurrentUser = {
   username?: string;
 };
 
+type ApprovalHistoryItem = {
+  id: string;
+  targetType: string;
+  targetId: string;
+  targetName: string;
+  targetEmail?: string;
+  action: string;
+  performedBy: string;
+  performedByName: string;
+  performedByRole: string;
+  createdAt: string;
+};
+
 export default function ApprovalsPage() {
   const { toast } = useToast();
 
@@ -49,6 +63,10 @@ export default function ApprovalsPage() {
       : ["/api/trainer/pending-teachers"],
   });
 
+  const { data: approvalHistory = [], isLoading: historyLoading } = useQuery<ApprovalHistoryItem[]>({
+    queryKey: ["/api/approval-history"],
+  });
+
   const approveTrainer = useMutation({
     mutationFn: async (trainerId: string) => {
       const response = await apiRequest("POST", `/api/admin/approve-trainer/${trainerId}`);
@@ -60,6 +78,7 @@ export default function ApprovalsPage() {
         description: data.message,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-trainers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/approval-history"] });
     },
     onError: (error: any) => {
       toast({
@@ -90,11 +109,65 @@ export default function ApprovalsPage() {
       } else {
         queryClient.invalidateQueries({ queryKey: ["/api/trainer/pending-teachers"] });
       }
+      queryClient.invalidateQueries({ queryKey: ["/api/approval-history"] });
     },
     onError: (error: any) => {
       toast({
         variant: "destructive",
         title: "Failed to approve teacher",
+        description: error.message || "An error occurred",
+      });
+    },
+  });
+
+  const dismissTrainer = useMutation({
+    mutationFn: async (trainerId: string) => {
+      const response = await apiRequest("POST", `/api/admin/dismiss-trainer/${trainerId}`);
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Trainer dismissed",
+        description: data.message,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-trainers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/approval-history"] });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to dismiss trainer",
+        description: error.message || "An error occurred",
+      });
+    },
+  });
+
+  const dismissTeacher = useMutation({
+    mutationFn: async (teacherId: string) => {
+      const endpoint = currentUser?.role === "admin"
+        ? `/api/admin/dismiss-teacher/${teacherId}`
+        : `/api/trainer/dismiss-teacher/${teacherId}`;
+      
+      const response = await apiRequest("POST", endpoint);
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Teacher dismissed",
+        description: data.message,
+      });
+      
+      if (currentUser?.role === "admin") {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-teachers"] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/trainer/pending-teachers"] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/approval-history"] });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Failed to dismiss teacher",
         description: error.message || "An error occurred",
       });
     },
@@ -154,15 +227,27 @@ export default function ApprovalsPage() {
                         Requested {formatDistanceToNow(new Date(trainer.createdAt))} ago
                       </p>
                     </div>
-                    <Button
-                      onClick={() => approveTrainer.mutate(trainer.id)}
-                      disabled={approveTrainer.isPending}
-                      className="gap-2"
-                      data-testid={`button-approve-trainer-${trainer.id}`}
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      Approve
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={() => approveTrainer.mutate(trainer.id)}
+                        disabled={approveTrainer.isPending || dismissTrainer.isPending}
+                        className="gap-2"
+                        data-testid={`button-approve-trainer-${trainer.id}`}
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Approve
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={() => dismissTrainer.mutate(trainer.id)}
+                        disabled={approveTrainer.isPending || dismissTrainer.isPending}
+                        className="gap-2"
+                        data-testid={`button-dismiss-trainer-${trainer.id}`}
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Dismiss
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -214,15 +299,81 @@ export default function ApprovalsPage() {
                       Requested {formatDistanceToNow(new Date(teacher.createdAt))} ago
                     </p>
                   </div>
-                  <Button
-                    onClick={() => approveTeacher.mutate(teacher.id)}
-                    disabled={approveTeacher.isPending}
-                    className="gap-2"
-                    data-testid={`button-approve-teacher-${teacher.id}`}
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    Approve
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => approveTeacher.mutate(teacher.id)}
+                      disabled={approveTeacher.isPending || dismissTeacher.isPending}
+                      className="gap-2"
+                      data-testid={`button-approve-teacher-${teacher.id}`}
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Approve
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => dismissTeacher.mutate(teacher.id)}
+                      disabled={approveTeacher.isPending || dismissTeacher.isPending}
+                      className="gap-2"
+                      data-testid={`button-dismiss-teacher-${teacher.id}`}
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Dismiss
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <History className="w-5 h-5" />
+            Approval History
+          </CardTitle>
+          <CardDescription>
+            Recent approval and dismissal actions
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {historyLoading ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Loading history...
+            </div>
+          ) : approvalHistory.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No approval history yet
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {approvalHistory.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center justify-between p-3 border rounded-lg"
+                  data-testid={`history-item-${item.id}`}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium">{item.targetName}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {item.targetType}
+                      </Badge>
+                      <Badge 
+                        variant={item.action === "approved" ? "default" : "destructive"}
+                        className="text-xs"
+                      >
+                        {item.action}
+                      </Badge>
+                    </div>
+                    {item.targetEmail && (
+                      <p className="text-sm text-muted-foreground">{item.targetEmail}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      By {item.performedByName} ({item.performedByRole}) - {format(new Date(item.createdAt), "MMM d, yyyy 'at' h:mm a")}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>

@@ -35,7 +35,10 @@ import {
   type InsertTeacherContentQuizAttempt,
   type TeacherQuizRegeneration,
   type InsertTeacherQuizRegeneration,
+  type ApprovalHistory,
+  type InsertApprovalHistory,
   trainingWeeks,
+  approvalHistory,
   users,
   contentItems,
   userProgress,
@@ -121,6 +124,14 @@ export interface IStorage {
   updateTeacherPassword(teacherId: string, hashedPassword: string): Promise<Teacher | undefined>;
   getPendingTeachers(): Promise<Teacher[]>;
   approveTeacher(teacherId: string, approvedBy: string, approvedByRole: string): Promise<Teacher | undefined>;
+  dismissTeacher(teacherId: string): Promise<boolean>;
+  
+  // User dismiss operations
+  dismissUser(userId: string): Promise<boolean>;
+  
+  // Approval history operations
+  addApprovalHistory(history: InsertApprovalHistory): Promise<ApprovalHistory>;
+  getApprovalHistory(limit?: number): Promise<ApprovalHistory[]>;
   
   // Batch operations
   getAllBatches(createdBy?: string): Promise<Batch[]>;
@@ -726,6 +737,32 @@ export class DatabaseStorage implements IStorage {
       .where(eq(teachers.id, teacherId))
       .returning();
     return teacher;
+  }
+
+  async dismissTeacher(teacherId: string): Promise<boolean> {
+    const result = await db.delete(teachers).where(eq(teachers.id, teacherId));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async dismissUser(userId: string): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, userId));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async addApprovalHistory(history: InsertApprovalHistory): Promise<ApprovalHistory> {
+    const [result] = await db
+      .insert(approvalHistory)
+      .values(history)
+      .returning();
+    return result;
+  }
+
+  async getApprovalHistory(limit: number = 50): Promise<ApprovalHistory[]> {
+    return await db
+      .select()
+      .from(approvalHistory)
+      .orderBy(desc(approvalHistory.createdAt))
+      .limit(limit);
   }
 
   // Batch operations

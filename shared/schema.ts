@@ -413,3 +413,28 @@ export const insertTeacherQuizRegenerationSchema = createInsertSchema(teacherQui
 
 export type InsertTeacherQuizRegeneration = z.infer<typeof insertTeacherQuizRegenerationSchema>;
 export type TeacherQuizRegeneration = typeof teacherQuizRegenerations.$inferSelect;
+
+// Approval history table for tracking approvals and dismissals
+export const approvalHistory = pgTable("approval_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  targetType: varchar("target_type").notNull(), // 'trainer' or 'teacher'
+  targetId: varchar("target_id").notNull(), // ID of the user/teacher
+  targetName: varchar("target_name").notNull(), // Username/name for display
+  targetEmail: varchar("target_email"), // Email for display
+  action: varchar("action").notNull(), // 'approved' or 'dismissed'
+  performedBy: varchar("performed_by").notNull(), // ID of admin/trainer who took action
+  performedByName: varchar("performed_by_name").notNull(), // Name of who took action
+  performedByRole: varchar("performed_by_role").notNull(), // 'admin' or 'trainer'
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_approval_history_target").on(table.targetType, table.targetId),
+  index("idx_approval_history_date").on(table.createdAt),
+]);
+
+export const insertApprovalHistorySchema = createInsertSchema(approvalHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertApprovalHistory = z.infer<typeof insertApprovalHistorySchema>;
+export type ApprovalHistory = typeof approvalHistory.$inferSelect;
