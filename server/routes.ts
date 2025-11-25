@@ -1829,57 +1829,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get teacher's batches
       const batches = await storage.getBatchesForTeacher(teacherId);
+      if (batches.length === 0) {
+        return res.json([]);
+      }
       
-      // Get weeks for each batch by first getting the courses assigned to that batch
-      const weeksWithBatch = await Promise.all(
-        batches.map(async (batch) => {
-          // Get courses assigned to this batch
-          const batchCourses = await storage.getCoursesForBatch(batch.id);
-          if (!batchCourses || batchCourses.length === 0) return [];
-          
-          // For each course, get its weeks
-          const weeks = await Promise.all(
-            batchCourses.flatMap(async (batchCourse) => {
-              const courseWeeks = await storage.getWeeksForCourse(batchCourse.id);
-              
-              return Promise.all(
-                courseWeeks.map(async (week) => {
-                  // Get progress for this week
-                  const progressRecords = await storage.getAllTeacherContentProgressForWeek(teacherId, week.id);
-                  const totalFiles = week.deckFiles?.length || 0;
-                  const completedFiles = progressRecords.filter(p => p.status === "completed").length;
-                  
-                  return {
-                    ...week,
-                    courseName: batchCourse.name,
-                    progress: {
-                      total: totalFiles,
-                      completed: completedFiles,
-                      percentage: totalFiles > 0 ? Math.round((completedFiles / totalFiles) * 100) : 0,
-                    },
-                  };
-                })
-              );
-            })
-          );
-          
-          return weeks.flat();
-        })
-      );
+      // Get all UNIQUE courses assigned to ANY of the teacher's batches
+      const batchIds = batches.map(b => b.id);
+      const uniqueCourses = new Map<string, any>();
       
-      const allWeeks = weeksWithBatch.flat();
-      
-      // Deduplicate weeks (keep only first occurrence by week ID)
-      const uniqueWeeksMap = new Map<string, any>();
-      allWeeks.forEach(week => {
-        if (!uniqueWeeksMap.has(week.id)) {
-          uniqueWeeksMap.set(week.id, week);
+      for (const batch of batches) {
+        const batchCourses = await storage.getCoursesForBatch(batch.id);
+        if (batchCourses && batchCourses.length > 0) {
+          for (const course of batchCourses) {
+            // Keep only the first occurrence of each course
+            if (!uniqueCourses.has(course.id)) {
+              uniqueCourses.set(course.id, course);
+            }
+          }
         }
-      });
+      }
       
-      const uniqueWeeks = Array.from(uniqueWeeksMap.values());
+      // For each unique course, get its weeks
+      const allWeeks: any[] = [];
+      for (const course of Array.from(uniqueCourses.values())) {
+        const courseWeeks = await storage.getWeeksForCourse(course.id);
+        
+        for (const week of courseWeeks) {
+          const progressRecords = await storage.getAllTeacherContentProgressForWeek(teacherId, week.id);
+          const totalFiles = week.deckFiles?.length || 0;
+          const completedFiles = progressRecords.filter(p => p.status === "completed").length;
+          
+          allWeeks.push({
+            ...week,
+            courseName: course.name,
+            progress: {
+              total: totalFiles,
+              completed: completedFiles,
+              percentage: totalFiles > 0 ? Math.round((completedFiles / totalFiles) * 100) : 0,
+            },
+          });
+        }
+      }
       
-      res.json(uniqueWeeks);
+      res.json(allWeeks);
     } catch (error) {
       console.error("Error fetching assigned weeks:", error);
       res.status(500).json({ error: "Internal server error" });

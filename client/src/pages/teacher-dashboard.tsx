@@ -267,7 +267,7 @@ export default function TeacherDashboard() {
               </p>
             ) : (
               <div className="space-y-4">
-                {Array.from(new Map(assignedWeeks.map((week: any) => [week.id, week])).values()).map((week: any) => (
+                {assignedWeeks.map((week: any) => (
                   <Card key={week.id} data-testid={`card-week-${week.id}`} className="shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border-border/50 rounded-lg">
                     <CardHeader>
                       <div className="flex items-center justify-between gap-3">
