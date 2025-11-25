@@ -9,9 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ChevronLeft, GripVertical } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, GripVertical, Upload, FileText, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import type { Course, TrainingWeek } from "@shared/schema";
+import { ObjectUploader } from "@/components/ObjectUploader";
+import type { UploadResult } from "@uppy/core";
 import {
   DndContext,
   closestCenter,
@@ -30,25 +32,90 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-function SortableWeekItem({ week }: { week: TrainingWeek }) {
+function SortableWeekItem({ week, onFilesUploaded }: { week: TrainingWeek; onFilesUploaded?: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: week.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const { toast } = useToast();
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleUploadSuccess = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    if (result.successful && result.successful.length > 0) {
+      onFilesUploaded?.();
+      toast({ title: `${result.successful.length} file(s) uploaded successfully` });
+    }
+  };
+
+  const handleGetUploadParameters = async () => {
+    const response = await apiRequest("POST", `/api/training-weeks/${week.id}/upload-url`, {});
+    return {
+      method: "PUT" as const,
+      url: response.url,
+    };
+  };
 
   return (
     <div ref={setNodeRef} style={style} className={isDragging ? "opacity-50" : ""}>
-      <Card className="p-6 rounded-2xl hover:shadow-lg transition-all duration-300 group">
-        <div className="flex items-start gap-4">
-          <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-2 -m-2 text-muted-foreground hover:text-foreground transition-colors">
-            <GripVertical className="h-5 w-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-4 mb-2">
-              <h4 className="font-bold text-lg">Week {week.weekNumber}</h4>
+      <Card className="rounded-2xl hover:shadow-lg transition-all duration-300 overflow-hidden">
+        <div className="p-6">
+          <div className="flex items-start gap-4">
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-2 -m-2 text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
+              <GripVertical className="h-5 w-5" />
             </div>
-            <p className="text-sm font-semibold text-primary mb-2">{week.competencyFocus}</p>
-            <p className="text-sm text-muted-foreground line-clamp-2">{week.objective}</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <h4 className="font-bold text-lg">Week {week.weekNumber}</h4>
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="flex-shrink-0 p-1 hover:bg-muted rounded transition-colors"
+                  data-testid={`button-expand-week-${week.id}`}
+                >
+                  {isExpanded ? (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </button>
+              </div>
+              <p className="text-sm font-semibold text-primary mb-2">{week.competencyFocus}</p>
+              <p className="text-sm text-muted-foreground line-clamp-2">{week.objective}</p>
+            </div>
           </div>
         </div>
+
+        {/* Expanded Files Section */}
+        {isExpanded && (
+          <div className="border-t px-6 py-4 bg-muted/30">
+            <div className="space-y-4">
+              {/* File Upload */}
+              <div>
+                <Label className="text-sm font-semibold mb-3 block">Upload Files (PPT, PDF, DOCX, etc.)</Label>
+                <ObjectUploader
+                  onGetUploadParameters={handleGetUploadParameters}
+                  onComplete={handleUploadSuccess}
+                />
+              </div>
+
+              {/* Files List */}
+              {week.deckFiles && week.deckFiles.length > 0 && (
+                <div className="pt-4 border-t">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">FILES ({week.deckFiles.length})</p>
+                  <div className="space-y-2">
+                    {week.deckFiles.map((file) => (
+                      <div
+                        key={file.id}
+                        className="flex items-center gap-2 p-2 rounded bg-background text-sm"
+                        data-testid={`file-item-${file.id}`}
+                      >
+                        <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                        <span className="truncate flex-1">{file.fileName}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -227,7 +294,10 @@ export default function AdminCourseWeeks() {
               <div className="space-y-4">
                 {course.weeks.map((week) => (
                   <div key={week.id} className="flex gap-3 items-start group">
-                    <SortableWeekItem week={week} />
+                    <SortableWeekItem 
+                      week={week}
+                      onFilesUploaded={() => queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId] })}
+                    />
                     <Button
                       onClick={() => deleteWeekMutation.mutate(week.id)}
                       variant="destructive"
