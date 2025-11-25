@@ -840,8 +840,8 @@ export default function CourseView() {
                   </div>
                 ) : (selectedFile.fileName.toLowerCase().endsWith('.docx') || 
                      selectedFile.fileName.toLowerCase().endsWith('.doc')) ? (
-                  <div className="h-full flex items-center justify-center p-6">
-                    <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-lg shadow-2xl">
+                  <div className="h-full flex items-start justify-center p-6 overflow-auto">
+                    <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-lg shadow-2xl overflow-y-auto max-h-[calc(100vh-180px)]">
                       <DocumentViewer url={viewUrl} />
                     </div>
                   </div>
