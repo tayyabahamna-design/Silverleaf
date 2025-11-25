@@ -467,7 +467,7 @@ export default function TrainerBatches() {
 
       {/* View Batch Details Dialog */}
       <Dialog open={viewBatchDetailsOpen} onOpenChange={setViewBatchDetailsOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl flex flex-col max-h-[90vh]">
           <DialogHeader>
             <div className="flex justify-between items-start">
               <div>
@@ -489,8 +489,8 @@ export default function TrainerBatches() {
             </div>
           </DialogHeader>
 
-          <Tabs defaultValue="teachers" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+          <Tabs defaultValue="teachers" className="w-full flex flex-col flex-1">
+            <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
               <TabsTrigger value="teachers" data-testid="tab-teachers">
                 <Users className="mr-2 h-4 w-4" />
                 Teachers
@@ -506,7 +506,7 @@ export default function TrainerBatches() {
             </TabsList>
 
             {/* Teachers Tab */}
-            <TabsContent value="teachers" className="space-y-4">
+            <TabsContent value="teachers" className="space-y-4 flex-1 overflow-y-auto">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Enrolled Teachers</h3>
                 <Dialog open={addTeacherOpen} onOpenChange={setAddTeacherOpen}>
@@ -581,7 +581,7 @@ export default function TrainerBatches() {
             </TabsContent>
 
             {/* Quizzes Tab */}
-            <TabsContent value="quizzes" className="space-y-4">
+            <TabsContent value="quizzes" className="space-y-4 flex-1 overflow-y-auto">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold">Generated Quizzes</h3>
                 <div className="flex gap-2">
@@ -669,7 +669,7 @@ export default function TrainerBatches() {
             </TabsContent>
 
             {/* Progress Tab - Auto-loads and refreshes */}
-            <TabsContent value="progress" className="space-y-4">
+            <TabsContent value="progress" className="space-y-4 flex-1 overflow-y-auto">
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="text-lg font-semibold">Teacher Progress</h3>
