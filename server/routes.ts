@@ -1896,8 +1896,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const progress = progressRecords.find(p => p.deckFileId === file.id);
         const isFirst = index === 0;
         
-        // First file is always available, others locked until previous is completed
-        let status = progress?.status || (isFirst ? "available" : "locked");
+        // Determine status based on progression logic:
+        // - First file is "available" if no progress, otherwise use progress status
+        // - Other files are "locked" until previous file is completed, then "available"
+        let status: string;
+        
+        if (isFirst) {
+          // First file defaults to "available" if no progress
+          status = progress?.status || "available";
+        } else {
+          // Other files: check if previous file is completed
+          const previousFile = week.deckFiles[index - 1];
+          const previousProgress = progressRecords.find(p => p.deckFileId === previousFile.id);
+          const isPreviousCompleted = previousProgress?.status === "completed";
+          
+          if (isPreviousCompleted) {
+            // Previous file is completed, so this file is available
+            status = progress?.status || "available";
+          } else {
+            // Previous file not completed, so this file stays locked
+            status = "locked";
+          }
+        }
         
         return {
           ...file,
@@ -1926,7 +1946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         teacherId,
         weekId,
         deckFileId,
-        status: "in_progress",
+        status: "viewed",
         viewedAt: new Date(),
       });
       
