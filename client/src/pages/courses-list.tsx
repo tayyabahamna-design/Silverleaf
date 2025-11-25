@@ -263,16 +263,6 @@ export default function CoursesList() {
                   <BarChart3 className="mr-2 h-4 w-4" />
                   Analytics
                 </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigate("/admin/certificates/batch/1/approve")}
-                  data-testid="button-nav-certificates"
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/20 hidden sm:flex"
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Certificates
-                </Button>
               </>
             )}
             {(isAdmin || isTrainer) && (

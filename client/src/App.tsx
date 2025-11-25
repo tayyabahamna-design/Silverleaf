@@ -25,6 +25,8 @@ import AdminTeacherDetail from "@/pages/admin-teacher-detail";
 import AdminAnalytics from "@/pages/admin-analytics";
 import AdminCertificateApproval from "@/pages/admin-certificate-approval";
 import AdminCertificateView from "@/pages/admin-certificate-view";
+import TeacherCertificates from "@/pages/teacher-certificates";
+import TeacherCertificateView from "@/pages/teacher-certificate-view";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -53,6 +55,8 @@ function Router() {
       <Route path="/auth" component={UnifiedAuth} />
       <Route path="/login" component={UnifiedAuth} />
       <Route path="/teacher/dashboard" component={TeacherDashboard} />
+      <Route path="/teacher/certificates" component={TeacherCertificates} />
+      <Route path="/teacher/certificates/:certId" component={TeacherCertificateView} />
       <Route path="/teacher/week/:weekId/content" component={TeacherContentView} />
       <Route component={NotFound} />
     </Switch>
