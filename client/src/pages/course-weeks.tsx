@@ -558,11 +558,12 @@ export default function CourseWeeks() {
               </div>
 
               {/* Right Panel - File Viewer Area */}
-              <div className="flex-1 bg-background flex flex-col items-center justify-center p-8">
+              <div className="flex-1 bg-background flex flex-col overflow-hidden">
                 {viewingFile ? (
-                  <div className="w-full h-full flex flex-col">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-sm">{viewingFile.name}</h3>
+                  <>
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
+                      <h3 className="font-semibold text-sm truncate">{viewingFile.name}</h3>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -572,18 +573,103 @@ export default function CourseWeeks() {
                         <X className="h-4 w-4" />
                       </Button>
                     </div>
-                    <div className="flex-1 overflow-auto bg-muted/20 rounded-lg flex items-center justify-center min-h-0">
-                      <FilePreview
-                        fileName={viewingFile.name}
-                        fileUrl={viewingFile.url}
-                        className="w-full h-full"
-                      />
+
+                    {/* Viewer Content */}
+                    <div className="flex-1 overflow-auto bg-muted/20 flex items-center justify-center">
+                      {/* PDF/PPTX Viewer */}
+                      {(viewingFile.name.toLowerCase().endsWith('.pdf') || 
+                        viewingFile.name.toLowerCase().endsWith('.pptx') || 
+                        viewingFile.name.toLowerCase().endsWith('.ppt')) ? (
+                        <div className="flex flex-col items-center justify-center p-4">
+                          {convertedUrl ? (
+                            <>
+                              <Document
+                                file={convertedUrl}
+                                onLoadSuccess={({ numPages }) => {
+                                  setNumPages(numPages);
+                                  setDocumentLoadError(false);
+                                }}
+                                onLoadError={(error) => {
+                                  console.error('PDF load error:', error);
+                                  setDocumentLoadError(true);
+                                }}
+                                className="shadow-lg rounded-lg"
+                              >
+                                <Page
+                                  pageNumber={pageNumber}
+                                  scale={scale}
+                                  renderTextLayer={true}
+                                  renderAnnotationLayer={true}
+                                />
+                              </Document>
+                              {documentLoadError && (
+                                <div className="h-64 bg-muted rounded-lg flex items-center justify-center mt-4">
+                                  <p className="text-xs text-muted-foreground">Preview not available</p>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-muted-foreground">Loading document...</p>
+                          )}
+                        </div>
+                      ) : (
+                        <FilePreview
+                          fileName={viewingFile.name}
+                          fileUrl={viewingFile.url}
+                          className="w-full h-full"
+                        />
+                      )}
                     </div>
-                  </div>
+
+                    {/* Control Bar for PDF/PPTX */}
+                    {(viewingFile.name.toLowerCase().endsWith('.pdf') || 
+                      viewingFile.name.toLowerCase().endsWith('.pptx') || 
+                      viewingFile.name.toLowerCase().endsWith('.ppt')) && convertedUrl && numPages > 0 && (
+                      <div className="flex-shrink-0 bg-card border-t p-3 flex items-center justify-center gap-3">
+                        <Button
+                          onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+                          disabled={pageNumber <= 1}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Previous
+                        </Button>
+                        <span className="text-sm text-muted-foreground">
+                          {pageNumber} / {numPages}
+                        </span>
+                        <Button
+                          onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
+                          disabled={pageNumber >= numPages}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Next
+                        </Button>
+                        <Button
+                          onClick={() => setScale(s => Math.max(0.5, s - 0.2))}
+                          variant="outline"
+                          size="sm"
+                          data-testid="button-zoom-out"
+                        >
+                          <ZoomOut className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          onClick={() => setScale(s => Math.min(2.5, s + 0.2))}
+                          variant="outline"
+                          size="sm"
+                          data-testid="button-zoom-in"
+                        >
+                          <ZoomIn className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
                 ) : (
-                  <div className="text-center text-muted-foreground">
-                    <FileText className="h-12 w-12 mx-auto mb-2 opacity-20" />
-                    <p className="text-sm">Select a file from the lesson files to preview</p>
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center text-muted-foreground">
+                      <FileText className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                      <p className="text-sm">Select a file to preview</p>
+                    </div>
                   </div>
                 )}
               </div>
