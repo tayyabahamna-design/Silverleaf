@@ -530,7 +530,7 @@ export default function TrainerBatches() {
               </div>
 
               {/* Tabs */}
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1">
+              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 overflow-hidden">
                 <TabsList className="grid w-full grid-cols-4 flex-shrink-0 rounded-none border-b">
                   <TabsTrigger value="teachers" data-testid="tab-teachers">
                     <Users className="mr-2 h-4 w-4" />
