@@ -538,6 +538,7 @@ export default function CourseView() {
                           <video
                             src={viewUrl}
                             controls
+                            controlsList="nodownload"
                             className="w-full h-auto rounded-xl shadow-2xl bg-black"
                             data-testid="video-viewer"
                           >
@@ -795,6 +796,7 @@ export default function CourseView() {
                     <video
                       src={viewUrl}
                       controls
+                      controlsList="nodownload"
                       className="w-full h-full object-contain bg-black"
                       data-testid="video-viewer-fullscreen"
                     >
