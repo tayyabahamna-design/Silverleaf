@@ -761,12 +761,12 @@ export default function CourseView() {
             </div>
 
             {/* Fullscreen content */}
-            <div className="flex-1 p-6 overflow-auto bg-muted/20 relative">
+            <div className="flex-1 overflow-auto bg-muted/20 relative">
               {selectedFile && viewUrl && (
                 (selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                  selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                  selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                  <div className="h-full flex flex-col items-center pb-24">
+                  <div className="h-full flex flex-col items-center pb-24 p-6">
                     <div className="select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
                       <Document
                         file={viewUrl}
@@ -836,6 +836,13 @@ export default function CourseView() {
                           )}
                         </div>
                       </div>
+                    </div>
+                  </div>
+                ) : (selectedFile.fileName.toLowerCase().endsWith('.docx') || 
+                     selectedFile.fileName.toLowerCase().endsWith('.doc')) ? (
+                  <div className="h-full flex items-center justify-center p-6">
+                    <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-lg shadow-2xl">
+                      <DocumentViewer url={viewUrl} />
                     </div>
                   </div>
                 ) : (selectedFile.fileName.toLowerCase().endsWith('.mp4') ||
