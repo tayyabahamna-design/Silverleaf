@@ -795,7 +795,15 @@ export default function TrainerBatches() {
                   ) : (
                     <div className="space-y-2">
                       {assignedQuizzes.map((quiz: any) => (
-                        <Card key={quiz.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                        <Card
+                          key={quiz.id}
+                          className="cursor-pointer hover:shadow-md transition-shadow"
+                          onClick={() => {
+                            setSelectedQuizId(quiz.id);
+                            setViewQuizDetailsOpen(true);
+                          }}
+                          data-testid={`card-quiz-${quiz.id}`}
+                        >
                           <CardContent className="py-4">
                             <div className="flex items-start justify-between gap-3">
                               <div className="flex-1 min-w-0">
@@ -812,7 +820,10 @@ export default function TrainerBatches() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => deleteQuizMutation.mutate(quiz.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteQuizMutation.mutate(quiz.id);
+                                }}
                                 data-testid={`button-delete-quiz-${quiz.id}`}
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -1027,6 +1038,74 @@ export default function TrainerBatches() {
           )}
         </div>
       </main>
+
+      {/* View Quiz Details Dialog */}
+      <Dialog open={viewQuizDetailsOpen} onOpenChange={setViewQuizDetailsOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{quizDetails?.title || "Quiz Details"}</DialogTitle>
+            <DialogDescription>
+              {quizDetails?.description || ""} • {quizDetails?.questions?.length || 0} questions
+            </DialogDescription>
+          </DialogHeader>
+          {!quizDetails ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Loading quiz details...
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {quizDetails.questions?.map((question: any, index: number) => (
+                <Card key={question.id || index}>
+                  <CardContent className="pt-6">
+                    <div className="space-y-4">
+                      <div>
+                        <p className="font-semibold text-base">
+                          Question {index + 1}: {question.question}
+                        </p>
+                        <Badge variant="outline" className="mt-2">
+                          {question.type === "true_false" ? "True/False" : "Multiple Choice"}
+                        </Badge>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">Options:</p>
+                        <div className="space-y-2">
+                          {question.options?.map((option: string, optionIndex: number) => (
+                            <div
+                              key={optionIndex}
+                              className={`p-3 rounded-lg border ${
+                                option === question.correctAnswer
+                                  ? "bg-green-50 dark:bg-green-950/20 border-green-300 dark:border-green-700"
+                                  : "bg-muted/50 border-border"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {option === question.correctAnswer && (
+                                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+                                )}
+                                <span className={option === question.correctAnswer ? "font-semibold text-green-700 dark:text-green-300" : ""}>
+                                  {option}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t">
+                        <p className="text-sm">
+                          <span className="font-semibold text-muted-foreground">Correct Answer: </span>
+                          <span className="text-green-600 dark:text-green-400 font-semibold">{question.correctAnswer}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Teacher Attempts Dialog */}
       <Dialog open={viewTeacherAttemptsOpen} onOpenChange={setViewTeacherAttemptsOpen}>
