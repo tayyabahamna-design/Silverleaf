@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Plus, Trash2, Pencil, ChevronRight, LogOut, BarChart3, FileText, CheckCircle, Users } from "lucide-react";
@@ -33,6 +34,9 @@ export default function CoursesList() {
   const [newCourseDescription, setNewCourseDescription] = useState("");
   const [assignOpen, setAssignOpen] = useState(false);
   const [assigningCourseId, setAssigningCourseId] = useState<string | null>(null);
+  const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
+  const [resetUserIdentifier, setResetUserIdentifier] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState("");
 
   // Fetch courses - show all for admin/trainer, only assigned for teacher
   const { data: courses = [], isLoading } = useQuery<CourseWithAssignment[]>({
@@ -110,6 +114,19 @@ export default function CoursesList() {
     },
   });
 
+  // Reset password mutation
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ userIdentifier, newPassword }: { userIdentifier: string; newPassword: string }) => {
+      return apiRequest("POST", "/api/admin/reset-user-password", { userIdentifier, newPassword });
+    },
+    onSuccess: () => {
+      toast({ title: "Password reset successfully" });
+      setResetPasswordOpen(false);
+      setResetUserIdentifier("");
+      setResetNewPassword("");
+    },
+  });
+
   const handleEdit = (course: Course) => {
     setEditingId(course.id);
     setEditName(course.name);
@@ -143,6 +160,61 @@ export default function CoursesList() {
             )}
             {isAdmin && (
               <>
+                <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      data-testid="button-reset-password"
+                      className="bg-white/10 hover:bg-white/20 text-white border-white/20 hidden sm:flex"
+                    >
+                      Reset Password
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Reset User Password</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="userIdentifier">Username or Email</Label>
+                        <Input
+                          id="userIdentifier"
+                          placeholder="admin or admin@example.com"
+                          value={resetUserIdentifier}
+                          onChange={(e) => setResetUserIdentifier(e.target.value)}
+                          data-testid="input-user-identifier"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="newPassword">New Password</Label>
+                        <PasswordInput
+                          id="newPassword"
+                          placeholder="Enter new password (min 6 characters)"
+                          value={resetNewPassword}
+                          onChange={(e) => setResetNewPassword(e.target.value)}
+                          data-testid="input-new-password"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setResetPasswordOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          resetPasswordMutation.mutate({
+                            userIdentifier: resetUserIdentifier,
+                            newPassword: resetNewPassword,
+                          });
+                        }}
+                        disabled={resetPasswordMutation.isPending}
+                      >
+                        Reset
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
                 <Button
                   variant="secondary"
                   size="sm"
