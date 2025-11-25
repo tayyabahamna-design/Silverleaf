@@ -51,16 +51,26 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
     queryKey: ['/api/training-weeks', weekId, 'files', fileId, 'quiz'],
     queryFn: async () => {
       try {
-        const response = await apiRequest('GET', `/api/training-weeks/${weekId}/files/${fileId}/quiz`);
-        if (!response.ok) {
-          console.log('[FILE-QUIZ-DIALOG] Quiz endpoint returned:', response.status);
+        console.log(`[FILE-QUIZ-DIALOG] 🔍 Fetching quiz from: /api/training-weeks/${weekId}/files/${fileId}/quiz`);
+        const response = await fetch(`/api/training-weeks/${weekId}/files/${fileId}/quiz`, {
+          credentials: 'include',
+        });
+        
+        if (response.status === 404) {
+          console.log('[FILE-QUIZ-DIALOG] ℹ️ Quiz not yet created (404)');
           return null;
         }
+        
+        if (!response.ok) {
+          console.log(`[FILE-QUIZ-DIALOG] ❌ Error response: ${response.status} ${response.statusText}`);
+          return null;
+        }
+        
         const data = await response.json();
-        console.log('[FILE-QUIZ-DIALOG] 📥 Fetched existing quiz:', data.questions?.length, 'questions');
+        console.log('[FILE-QUIZ-DIALOG] ✅ Successfully fetched quiz:', data.questions?.length, 'questions');
         return data;
       } catch (error) {
-        console.log('[FILE-QUIZ-DIALOG] No quiz found:', error);
+        console.error('[FILE-QUIZ-DIALOG] 💥 Fetch error:', error instanceof Error ? error.message : String(error));
         return null;
       }
     },

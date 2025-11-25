@@ -714,6 +714,7 @@ export class DatabaseStorage implements IStorage {
 
   // Quiz cache operations (pre-caching for instant delivery)
   async getCachedQuiz(weekId: string, fileId: string): Promise<QuizCache | undefined> {
+    console.log(`[STORAGE] 🔍 getCachedQuiz called with weekId=${weekId}, fileId=${fileId}`);
     const [cached] = await db
       .select()
       .from(quizCache)
@@ -724,6 +725,12 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .limit(1);
+    
+    if (cached) {
+      console.log(`[STORAGE] ✅ Found quiz with ${cached.questions.length} questions`);
+    } else {
+      console.log(`[STORAGE] ❌ No quiz found for weekId=${weekId}, fileId=${fileId}`);
+    }
     return cached;
   }
 
