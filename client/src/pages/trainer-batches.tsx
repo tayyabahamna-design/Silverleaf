@@ -45,6 +45,9 @@ export default function TrainerBatches() {
   const [selectedWeek, setSelectedWeek] = useState("");
   const [selectedFileId, setSelectedFileId] = useState("");
   const [numQuestions, setNumQuestions] = useState("5");
+  const [appreciationText, setAppreciationText] = useState("");
+  const [adminName1, setAdminName1] = useState("");
+  const [adminName2, setAdminName2] = useState("");
 
   const { data: batches = [] } = useQuery<any[]>({
     queryKey: ["/api/batches"],
@@ -90,6 +93,12 @@ export default function TrainerBatches() {
   const { data: teacherAttempts = [] } = useQuery<any[]>({
     queryKey: ["/api/batches", selectedBatch?.id, "teachers", selectedTeacher?.id, "quiz-attempts"],
     enabled: !!selectedBatch?.id && !!selectedTeacher?.id && viewTeacherAttemptsOpen,
+  });
+
+  // Fetch batch certificate template
+  const { data: template } = useQuery<any>({
+    queryKey: [`/api/batches/${selectedBatch?.id}/certificate-template`],
+    enabled: !!selectedBatch?.id && activeTab === "certificates",
   });
 
   const createBatchMutation = useMutation({
@@ -257,6 +266,30 @@ export default function TrainerBatches() {
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  const saveCertificateTemplateMutation = useMutation({
+    mutationFn: async () => {
+      const batchCourses = await apiRequest("GET", `/api/batches/${selectedBatch.id}/courses`);
+      const courseId = batchCourses[0]?.id;
+      
+      return apiRequest("POST", `/api/batches/${selectedBatch.id}/certificate-template`, {
+        courseId,
+        appreciationText,
+        adminName1,
+        adminName2,
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/batches/${selectedBatch?.id}/certificate-template`] });
+      setAppreciationText(data.appreciationText);
+      setAdminName1(data.adminName1 || "");
+      setAdminName2(data.adminName2 || "");
+      toast({ title: "Template saved successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -498,7 +531,7 @@ export default function TrainerBatches() {
 
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1">
-                <TabsList className="grid w-full grid-cols-3 flex-shrink-0 rounded-none border-b">
+                <TabsList className="grid w-full grid-cols-4 flex-shrink-0 rounded-none border-b">
                   <TabsTrigger value="teachers" data-testid="tab-teachers">
                     <Users className="mr-2 h-4 w-4" />
                     Teachers
@@ -510,6 +543,10 @@ export default function TrainerBatches() {
                   <TabsTrigger value="progress" data-testid="tab-progress">
                     <TrendingUp className="mr-2 h-4 w-4" />
                     Progress
+                  </TabsTrigger>
+                  <TabsTrigger value="certificates" data-testid="tab-certificates">
+                    <FileText className="mr-2 h-4 w-4" />
+                    Certificates
                   </TabsTrigger>
                 </TabsList>
 
@@ -849,6 +886,88 @@ export default function TrainerBatches() {
                       ))}
                     </div>
                   )}
+                </TabsContent>
+
+                {/* Certificates Tab */}
+                <TabsContent value="certificates" className="space-y-4 flex-1 overflow-y-auto p-4">
+                  <div className="space-y-4">
+                    <div className="bg-muted/30 p-4 rounded-lg border">
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Configure the certificate template for this batch. After setup, contact admin to approve.
+                      </p>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium">Appreciation Text</label>
+                          <Textarea
+                            value={appreciationText || (template?.appreciationText ?? "")}
+                            onChange={(e) => setAppreciationText(e.target.value)}
+                            placeholder="In recognition of successfully completing the training program"
+                            className="mt-2"
+                            data-testid="input-cert-appreciation-text"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium">Admin Name 1</label>
+                            <Input
+                              value={adminName1 || (template?.adminName1 ?? "")}
+                              onChange={(e) => setAdminName1(e.target.value)}
+                              placeholder="First admin name"
+                              className="mt-2"
+                              data-testid="input-cert-admin-name-1"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium">Admin Name 2</label>
+                            <Input
+                              value={adminName2 || (template?.adminName2 ?? "")}
+                              onChange={(e) => setAdminName2(e.target.value)}
+                              placeholder="Second admin name (optional)"
+                              className="mt-2"
+                              data-testid="input-cert-admin-name-2"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="p-4 bg-background rounded-lg border">
+                          <p className="text-sm font-medium mb-3">Preview</p>
+                          <div className="text-xs text-muted-foreground space-y-2 p-3 bg-muted/30 rounded">
+                            <p>{appreciationText || template?.appreciationText || "No appreciation text"}</p>
+                            <p className="mt-4 pt-4 border-t">Signed by:</p>
+                            <p>{adminName1 || template?.adminName1 || "Admin Name 1"}</p>
+                            {(adminName2 || template?.adminName2) && <p>{adminName2 || template?.adminName2}</p>}
+                          </div>
+                        </div>
+
+                        <Button
+                          onClick={() => saveCertificateTemplateMutation.mutate()}
+                          disabled={saveCertificateTemplateMutation.isPending}
+                          data-testid="button-save-cert-template"
+                        >
+                          {saveCertificateTemplateMutation.isPending ? "Saving..." : "Save Template"}
+                        </Button>
+
+                        {template?.status && (
+                          <div className="text-sm p-3 rounded-lg bg-muted/50">
+                            <p className="font-medium">
+                              Status: <span className="capitalize">{template.status}</span>
+                            </p>
+                            {template.status === "approved" && (
+                              <p className="text-green-600 flex items-center gap-1 mt-1">
+                                <CheckCircle className="w-4 h-4" /> Approved by admin
+                              </p>
+                            )}
+                            {template.status === "draft" && (
+                              <p className="text-muted-foreground text-xs mt-1">
+                                Save your template and request approval from admin
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </TabsContent>
               </Tabs>
             </div>

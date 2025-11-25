@@ -89,10 +89,10 @@ export default function AdminCertificateApproval() {
     },
   });
 
-  if (!isAdmin) {
+  if (!user || (user.role !== "admin" && user.role !== "trainer")) {
     return (
       <div className="min-h-screen bg-background p-8">
-        <div>Access denied. Admin only.</div>
+        <div>Access denied. Admin or Trainer access required.</div>
       </div>
     );
   }

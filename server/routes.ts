@@ -2530,7 +2530,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== CERTIFICATE MANAGEMENT ====================
   // Get certificate template for batch
-  app.get("/api/batches/:batchId/certificate-template", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/batches/:batchId/certificate-template", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const template = await storage.getBatchCertificateTemplate(req.params.batchId);
       res.json(template || null);
@@ -2540,8 +2540,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upsert certificate template (admin)
-  app.post("/api/batches/:batchId/certificate-template", isAuthenticated, isAdmin, async (req, res) => {
+  // Upsert certificate template (admin or trainer)
+  app.post("/api/batches/:batchId/certificate-template", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { courseId, appreciationText, adminName1, adminName2 } = req.body;
       const template = await storage.upsertBatchCertificateTemplate({
@@ -2559,7 +2559,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Approve certificate template (admin)
+  // Approve certificate template (admin only)
   app.post("/api/batches/:batchId/certificate-template/approve", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const template = await storage.approveBatchCertificateTemplate(req.params.batchId, req.user!.id);
@@ -2571,7 +2571,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate certificates for completed teachers in batch-course (admin)
+  // Generate certificates for completed teachers in batch-course (admin only)
   app.post("/api/batches/:batchId/courses/:courseId/generate-certificates", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const completedTeachers = await storage.getCompletedTeachersForBatchCourse(req.params.batchId, req.params.courseId);
@@ -2627,8 +2627,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get certificates for batch
-  app.get("/api/batches/:batchId/certificates", isAuthenticated, isAdmin, async (req, res) => {
+  // Get certificates for batch (admin or trainer)
+  app.get("/api/batches/:batchId/certificates", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const certs = await storage.getCertificatesForBatch(req.params.batchId);
       res.json(certs);
