@@ -25,17 +25,31 @@ import type { TocEntry } from "@shared/schema";
 function DocumentViewer({ url }: { url: string }) {
   const [html, setHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchDocument = async () => {
       try {
         const response = await fetch(url);
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Invalid response format: expected JSON');
+        }
+        
         const data = await response.json();
-        setHtml(data.html);
+        if (data.html) {
+          setHtml(data.html);
+          setError(null);
+        } else {
+          throw new Error('No HTML content in response');
+        }
       } catch (error) {
         console.error('Error loading document:', error);
-        setHtml('<p>Failed to load document</p>');
+        setError('Failed to load document. Please try again.');
+        setHtml('');
       } finally {
         setLoading(false);
       }
@@ -45,6 +59,10 @@ function DocumentViewer({ url }: { url: string }) {
 
   if (loading) {
     return <div className="flex items-center justify-center w-full p-12"><p className="text-muted-foreground">Loading document...</p></div>;
+  }
+
+  if (error) {
+    return <div className="flex items-center justify-center w-full p-12"><p className="text-destructive">{error}</p></div>;
   }
 
   return (
@@ -557,6 +575,7 @@ export default function CourseView() {
                           <Document
                             file={viewUrl}
                             onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                            onLoadError={(error) => console.error('PDF load error:', error)}
                             className="shadow-2xl rounded-xl overflow-hidden"
                           >
                             <Page
