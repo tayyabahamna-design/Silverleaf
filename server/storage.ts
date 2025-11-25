@@ -1,10 +1,7 @@
 import { 
   type TrainingWeek, 
   type InsertTrainingWeek, 
-  type UpdateTrainingWeek,
-  type Course,
-  type InsertCourse,
-  type UpdateCourse,
+  type UpdateTrainingWeek, 
   type User,
   type InsertUser,
   type ContentItem,
@@ -40,7 +37,6 @@ import {
   type InsertTeacherQuizRegeneration,
   type ApprovalHistory,
   type InsertApprovalHistory,
-  courses,
   trainingWeeks,
   approvalHistory,
   users,
@@ -68,17 +64,8 @@ import connectPg from "connect-pg-simple";
 const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
-  // Course operations
-  getAllCourses(): Promise<Course[]>;
-  getCourse(id: string): Promise<Course | undefined>;
-  createCourse(course: InsertCourse): Promise<Course>;
-  updateCourse(course: UpdateCourse): Promise<Course | undefined>;
-  deleteCourse(id: string): Promise<boolean>;
-  getCourseWithWeeks(id: string): Promise<(Course & { weeks: TrainingWeek[] }) | undefined>;
-  
   // Training week operations
   getAllTrainingWeeks(): Promise<TrainingWeek[]>;
-  getTrainingWeeksByCourse(courseId: string): Promise<TrainingWeek[]>;
   getTrainingWeek(id: string): Promise<TrainingWeek | undefined>;
   createTrainingWeek(week: InsertTrainingWeek): Promise<TrainingWeek>;
   updateTrainingWeek(week: UpdateTrainingWeek): Promise<TrainingWeek | undefined>;
@@ -204,64 +191,8 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  // Course operations
-  async getAllCourses(): Promise<Course[]> {
-    const allCourses = await db.select().from(courses).orderBy(courses.createdAt);
-    return allCourses;
-  }
-
-  async getCourse(id: string): Promise<Course | undefined> {
-    const [course] = await db.select().from(courses).where(eq(courses.id, id));
-    return course || undefined;
-  }
-
-  async createCourse(insertCourse: InsertCourse): Promise<Course> {
-    const [course] = await db
-      .insert(courses)
-      .values(insertCourse)
-      .returning();
-    return course;
-  }
-
-  async updateCourse(updateCourse: UpdateCourse): Promise<Course | undefined> {
-    const { id, ...updates } = updateCourse;
-    const [course] = await db
-      .update(courses)
-      .set(updates)
-      .where(eq(courses.id, id))
-      .returning();
-    return course || undefined;
-  }
-
-  async deleteCourse(id: string): Promise<boolean> {
-    const result = await db.delete(courses).where(eq(courses.id, id));
-    return result.rowCount !== null && result.rowCount > 0;
-  }
-
-  async getCourseWithWeeks(id: string): Promise<(Course & { weeks: TrainingWeek[] }) | undefined> {
-    const [course] = await db.select().from(courses).where(eq(courses.id, id));
-    if (!course) return undefined;
-    
-    const courseWeeks = await db
-      .select()
-      .from(trainingWeeks)
-      .where(eq(trainingWeeks.courseId, id))
-      .orderBy(trainingWeeks.weekNumber);
-    
-    return { ...course, weeks: courseWeeks };
-  }
-
   async getAllTrainingWeeks(): Promise<TrainingWeek[]> {
     const weeks = await db.select().from(trainingWeeks).orderBy(trainingWeeks.weekNumber);
-    return weeks;
-  }
-
-  async getTrainingWeeksByCourse(courseId: string): Promise<TrainingWeek[]> {
-    const weeks = await db
-      .select()
-      .from(trainingWeeks)
-      .where(eq(trainingWeeks.courseId, courseId))
-      .orderBy(trainingWeeks.weekNumber);
     return weeks;
   }
 

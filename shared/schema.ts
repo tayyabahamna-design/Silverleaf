@@ -79,30 +79,9 @@ export const deckFileSchema = z.object({
 
 export type DeckFile = z.infer<typeof deckFileSchema>;
 
-// Courses table
-export const courses = pgTable("courses", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: varchar("name").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const insertCourseSchema = createInsertSchema(courses).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const updateCourseSchema = insertCourseSchema.partial().extend({
-  id: z.string(),
-});
-
-export type InsertCourse = z.infer<typeof insertCourseSchema>;
-export type UpdateCourse = z.infer<typeof updateCourseSchema>;
-export type Course = typeof courses.$inferSelect;
-
 // Training weeks table
 export const trainingWeeks = pgTable("training_weeks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  courseId: varchar("course_id").references(() => courses.id, { onDelete: "cascade" }),
   weekNumber: integer("week_number").notNull(),
   competencyFocus: text("competency_focus").notNull().default(""),
   objective: text("objective").notNull().default(""),
