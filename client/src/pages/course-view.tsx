@@ -468,7 +468,7 @@ export default function CourseView() {
                               <div className="ml-3 pl-3 border-l-2 border-primary/20">
                                 <div className="bg-muted/30 rounded-lg overflow-hidden">
                                   <TableOfContents
-                                    toc={file.toc}
+                                    toc={file.toc || []}
                                     currentPage={selectedFileId === file.id ? pageNumber : 1}
                                     onPageSelect={(page) => {
                                       // If selecting a ToC entry for a different file, set the intended page first
@@ -824,19 +824,19 @@ export default function CourseView() {
                       </div>
                     )}
                   </div>
-                ) : (selectedFile.fileName.toLowerCase().endsWith('.docx') || 
-                     selectedFile.fileName.toLowerCase().endsWith('.doc')) ? (
+                ) : (selectedFile?.fileName.toLowerCase().endsWith('.docx') || 
+                     selectedFile?.fileName.toLowerCase().endsWith('.doc')) ? (
                   <div className="h-full flex items-start justify-center p-6 overflow-auto">
                     <div className="w-full max-w-4xl bg-white dark:bg-slate-900 rounded-lg shadow-2xl overflow-y-auto max-h-[calc(100vh-180px)]">
-                      <DocumentViewer url={viewUrl} />
+                      <DocumentViewer url={viewUrl || ''} />
                     </div>
                   </div>
-                ) : (selectedFile.fileName.toLowerCase().endsWith('.mp4') ||
-                 selectedFile.fileName.toLowerCase().endsWith('.webm') ||
-                 selectedFile.fileName.toLowerCase().endsWith('.mov')) ? (
+                ) : (selectedFile?.fileName.toLowerCase().endsWith('.mp4') ||
+                 selectedFile?.fileName.toLowerCase().endsWith('.webm') ||
+                 selectedFile?.fileName.toLowerCase().endsWith('.mov')) ? (
                   <div className="h-full flex flex-col items-center justify-center">
                     <video
-                      src={viewUrl}
+                      src={viewUrl || ''}
                       controls
                       controlsList="nodownload"
                       className="w-full h-full object-contain bg-black"
@@ -847,9 +847,9 @@ export default function CourseView() {
                   </div>
                 ) : (
                   <iframe
-                    src={viewUrl}
+                    src={viewUrl || ''}
                     className="w-full h-full border-0 select-none"
-                    title={selectedFile.fileName}
+                    title={selectedFile?.fileName || 'Document'}
                     style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
                     sandbox="allow-same-origin allow-scripts"
                     onContextMenu={(e) => e.preventDefault()}

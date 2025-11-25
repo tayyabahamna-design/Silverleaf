@@ -29,6 +29,7 @@ export const users = pgTable("users", {
   approvedAt: timestamp("approved_at"), // timestamp when approved
   resetToken: varchar("reset_token"), // password reset token
   resetTokenExpiry: timestamp("reset_token_expiry"), // token expiration time
+  lastLogin: timestamp("last_login"), // timestamp of last login
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -44,6 +45,45 @@ export const insertUserSchema = createInsertSchema(users).omit({
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+
+// User progress table (for admin dashboard analytics)
+export const userProgress = pgTable("user_progress", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  courseId: varchar("course_id").notNull(), // Training week ID
+  percentComplete: integer("percent_complete").notNull().default(0),
+  lastUpdated: timestamp("last_updated").defaultNow(),
+}, (table) => [
+  index("idx_user_progress_user").on(table.userId),
+  index("idx_user_progress_course").on(table.courseId),
+]);
+
+export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
+  id: true,
+});
+
+export type InsertUserProgressRecord = z.infer<typeof insertUserProgressSchema>;
+export type UserProgressRecord = typeof userProgress.$inferSelect;
+
+// Activity logs table (for tracking user actions)
+export const activityLogs = pgTable("activity_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  action: varchar("action").notNull(), // 'login', 'view', 'complete', etc.
+  details: text("details"), // JSON string with additional details
+  timestamp: timestamp("timestamp").defaultNow(),
+}, (table) => [
+  index("idx_activity_logs_user").on(table.userId),
+  index("idx_activity_logs_timestamp").on(table.timestamp),
+]);
+
+export const insertActivityLogSchema = createInsertSchema(activityLogs).omit({
+  id: true,
+  timestamp: true,
+});
+
+export type InsertActivityLog = z.infer<typeof insertActivityLogSchema>;
+export type ActivityLog = typeof activityLogs.$inferSelect;
 
 // Table of Contents entry type
 export const tocEntrySchema = z.object({
@@ -107,7 +147,7 @@ export type InsertContentItem = z.infer<typeof insertContentItemSchema>;
 export type ContentItem = typeof contentItems.$inferSelect;
 
 // User progress tracking table
-export const userProgress = pgTable("user_progress", {
+export const userContentProgress = pgTable("user_content_progress", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   contentItemId: varchar("content_item_id").notNull().references(() => contentItems.id, { onDelete: "cascade" }),
@@ -117,17 +157,17 @@ export const userProgress = pgTable("user_progress", {
   lastAccessedAt: timestamp("last_accessed_at").defaultNow(),
 });
 
-export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
+export const insertUserContentProgressSchema = createInsertSchema(userContentProgress).omit({
   id: true,
 });
 
-export const updateUserProgressSchema = insertUserProgressSchema.partial().extend({
+export const updateUserContentProgressSchema = insertUserContentProgressSchema.partial().extend({
   id: z.string(),
 });
 
-export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
-export type UpdateUserProgress = z.infer<typeof updateUserProgressSchema>;
-export type UserProgress = typeof userProgress.$inferSelect;
+export type InsertUserContentProgress = z.infer<typeof insertUserContentProgressSchema>;
+export type UpdateUserContentProgress = z.infer<typeof updateUserContentProgressSchema>;
+export type UserContentProgress = typeof userContentProgress.$inferSelect;
 
 // Deck file progress tracking table
 export const deckFileProgress = pgTable("deck_file_progress", {
@@ -228,6 +268,7 @@ export const teachers = pgTable("teachers", {
   approvedBy: varchar("approved_by"), // ID of admin/trainer who approved (null if pending)
   approvedByRole: varchar("approved_by_role"), // 'admin' or 'trainer' - who approved them
   approvedAt: timestamp("approved_at"), // timestamp when approved
+  lastLogin: timestamp("last_login"), // timestamp of last login
   createdAt: timestamp("created_at").defaultNow(),
 });
 

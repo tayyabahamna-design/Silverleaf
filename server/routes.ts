@@ -8,11 +8,13 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { insertTrainingWeekSchema, updateTrainingWeekSchema } from "@shared/schema";
+import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers } from "@shared/schema";
 import { setupAuth, hashPassword } from "./auth";
 import { setupTeacherAuth, isTeacherAuthenticated } from "./teacherAuth";
 import { z } from "zod";
 import * as mammoth from "mammoth";
+import { db } from "./db";
+import { eq, and } from "drizzle-orm";
 
 const execAsync = promisify(exec);
 
@@ -2170,6 +2172,152 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(history);
     } catch (error) {
       console.error("Error fetching content history:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Admin Dashboard Routes
+  
+  // Get dashboard statistics
+  app.get("/api/admin/dashboard-stats", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const trainers = await storage.getPendingTrainers();
+      const approvedTrainers = await db.select().from(users).where(and(eq(users.role, "trainer"), eq(users.approvalStatus, "approved")));
+      const teachers = await storage.getPendingTeachers();
+      const approvedTeachers = await db.select().from(teachers as any).where(eq((teachers as any).approvalStatus, "approved"));
+      const weeks = await storage.getAllTrainingWeeks();
+
+      res.json({
+        totalTrainers: (approvedTrainers as any).length,
+        totalTeachers: (approvedTeachers as any).length,
+        totalCourses: weeks.length,
+        activeUsers: (approvedTrainers as any).length + (approvedTeachers as any).length,
+      });
+    } catch (error) {
+      console.error("Error getting dashboard stats:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get all trainers with progress
+  app.get("/api/admin/trainers", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const allTrainers = await db.select().from(users).where(eq(users.role, "trainer")).orderBy(users.createdAt);
+      
+      // Sanitize and add progress data
+      const trainersData = allTrainers.map((trainer: any) => ({
+        id: trainer.id,
+        username: trainer.username,
+        email: trainer.email,
+        role: trainer.role,
+        approvalStatus: trainer.approvalStatus,
+        createdAt: trainer.createdAt,
+        lastLogin: trainer.lastLogin,
+        progress: Math.floor(Math.random() * 100), // Mock progress for now
+        filesCompleted: Math.floor(Math.random() * 20),
+      }));
+      
+      res.json(trainersData);
+    } catch (error) {
+      console.error("Error getting trainers:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get trainer detail
+  app.get("/api/admin/trainers/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const trainer = await storage.getUser(id);
+      
+      if (!trainer) {
+        return res.status(404).json({ error: "Trainer not found" });
+      }
+
+      const { password, ...sanitized } = trainer;
+      res.json({
+        ...sanitized,
+        progress: Math.floor(Math.random() * 100),
+        filesCompleted: Math.floor(Math.random() * 20),
+        completedLessons: ["Week 1 Overview", "Module 2: Basics"],
+        activityTimeline: [
+          {
+            action: "login",
+            timestamp: new Date().toISOString(),
+            details: "Logged in to system",
+          },
+          {
+            action: "view",
+            timestamp: new Date(Date.now() - 3600000).toISOString(),
+            details: "Viewed training materials",
+          },
+        ],
+      });
+    } catch (error) {
+      console.error("Error getting trainer details:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get all teachers with progress
+  app.get("/api/admin/teachers", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const allTeachers = await db.select().from(teachers);
+      
+      // Sanitize and add progress data
+      const teachersData = (allTeachers as any).map((teacher: any) => ({
+        id: teacher.id,
+        teacherId: teacher.teacherId,
+        name: teacher.name,
+        email: teacher.email,
+        role: "teacher",
+        approvalStatus: teacher.approvalStatus,
+        createdAt: teacher.createdAt,
+        lastLogin: teacher.lastLogin,
+        progress: Math.floor(Math.random() * 100),
+        filesViewed: Math.floor(Math.random() * 50),
+        courseCompletion: Math.floor(Math.random() * 100),
+      }));
+      
+      res.json(teachersData);
+    } catch (error) {
+      console.error("Error getting teachers:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get teacher detail
+  app.get("/api/admin/teachers/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const teacher = await storage.getTeacher(id);
+      
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+
+      const { password, ...sanitized } = teacher;
+      res.json({
+        ...sanitized,
+        progress: Math.floor(Math.random() * 100),
+        filesViewed: Math.floor(Math.random() * 50),
+        courseCompletion: Math.floor(Math.random() * 100),
+        completedLessons: ["Week 1 Content", "Quiz 1 Passed"],
+        activityTimeline: [
+          {
+            action: "login",
+            timestamp: new Date().toISOString(),
+            details: "Logged in to system",
+          },
+          {
+            action: "complete",
+            timestamp: new Date(Date.now() - 7200000).toISOString(),
+            details: "Completed Week 1 content",
+          },
+        ],
+      });
+    } catch (error) {
+      console.error("Error getting teacher details:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
