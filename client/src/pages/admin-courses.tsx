@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
-import { Plus, Trash2, Edit, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Edit, ChevronRight, ChevronLeft } from "lucide-react";
 import type { Course } from "@shared/schema";
 
 export default function AdminCourses() {
@@ -98,6 +98,12 @@ export default function AdminCourses() {
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-6xl mx-auto">
+        <div className="flex items-center gap-4 mb-8">
+          <Button onClick={() => navigate("/admin")} variant="ghost" size="icon">
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1" />
+        </div>
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-4xl font-bold mb-2">Courses</h1>
