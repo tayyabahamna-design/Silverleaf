@@ -41,7 +41,7 @@ function SortableWeekItem({ week, onFilesUploaded, onWeekUpdated }: { week: Trai
   const [editValue, setEditValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isSavingRef = useRef(false);
-  const filePresignedUrlsRef = useRef<Map<string, string>>(new Map());
+  const lastUploadUrlRef = useRef<string>("");
 
   useEffect(() => {
     if (editingField === "objective" && textareaRef.current) {
@@ -66,53 +66,50 @@ function SortableWeekItem({ week, onFilesUploaded, onWeekUpdated }: { week: Trai
   const handleUploadSuccess = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
     if (result.successful && result.successful.length > 0) {
       try {
-        // Register files with the week
-        const files = result.successful.map((file: any) => {
-          // Get the presigned URL for this file and extract the base URL without query parameters
-          const presignedUrl = filePresignedUrlsRef.current.get(file.name) || "";
-          const urlWithoutQuery = presignedUrl.split('?')[0];
-          
-          console.log(`[Admin] Mapping file ${file.name} to URL: ${urlWithoutQuery}`);
-          
-          return {
-            fileUrl: urlWithoutQuery,
-            fileName: file.name,
-            fileSize: file.size,
-          };
-        });
+        // Extract the base URL from the presigned URL (remove query parameters)
+        const baseUrl = lastUploadUrlRef.current.split('?')[0];
         
-        console.log("[Admin] Registering files with backend:", files);
+        // Register files with the week
+        const files = result.successful.map((file: any) => ({
+          fileUrl: baseUrl,
+          fileName: file.name,
+          fileSize: file.size,
+        }));
+        
         await apiRequest("POST", `/api/training-weeks/${week.id}/deck`, { files });
         onFilesUploaded?.();
         toast({ title: `${result.successful.length} file(s) uploaded successfully` });
       } catch (error) {
         console.error("Error registering files:", error);
         toast({ title: "Files uploaded but failed to register", variant: "destructive" });
-      } finally {
-        // Clear the URLs after upload attempt
-        filePresignedUrlsRef.current.clear();
       }
     }
   };
 
-  const handleGetUploadParameters = async (file?: any) => {
+  const handleGetUploadParameters = async () => {
     try {
-      console.log("[Admin] Calling /api/objects/upload for file:", file?.name);
-      const response = await apiRequest("POST", `/api/objects/upload`, {});
-      console.log("[Admin] Got response:", response);
+      // Use fetch directly to ensure we get proper JSON response
+      const response = await fetch("/api/objects/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({}),
+      });
       
-      // Store the presigned URL for this file
-      if (file?.name) {
-        filePresignedUrlsRef.current.set(file.name, response.uploadURL);
-        console.log(`[Admin] Stored URL for ${file.name}: ${response.uploadURL}`);
+      if (!response.ok) {
+        throw new Error(`Upload URL request failed: ${response.status}`);
       }
+      
+      const data = await response.json() as { uploadURL: string };
+      console.log("[Admin] Received uploadURL:", data.uploadURL);
+      lastUploadUrlRef.current = data.uploadURL;
       
       return {
         method: "PUT" as const,
-        url: response.uploadURL,
+        url: data.uploadURL,
       };
     } catch (error) {
-      console.error("[Admin] Error getting upload parameters:", error);
+      console.error("[Admin] Error getting upload URL:", error);
       throw error;
     }
   };
@@ -244,52 +241,63 @@ function SortableWeekItem({ week, onFilesUploaded, onWeekUpdated }: { week: Trai
                 ) : (
                   <button
                     onClick={() => handleStartEdit("objective")}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors text-left w-full py-1 px-2 rounded hover:bg-muted/50 line-clamp-2 flex items-center justify-between"
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors text-left w-full py-1 px-2 rounded hover:bg-muted/50 flex items-center justify-between"
                     data-testid={`button-edit-objective-${week.id}`}
                   >
-                    <span>{week.objective}</span>
+                    <span>{week.objective || "Add objective..."}</span>
                     <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
                   </button>
                 )}
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Expanded Files Section */}
-        {isExpanded && (
-          <div className="border-t px-6 py-4 bg-muted/30">
-            <div className="space-y-4">
-              {/* File Upload */}
+          {/* Expanded Section */}
+          {isExpanded && (
+            <div className="mt-4 pt-4 border-t space-y-4">
+              {/* Files Section */}
               <div>
-                <Label className="text-sm font-semibold mb-3 block">Upload Files (PPT, PDF, DOCX, etc.)</Label>
-                <ObjectUploader
-                  onGetUploadParameters={handleGetUploadParameters}
-                  onComplete={handleUploadSuccess}
-                />
-              </div>
-
-              {/* Files List */}
-              {week.deckFiles && week.deckFiles.length > 0 && (
-                <div className="pt-4 border-t">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">FILES ({week.deckFiles.length})</p>
-                  <div className="space-y-2">
+                <h5 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Files ({week.deckFiles?.length || 0})
+                </h5>
+                
+                {week.deckFiles && week.deckFiles.length > 0 ? (
+                  <div className="space-y-2 mb-4">
                     {week.deckFiles.map((file) => (
-                      <div
-                        key={file.id}
-                        className="flex items-center gap-2 p-2 rounded bg-background text-sm"
-                        data-testid={`file-item-${file.id}`}
-                      >
-                        <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                        <span className="truncate flex-1">{file.fileName}</span>
+                      <div key={file.id} className="flex items-center justify-between p-2 bg-muted/50 rounded text-sm">
+                        <span className="truncate" data-testid={`text-file-${file.id}`}>{file.fileName}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {(file.fileSize / (1024 * 1024)).toFixed(2)} MB
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-xs text-muted-foreground mb-4">No files uploaded yet</p>
+                )}
+
+                {/* File Upload */}
+                <details className="group">
+                  <summary className="cursor-pointer flex items-center gap-2 text-sm text-primary hover:text-primary/80 mb-3 user-select-none">
+                    <Upload className="h-4 w-4" />
+                    <span>Upload Files</span>
+                  </summary>
+                  <div className="bg-muted/30 rounded p-3">
+                    <ObjectUploader
+                      maxNumberOfFiles={10}
+                      maxFileSize={52428800}
+                      onGetUploadParameters={handleGetUploadParameters}
+                      onComplete={handleUploadSuccess}
+                    />
+                  </div>
+                </details>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </Card>
     </div>
   );
@@ -298,11 +306,87 @@ function SortableWeekItem({ week, onFilesUploaded, onWeekUpdated }: { week: Trai
 export default function AdminCourseWeeks() {
   const { courseId } = useParams<{ courseId: string }>();
   const { user } = useAuth();
+  const navigate = useLocation()[1];
   const { toast } = useToast();
-  const [, navigate] = useLocation();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newWeekFocus, setNewWeekFocus] = useState("");
-  const [newWeekObjective, setNewWeekObjective] = useState("");
+  const [newWeekDialog, setNewWeekDialog] = useState(false);
+  const [newWeekData, setNewWeekData] = useState({ competencyFocus: "", objective: "" });
+
+  // Fetch course details
+  const courseQuery = useQuery({
+    queryKey: ["/api/courses", courseId],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/courses", {});
+      const courses = await response.json() as Course[];
+      return courses.find((c: Course) => c.id === courseId);
+    },
+  });
+
+  // Fetch weeks for this course
+  const weeksQuery = useQuery({
+    queryKey: ["/api/training-weeks", courseId],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/training-weeks", {});
+      const weeks = await response.json() as TrainingWeek[];
+      return weeks.filter((w: TrainingWeek) => w.courseId === courseId).sort((a: TrainingWeek, b: TrainingWeek) => a.weekNumber - b.weekNumber);
+    },
+  });
+
+  const [weeks, setWeeks] = useState<TrainingWeek[]>([]);
+
+  useEffect(() => {
+    if (weeksQuery.data) {
+      setWeeks(weeksQuery.data);
+    }
+  }, [weeksQuery.data]);
+
+  // Create new week
+  const createWeekMutation = useMutation({
+    mutationFn: async (data: { competencyFocus: string; objective: string }) => {
+      return apiRequest("POST", "/api/training-weeks", {
+        courseId,
+        weekNumber: (weeks.length || 0) + 1,
+        ...data,
+      });
+    },
+    onSuccess: () => {
+      setNewWeekDialog(false);
+      setNewWeekData({ competencyFocus: "", objective: "" });
+      queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
+      toast({ title: "Week created successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to create week", variant: "destructive" });
+    },
+  });
+
+  // Reorder weeks
+  const reorderMutation = useMutation({
+    mutationFn: async (orderedWeeks: TrainingWeek[]) => {
+      return apiRequest("POST", "/api/training-weeks/reorder", {
+        weekIds: orderedWeeks.map(w => w.id),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
+    },
+    onError: () => {
+      toast({ title: "Failed to reorder weeks", variant: "destructive" });
+    },
+  });
+
+  // Delete week
+  const deleteWeekMutation = useMutation({
+    mutationFn: async (weekId: string) => {
+      return apiRequest("DELETE", `/api/training-weeks/${weekId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
+      toast({ title: "Week deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete week", variant: "destructive" });
+    },
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -310,194 +394,128 @@ export default function AdminCourseWeeks() {
     useSensor(KeyboardSensor)
   );
 
-  const { data: course, isLoading } = useQuery<Course & { weeks: TrainingWeek[] }>({
-    queryKey: ["/api/courses", courseId],
-    enabled: !!courseId,
-  });
-
-  const createWeekMutation = useMutation({
-    mutationFn: async () => {
-      if (!course) return;
-      const maxWeek = course.weeks?.length ?? 0;
-      return apiRequest("POST", "/api/training-weeks", {
-        courseId,
-        weekNumber: maxWeek + 1,
-        competencyFocus: newWeekFocus,
-        objective: newWeekObjective,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId] });
-      setNewWeekFocus("");
-      setNewWeekObjective("");
-      setIsDialogOpen(false);
-      toast({ title: "Week added successfully" });
-    },
-  });
-
-  const deleteWeekMutation = useMutation({
-    mutationFn: async (weekId: string) => {
-      return apiRequest("DELETE", `/api/training-weeks/${weekId}`, {});
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId] });
-      toast({ title: "Week deleted successfully" });
-    },
-  });
-
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || !course) return;
+    if (!over || active.id === over.id) return;
 
-    const oldIndex = course.weeks.findIndex(w => w.id === active.id);
-    const newIndex = course.weeks.findIndex(w => w.id === over.id);
+    const oldIndex = weeks.findIndex(w => w.id === active.id);
+    const newIndex = weeks.findIndex(w => w.id === over.id);
 
-    if (oldIndex !== newIndex) {
-      const newWeeks = arrayMove(course.weeks, oldIndex, newIndex);
-      
-      const updatePromises = newWeeks.map((week, index) =>
-        apiRequest("PATCH", `/api/training-weeks/${week.id}`, {
-          ...week,
-          weekNumber: index + 1,
-        })
-      );
+    if (oldIndex === -1 || newIndex === -1) return;
 
-      await Promise.all(updatePromises);
-      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId] });
-    }
+    const newWeeks = arrayMove(weeks, oldIndex, newIndex);
+    setWeeks(newWeeks);
+    reorderMutation.mutate(newWeeks);
   };
 
-  if (user?.role !== "admin") {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Card className="p-8 text-center max-w-md shadow-lg">
-          <h2 className="text-2xl font-bold mb-4">Access Denied</h2>
-          <Button onClick={() => navigate("/admin/courses")} variant="outline">
-            Back to Courses
-          </Button>
-        </Card>
-      </div>
-    );
+  if (weeksQuery.isLoading || courseQuery.isLoading) {
+    return <div className="p-8 text-center">Loading...</div>;
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background p-4 sm:p-8">
-        <div className="max-w-5xl mx-auto">
-          <div className="animate-pulse space-y-4">
-            <div className="h-12 bg-muted rounded-lg"></div>
-            <div className="h-32 bg-muted rounded-lg"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!course) return null;
+  const course = courseQuery.data;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-card shadow-sm sticky top-0 z-40">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
-            <Button onClick={() => navigate("/admin/courses")} variant="ghost" size="icon">
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-3xl sm:text-4xl font-bold truncate">{course.name}</h1>
-              <p className="text-muted-foreground text-sm sm:text-base">Manage weeks in this course</p>
-            </div>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <Button onClick={() => setIsDialogOpen(true)} data-testid="button-add-week" className="gap-2">
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Add Week</span>
-              </Button>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Week</DialogTitle>
-                  <DialogDescription>Create a new week for this course</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="week-focus">Competency Focus</Label>
-                    <Input
-                      id="week-focus"
-                      data-testid="input-week-focus"
-                      value={newWeekFocus}
-                      onChange={(e) => setNewWeekFocus(e.target.value)}
-                      placeholder="Enter competency focus"
-                      autoFocus
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="week-objective">Objective</Label>
-                    <Textarea
-                      id="week-objective"
-                      data-testid="textarea-week-objective"
-                      value={newWeekObjective}
-                      onChange={(e) => setNewWeekObjective(e.target.value)}
-                      placeholder="Enter learning objective"
-                      className="min-h-24"
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={() => createWeekMutation.mutate()}
-                      disabled={createWeekMutation.isPending || !newWeekFocus.trim()}
-                      data-testid="button-submit-week"
-                    >
-                      Create
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+    <div className="min-h-screen bg-background p-8">
+      <div className="max-w-4xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <button
+            onClick={() => navigate("/courses")}
+            className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 mb-4"
+            data-testid="button-back-to-courses"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to Courses
+          </button>
+          <h1 className="text-3xl font-bold">{course?.name} - Manage Weeks</h1>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {course.weeks && course.weeks.length > 0 ? (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={course.weeks.map(w => w.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-4">
-                {course.weeks.map((week) => (
-                  <div key={week.id} className="flex gap-3 items-start group">
-                    <SortableWeekItem 
-                      week={week}
-                      onFilesUploaded={() => queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId] })}
-                      onWeekUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId] })}
-                    />
+        {/* Add Week Dialog */}
+        <Dialog open={newWeekDialog} onOpenChange={setNewWeekDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Week</DialogTitle>
+              <DialogDescription>Add a new training week to this course</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="focus">Competency Focus</Label>
+                <Input
+                  id="focus"
+                  placeholder="e.g., Advanced React Patterns"
+                  value={newWeekData.competencyFocus}
+                  onChange={(e) => setNewWeekData(prev => ({ ...prev, competencyFocus: e.target.value }))}
+                  data-testid="input-new-week-focus"
+                />
+              </div>
+              <div>
+                <Label htmlFor="objective">Objective</Label>
+                <Textarea
+                  id="objective"
+                  placeholder="What will participants learn?"
+                  value={newWeekData.objective}
+                  onChange={(e) => setNewWeekData(prev => ({ ...prev, objective: e.target.value }))}
+                  data-testid="textarea-new-week-objective"
+                />
+              </div>
+              <Button
+                onClick={() => createWeekMutation.mutate(newWeekData)}
+                disabled={!newWeekData.competencyFocus || !newWeekData.objective || createWeekMutation.isPending}
+                data-testid="button-create-week"
+              >
+                Create Week
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Weeks List */}
+        <div className="space-y-4">
+          {weeks.length > 0 ? (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={weeks.map(w => w.id)} strategy={verticalListSortingStrategy}>
+                {weeks.map((week) => (
+                  <div key={week.id} className="flex gap-2">
+                    <div className="flex-1">
+                      <SortableWeekItem
+                        week={week}
+                        onFilesUploaded={() => queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] })}
+                        onWeekUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] })}
+                      />
+                    </div>
                     <Button
+                      size="icon"
+                      variant="ghost"
                       onClick={() => deleteWeekMutation.mutate(week.id)}
-                      variant="destructive"
-                      size="sm"
-                      className="rounded-lg opacity-0 group-hover:opacity-100 transition-opacity mt-2"
+                      disabled={deleteWeekMutation.isPending}
                       data-testid={`button-delete-week-${week.id}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        ) : (
-          <Card className="p-12 text-center shadow-lg rounded-2xl border-dashed">
-            <Plus className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-            <p className="text-lg font-medium mb-2">No weeks yet</p>
-            <p className="text-muted-foreground mb-6">Create weeks to organize your course content.</p>
-            <Button onClick={() => setIsDialogOpen(true)} size="lg">
-              <Plus className="mr-2 h-4 w-4" />
-              Create First Week
-            </Button>
-          </Card>
-        )}
+              </SortableContext>
+            </DndContext>
+          ) : (
+            <Card className="p-8 text-center text-muted-foreground">
+              No weeks created yet
+            </Card>
+          )}
+        </div>
+
+        {/* Add Week Button */}
+        <Button
+          onClick={() => setNewWeekDialog(true)}
+          className="mt-6 gap-2"
+          data-testid="button-add-week"
+        >
+          <Plus className="h-4 w-4" />
+          Add Week
+        </Button>
       </div>
     </div>
   );
