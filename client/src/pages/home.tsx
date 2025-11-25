@@ -9,31 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical, CheckCircle } from "lucide-react";
+import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical, CheckCircle, BarChart3, FileText, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 import { Users } from "lucide-react";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-  DragStartEvent,
-  DragOverlay,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import {
   Accordion,
   AccordionContent,
@@ -65,10 +45,18 @@ import type { UploadResult } from "@uppy/core";
 import logoImage from "@assets/image_1760460046116.png";
 import { FilePreview } from "@/components/FilePreview";
 
+interface Course {
+  id: string;
+  name: string;
+  description?: string;
+  orderIndex: number;
+  weeks?: TrainingWeek[];
+}
+
 export default function Home() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { user, isAdmin, logoutMutation, isLoading: isLoadingUser } = useAuth();
+  const { user, isAdmin, isTrainer, logoutMutation, isLoading: isLoadingUser } = useAuth();
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -76,12 +64,15 @@ export default function Home() {
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [resetUserIdentifier, setResetUserIdentifier] = useState("");
   const [resetNewPassword, setResetNewPassword] = useState("");
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [newCourseName, setNewCourseName] = useState("");
+  const [newCourseDescription, setNewCourseDescription] = useState("");
+  const [createCourseOpen, setCreateCourseOpen] = useState(false);
+  const [deleteCourseId, setDeleteCourseId] = useState<string | null>(null);
+  const [deleteWeekId, setDeleteWeekId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const isSavingRef = useRef(false); // Track if we're intentionally saving
+  const isSavingRef = useRef(false);
 
-  // Focus input/textarea when entering edit mode
   useEffect(() => {
     if (editingCell) {
       const isTextarea = editingCell.field === "competencyFocus" || editingCell.field === "objective";
@@ -93,6 +84,15 @@ export default function Home() {
     }
   }, [editingCell]);
 
+  // Fetch courses
+  const { data: courses = [], isLoading: isLoadingCourses } = useQuery<Course[]>({
+    queryKey: ["/api/courses"],
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
+    staleTime: Infinity,
+  });
+
+  // Fetch weeks (for backwards compatibility if needed)
   const { data: weeks = [], isLoading: isLoadingWeeks } = useQuery<TrainingWeek[]>({
     queryKey: ["/api/training-weeks"],
     refetchOnWindowFocus: false,
@@ -100,17 +100,61 @@ export default function Home() {
     staleTime: Infinity,
   });
 
-  const createWeekMutation = useMutation({
+  // Course mutations
+  const createCourseMutation = useMutation({
     mutationFn: async () => {
+      return apiRequest("POST", "/api/courses", {
+        name: newCourseName,
+        description: newCourseDescription,
+        orderIndex: courses.length,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      setNewCourseName("");
+      setNewCourseDescription("");
+      setCreateCourseOpen(false);
+      toast({ title: "Course created successfully" });
+    },
+  });
+
+  const updateCourseMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Course> }) => {
+      return apiRequest("PATCH", `/api/courses/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      setEditingCell(null);
+      setEditValue("");
+      toast({ title: "Course updated successfully" });
+    },
+  });
+
+  const deleteCourseMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/courses/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      setDeleteCourseId(null);
+      toast({ title: "Course deleted successfully" });
+    },
+  });
+
+  // Week mutations
+  const createWeekMutation = useMutation({
+    mutationFn: async (courseId?: string) => {
       const maxWeek = weeks.length > 0 ? Math.max(...weeks.map(w => w.weekNumber)) : 0;
       return apiRequest("POST", "/api/training-weeks", {
         weekNumber: maxWeek + 1,
         competencyFocus: "",
         objective: "",
+        courseId: courseId || undefined,
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
       toast({ title: "Week added successfully" });
     },
   });
@@ -119,32 +163,12 @@ export default function Home() {
     mutationFn: async ({ id, data }: { id: string; data: Partial<TrainingWeek> }) => {
       return apiRequest("PATCH", `/api/training-weeks/${id}`, data);
     },
-    onSuccess: (updatedWeek, variables) => {
-      // Update the cache directly instead of invalidating to prevent re-render
-      queryClient.setQueryData<TrainingWeek[]>(["/api/training-weeks"], (old) => {
-        if (!old) return old;
-        return old.map(week => 
-          week.id === variables.id ? { ...week, ...variables.data } : week
-        );
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
       setEditingCell(null);
       setEditValue("");
-      // Reset the saving flag after save completes
-      setTimeout(() => { isSavingRef.current = false; }, 0);
-      // Show success message
-      toast({ 
-        title: "Changes Saved Successfully!", 
-        description: "Your updates have been saved to the database."
-      });
-    },
-    onError: () => {
-      // Reset the saving flag on error to allow refocus if needed
-      isSavingRef.current = false;
-      toast({ 
-        title: "Save failed", 
-        description: "Failed to save changes. Please try again.",
-        variant: "destructive" 
-      });
+      toast({ title: "Changes saved successfully" });
     },
   });
 
@@ -154,30 +178,9 @@ export default function Home() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      setDeleteWeekId(null);
       toast({ title: "Week deleted successfully" });
-      setDeleteId(null);
-    },
-  });
-
-  const resetPasswordMutation = useMutation({
-    mutationFn: async ({ userIdentifier, newPassword }: { userIdentifier: string; newPassword: string }) => {
-      return apiRequest("POST", "/api/admin/reset-user-password", { userIdentifier, newPassword });
-    },
-    onSuccess: (data: any) => {
-      toast({ 
-        title: "Password Reset Successful", 
-        description: data.message 
-      });
-      setResetPasswordOpen(false);
-      setResetUserIdentifier("");
-      setResetNewPassword("");
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Password Reset Failed",
-        description: error.message || "Could not reset password",
-        variant: "destructive",
-      });
     },
   });
 
@@ -188,10 +191,10 @@ export default function Home() {
     }) => {
       return apiRequest("POST", `/api/training-weeks/${weekId}/deck`, { files });
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
-      const count = variables.files.length;
-      toast({ title: `${count} file${count > 1 ? 's' : ''} uploaded successfully` });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
+      toast({ title: "File uploaded successfully" });
     },
   });
 
@@ -201,104 +204,32 @@ export default function Home() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
       toast({ title: "File deleted successfully" });
     },
   });
 
-  const reorderWeekMutation = useMutation({
-    mutationFn: async ({ weekId, newPosition }: { weekId: string; newPosition: number }) => {
-      return apiRequest("POST", "/api/training-weeks/reorder", { weekId, newPosition });
+  const resetPasswordMutation = useMutation({
+    mutationFn: async ({ userIdentifier, newPassword }: { userIdentifier: string; newPassword: string }) => {
+      return apiRequest("POST", "/api/admin/reset-user-password", { userIdentifier, newPassword });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
-      toast({ title: "Week reordered successfully" });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Reorder failed",
-        description: error.message || "Failed to reorder week. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Password reset successfully" });
+      setResetPasswordOpen(false);
+      setResetUserIdentifier("");
+      setResetNewPassword("");
     },
   });
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 200,
-        tolerance: 8,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-
-    if (over && active.id !== over.id) {
-      const oldIndex = weeks.findIndex((w) => w.id === active.id);
-      const newIndex = weeks.findIndex((w) => w.id === over.id);
-
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const weekId = active.id as string;
-        const newPosition = newIndex + 1; // Convert to 1-based position
-        reorderWeekMutation.mutate({ weekId, newPosition });
-      }
-    }
-    
-    setActiveId(null);
-  };
-
-  const handleCellEdit = (id: string, field: string, currentValue: string) => {
-    setEditingCell({ id, field });
-    setEditValue(currentValue);
-  };
-
-  const handleCellSave = () => {
-    isSavingRef.current = true; // Mark that we're intentionally saving
-    if (editingCell && editValue !== "") {
-      updateWeekMutation.mutate({
-        id: editingCell.id,
-        data: { [editingCell.field]: editValue },
-      });
-    } else if (editingCell) {
-      // Cancel editing if no value
-      setEditingCell(null);
-      setEditValue("");
-      setTimeout(() => { isSavingRef.current = false; }, 0);
-    }
-  };
-
-  const handleCellCancel = () => {
-    isSavingRef.current = true; // Mark that we're intentionally canceling
-    setEditingCell(null);
-    setEditValue("");
-    setTimeout(() => { isSavingRef.current = false; }, 0);
-  };
-
   const handleGetUploadParams = async () => {
     try {
-      console.log("[UPLOAD DEBUG] Requesting presigned URL from backend");
       const response = await apiRequest("POST", "/api/objects/upload", {});
       const data = await response.json();
-      console.log("[UPLOAD DEBUG] Received presigned URL:", data.uploadURL);
       return {
         method: "PUT" as const,
         url: data.uploadURL,
       };
     } catch (error) {
-      console.error("[UPLOAD ERROR] Error getting upload parameters:", error);
       toast({
         title: "Upload error",
         description: "Failed to get upload URL. Please try again.",
@@ -309,11 +240,7 @@ export default function Home() {
   };
 
   const handleUploadComplete = (weekId: string) => (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    console.log("[UPLOAD DEBUG] Upload complete, result:", result);
-    
     if (result.successful && result.successful.length > 0) {
-      console.log(`[UPLOAD DEBUG] ${result.successful.length} files uploaded successfully`);
-      
       const files = result.successful
         .filter(file => file.uploadURL && file.name)
         .map(file => ({
@@ -322,19 +249,9 @@ export default function Home() {
           fileSize: file.size || 0,
         }));
       
-      console.log("[UPLOAD DEBUG] Sending files to backend:", files);
-      
       if (files.length > 0) {
         uploadDeckMutation.mutate({ weekId, files });
-      } else {
-        console.log("[UPLOAD DEBUG] No valid files to upload");
       }
-    } else {
-      console.log("[UPLOAD DEBUG] No successful uploads");
-    }
-    
-    if (result.failed && result.failed.length > 0) {
-      console.error("[UPLOAD ERROR] Failed uploads:", result.failed);
     }
   };
 
@@ -343,279 +260,33 @@ export default function Home() {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
-  // Sortable Week Item Component for Drag and Drop
-  interface SortableWeekItemProps {
-    week: TrainingWeek;
-  }
+  const handleCellEdit = (id: string, field: string, currentValue: string) => {
+    setEditingCell({ id, field });
+    setEditValue(currentValue);
+  };
 
-  function SortableWeekItem({ week }: SortableWeekItemProps) {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({ id: week.id });
+  const handleCellSave = () => {
+    isSavingRef.current = true;
+    if (editingCell && editValue !== "") {
+      updateWeekMutation.mutate({
+        id: editingCell.id,
+        data: { [editingCell.field]: editValue },
+      });
+    } else if (editingCell) {
+      setEditingCell(null);
+      setEditValue("");
+      setTimeout(() => { isSavingRef.current = false; }, 0);
+    }
+  };
 
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.3 : 1,
-      zIndex: isDragging ? 50 : undefined,
-    };
+  const handleCellCancel = () => {
+    isSavingRef.current = true;
+    setEditingCell(null);
+    setEditValue("");
+    setTimeout(() => { isSavingRef.current = false; }, 0);
+  };
 
-    return (
-      <AccordionItem
-        ref={setNodeRef}
-        style={style}
-        value={week.id}
-        className={`mb-6 border-0 rounded-xl bg-card transition-all duration-200 overflow-visible ${
-          isDragging 
-            ? 'shadow-2xl scale-105 ring-2 ring-primary/50' 
-            : 'shadow-lg hover:shadow-xl'
-        }`}
-        data-testid={`card-week-${week.id}`}
-      >
-        <div className="flex items-stretch rounded-xl overflow-hidden border border-border/50">
-          {/* Drag Handle */}
-          <button
-            className="flex items-center px-4 sm:px-5 md:px-6 cursor-grab active:cursor-grabbing hover-elevate active-elevate-2 bg-muted/30 dark:bg-muted/20 border-r border-border/50 transition-all touch-none select-none min-w-[48px] sm:min-w-[56px]"
-            {...attributes}
-            {...listeners}
-            data-testid={`drag-handle-${week.id}`}
-            aria-label="Drag to reorder"
-          >
-            <GripVertical className="h-6 w-6 sm:h-7 sm:w-7 text-muted-foreground" />
-          </button>
-
-          {/* Card Content */}
-          <div className="flex-1 min-w-0">
-            <AccordionTrigger className="w-full px-5 sm:px-7 py-5 sm:py-6 hover:no-underline hover-elevate group [&>svg]:data-[state=open]:rotate-180">
-              <div className="flex flex-col gap-2.5 w-full min-w-0 pr-2">
-                {/* Week Label - Styled as Primary Visual Anchor */}
-                <div className="inline-flex items-center gap-2">
-                  <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-primary/10 dark:bg-primary/15 border border-primary/30 shadow-sm">
-                    <span className="text-primary font-bold text-base sm:text-lg">Week {week.weekNumber}</span>
-                  </span>
-                </div>
-
-                {/* Competency Focus */}
-                <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm sm:text-base text-muted-foreground truncate leading-relaxed">
-                    {week.competencyFocus || "No competency focus set"}
-                  </p>
-                </div>
-              </div>
-            </AccordionTrigger>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center px-3 sm:px-4 border-l border-border/50 bg-muted/10 dark:bg-muted/5">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeleteId(week.id);
-              }}
-              className="h-11 w-11 hover:bg-destructive/10 hover:text-destructive transition-colors"
-              data-testid={`button-delete-${week.id}`}
-              aria-label="Delete week"
-            >
-              <Trash2 className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-        <AccordionContent className="px-4 sm:px-6 pb-6 pt-4 border-t bg-muted/10 dark:bg-muted/5">
-          <div className="space-y-6">
-            {/* Competency Focus Section */}
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
-                Competency Focus
-              </label>
-              {editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
-                <div className="space-y-3">
-                  <Textarea
-                    ref={textareaRef}
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        handleCellCancel();
-                      }
-                    }}
-                    autoFocus
-                    disabled={updateWeekMutation.isPending}
-                    data-testid={`textarea-competency-${week.id}`}
-                    className="min-h-[100px] resize-none"
-                    placeholder="Develop effective classroom control strategies..."
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleCellSave}
-                      disabled={updateWeekMutation.isPending || !editValue.trim()}
-                      data-testid={`button-save-competency-${week.id}`}
-                      className="flex-1"
-                    >
-                      {updateWeekMutation.isPending ? "Saving..." : "Save Changes"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleCellCancel}
-                      disabled={updateWeekMutation.isPending}
-                      data-testid={`button-cancel-competency-${week.id}`}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  onClick={() => handleCellEdit(week.id, "competencyFocus", week.competencyFocus)}
-                  className="p-4 rounded-lg border bg-muted/30 cursor-text hover:bg-muted/50 transition-colors min-h-[100px]"
-                  data-testid={`text-competency-${week.id}`}
-                >
-                  {week.competencyFocus ? (
-                    <p className="text-base leading-relaxed">{week.competencyFocus}</p>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">Click to edit competency focus</span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Objective Section */}
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
-                Objective
-              </label>
-              {editingCell?.id === week.id && editingCell?.field === "objective" ? (
-                <div className="space-y-3">
-                  <Textarea
-                    ref={textareaRef}
-                    value={editValue}
-                    onChange={(e) => setEditValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        handleCellCancel();
-                      }
-                    }}
-                    autoFocus
-                    disabled={updateWeekMutation.isPending}
-                    data-testid={`textarea-objective-${week.id}`}
-                    className="min-h-[100px] resize-none"
-                    placeholder="Enter the learning objectives for this week..."
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleCellSave}
-                      disabled={updateWeekMutation.isPending || !editValue.trim()}
-                      data-testid={`button-save-objective-${week.id}`}
-                      className="flex-1"
-                    >
-                      {updateWeekMutation.isPending ? "Saving..." : "Save Changes"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleCellCancel}
-                      disabled={updateWeekMutation.isPending}
-                      data-testid={`button-cancel-objective-${week.id}`}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  onClick={() => handleCellEdit(week.id, "objective", week.objective)}
-                  className="p-4 rounded-lg border bg-muted/30 cursor-text hover:bg-muted/50 transition-colors min-h-[100px]"
-                  data-testid={`text-objective-${week.id}`}
-                >
-                  {week.objective ? (
-                    <p className="text-base leading-relaxed">{week.objective}</p>
-                  ) : (
-                    <span className="text-muted-foreground text-sm">Click to edit objective</span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Presentation Deck Section */}
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground/60 mb-3 block">
-                Presentation Deck
-              </label>
-              <div className="mb-4">
-                <ObjectUploader
-                  onGetUploadParameters={handleGetUploadParams}
-                  onComplete={handleUploadComplete(week.id)}
-                  maxNumberOfFiles={10}
-                  key={`uploader-${week.id}`}
-                />
-              </div>
-              {week.deckFiles && week.deckFiles.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-foreground">Uploaded Files:</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {week.deckFiles.map((file) => (
-                      <div
-                        key={file.id}
-                        className="border rounded-lg p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <FilePreview 
-                              fileName={file.fileName}
-                              fileUrl={file.fileUrl}
-                            />
-                            <p className="text-sm font-medium truncate mt-2" title={file.fileName}>
-                              {file.fileName}
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {formatFileSize(file.fileSize)}
-                            </p>
-                          </div>
-                          <div className="flex gap-1 flex-shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
-                              className="h-8 w-8"
-                              data-testid={`button-view-${file.id}`}
-                              aria-label="View file"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
-                              className="h-8 w-8 hover:bg-amber-500/10"
-                              data-testid={`button-delete-file-${file.id}`}
-                              aria-label="Delete file"
-                            >
-                              <Trash2 className="h-4 w-4 text-amber-600 dark:text-amber-500" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
-                  No files uploaded yet
-                </p>
-              )}
-            </div>
-          </div>
-        </AccordionContent>
-      </AccordionItem>
-    );
-  }
+  const sortedCourses = [...courses].sort((a, b) => a.orderIndex - b.orderIndex);
 
   return (
     <div className="min-h-screen bg-background">
@@ -634,11 +305,35 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0 flex-wrap justify-end">
             {user && (
               <div className="text-xs sm:text-sm text-white/90 hidden md:block truncate max-w-[200px]" data-testid="text-user-info">
                 {user.email} ({user.role})
               </div>
+            )}
+            {isAdmin && (
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate("/admin/analytics")}
+                  data-testid="button-nav-analytics"
+                  className="bg-white/10 hover:bg-white/20 text-white border-white/20 hidden sm:flex"
+                >
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Analytics
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => navigate("/admin/certificates/batch/1/approve")}
+                  data-testid="button-nav-certificates"
+                  className="bg-white/10 hover:bg-white/20 text-white border-white/20 hidden sm:flex"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Certificates
+                </Button>
+              </>
             )}
             {(user?.role === "admin" || user?.role === "trainer") && (
               <>
@@ -689,7 +384,6 @@ export default function Home() {
               disabled={logoutMutation.isPending}
               data-testid="button-logout-mobile"
               className="sm:hidden h-8 w-8 bg-white/10 hover:bg-white/20 text-white border-white/20"
-              aria-label="Logout"
             >
               <LogOut className="h-4 w-4" />
             </Button>
@@ -698,33 +392,27 @@ export default function Home() {
       </header>
 
       <main className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
-          <h2 className="text-xl sm:text-2xl font-semibold">Training Weeks</h2>
-          {isAdmin && (
+        {/* Admin Controls */}
+        {isAdmin && (
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-6 sm:mb-8">
+            <h2 className="text-2xl sm:text-3xl font-bold">Training Courses</h2>
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
                 <DialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    data-testid="button-reset-password"
-                  >
+                  <Button variant="outline" data-testid="button-reset-password">
                     Reset User Password
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Reset User Password</DialogTitle>
-                    <DialogDescription>
-                      Enter the username, email, teacher ID, or teacher name to reset their password.
-                    </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="userIdentifier">Username, Email, Teacher ID, or Name</Label>
+                      <Label htmlFor="userIdentifier">Username or Email</Label>
                       <Input
                         id="userIdentifier"
-                        placeholder="e.g., admin, teacher@email.com, 7100, or Tayyaba"
+                        placeholder="admin or admin@example.com"
                         value={resetUserIdentifier}
                         onChange={(e) => setResetUserIdentifier(e.target.value)}
                         data-testid="input-user-identifier"
@@ -732,177 +420,306 @@ export default function Home() {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="newPassword">New Password</Label>
-                      <div className="relative">
-                        <PasswordInput
-                          id="newPassword"
-                          placeholder="Enter new password (min 6 characters)"
-                          value={resetNewPassword}
-                          onChange={(e) => setResetNewPassword(e.target.value)}
-                          data-testid="input-new-password"
-                        />
-                      </div>
+                      <PasswordInput
+                        id="newPassword"
+                        placeholder="Enter new password (min 6 characters)"
+                        value={resetNewPassword}
+                        onChange={(e) => setResetNewPassword(e.target.value)}
+                        data-testid="input-new-password"
+                      />
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button
-                      variant="outline"
-                      onClick={() => setResetPasswordOpen(false)}
-                      data-testid="button-cancel-reset"
-                    >
+                    <Button variant="outline" onClick={() => setResetPasswordOpen(false)}>
                       Cancel
                     </Button>
                     <Button
                       onClick={() => {
-                        const trimmedIdentifier = resetUserIdentifier.trim();
-                        const trimmedPassword = resetNewPassword.trim();
-                        
-                        if (trimmedIdentifier && trimmedPassword.length >= 6) {
-                          resetPasswordMutation.mutate({
-                            userIdentifier: trimmedIdentifier,
-                            newPassword: trimmedPassword,
-                          });
-                        } else {
-                          toast({
-                            title: "Validation Error",
-                            description: "Please enter a valid identifier and password (min 6 characters)",
-                            variant: "destructive",
-                          });
-                        }
+                        resetPasswordMutation.mutate({
+                          userIdentifier: resetUserIdentifier,
+                          newPassword: resetNewPassword,
+                        });
                       }}
-                      disabled={
-                        !resetUserIdentifier.trim() || 
-                        resetNewPassword.trim().length < 6 || 
-                        resetPasswordMutation.isPending
-                      }
-                      data-testid="button-confirm-reset"
+                      disabled={resetPasswordMutation.isPending}
                     >
-                      {resetPasswordMutation.isPending ? "Resetting..." : "Reset Password"}
+                      Reset
                     </Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-              <Button
-                onClick={() => createWeekMutation.mutate()}
-                disabled={createWeekMutation.isPending}
-                data-testid="button-add-week"
-                className="w-full sm:w-auto"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add New Week
-              </Button>
+
+              <Dialog open={createCourseOpen} onOpenChange={setCreateCourseOpen}>
+                <DialogTrigger asChild>
+                  <Button data-testid="button-add-course" className="bg-green-600 hover:bg-green-700">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Course
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Create New Course</DialogTitle>
+                    <DialogDescription>Add a new training course</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="courseName">Course Name</Label>
+                      <Input
+                        id="courseName"
+                        placeholder="e.g., Leadership Fundamentals"
+                        value={newCourseName}
+                        onChange={(e) => setNewCourseName(e.target.value)}
+                        data-testid="input-course-name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="courseDescription">Description (Optional)</Label>
+                      <Textarea
+                        id="courseDescription"
+                        placeholder="Brief description of the course"
+                        value={newCourseDescription}
+                        onChange={(e) => setNewCourseDescription(e.target.value)}
+                        data-testid="textarea-course-description"
+                        className="min-h-24"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setCreateCourseOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => createCourseMutation.mutate()}
+                      disabled={createCourseMutation.isPending || !newCourseName.trim()}
+                      data-testid="button-create-course"
+                    >
+                      Create Course
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
-          )}
-        </div>
-
-        {isLoadingUser || isLoadingWeeks ? (
-          <div className="text-center py-12 text-muted-foreground">Loading...</div>
-        ) : weeks.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            No training weeks yet. {isAdmin && 'Click "Add New Week" to get started!'}
           </div>
-        ) : !isAdmin ? (
-          // Teacher view: Clickable cards that navigate to course view
-          <div className="space-y-4">
-            {weeks.map((week) => (
-              <button
-                key={week.id}
-                onClick={() => navigate(`/course/${week.id}`)}
-                className="w-full border rounded-lg bg-card shadow-sm hover:shadow-md transition-all duration-200 text-left hover-elevate active-elevate-2 group"
-                data-testid={`card-week-${week.id}`}
-              >
-                <div className="flex items-center gap-4 px-4 py-4">
-                  {/* Week Number Badge */}
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 dark:bg-primary/20 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                    <span className="text-primary font-bold text-lg">{week.weekNumber}</span>
-                  </div>
+        )}
 
-                  {/* Week Info */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-base sm:text-lg leading-tight mb-1">
-                      Week {week.weekNumber}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                      {week.competencyFocus || "No competency focus set"}
-                    </p>
-                  </div>
-
-                  {/* Arrow Icon */}
-                  <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform duration-200 group-hover:translate-x-1 flex-shrink-0" />
-                </div>
-              </button>
-            ))}
+        {isLoadingUser || isLoadingCourses ? (
+          <div className="text-center py-12 text-muted-foreground">Loading...</div>
+        ) : isAdmin && sortedCourses.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            No courses yet. Click "Add Course" to get started!
           </div>
         ) : (
-          // Admin view: Drag-and-drop accordion for editing
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={weeks.map((w) => w.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <Accordion type="multiple" className="space-y-4" data-testid="accordion-training-weeks">
-                {weeks.map((week) => (
-                  <SortableWeekItem key={week.id} week={week} />
-                ))}
-              </Accordion>
-            </SortableContext>
-            <DragOverlay dropAnimation={null}>
-              {activeId ? (
-                <div className="mb-6 border-0 rounded-xl bg-card shadow-2xl ring-2 ring-primary scale-105 opacity-95">
-                  <div className="flex items-stretch rounded-xl overflow-hidden border border-primary">
-                    <div className="flex items-center px-4 sm:px-5 md:px-6 bg-primary/10 dark:bg-primary/15 border-r border-primary/30 min-w-[48px] sm:min-w-[56px]">
-                      <GripVertical className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
+          <div className="space-y-6">
+            {sortedCourses.map((course) => (
+              <div key={course.id} className="border rounded-lg overflow-hidden bg-card shadow-md" data-testid={`card-course-${course.id}`}>
+                <div className="bg-primary/5 dark:bg-primary/10 px-6 py-4 flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold text-foreground" data-testid={`text-course-name-${course.id}`}>
+                      {course.name}
+                    </h3>
+                    {course.description && (
+                      <p className="text-sm text-muted-foreground mt-1">{course.description}</p>
+                    )}
+                  </div>
+                  {isAdmin && (
+                    <div className="flex gap-2 flex-shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDeleteCourseId(course.id)}
+                        data-testid={`button-delete-course-${course.id}`}
+                        className="hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
                     </div>
-                    <div className="flex-1 min-w-0 px-5 sm:px-7 py-5 sm:py-6">
-                      {(() => {
-                        const activeWeek = weeks.find(w => w.id === activeId);
-                        return activeWeek ? (
-                          <div className="flex flex-col gap-2.5 w-full min-w-0">
-                            <div className="inline-flex items-center gap-2">
-                              <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-primary/10 dark:bg-primary/15 border border-primary/30 shadow-sm">
-                                <span className="text-primary font-bold text-base sm:text-lg">Week {activeWeek.weekNumber}</span>
-                              </span>
+                  )}
+                </div>
+
+                {/* Weeks within course */}
+                {course.weeks && course.weeks.length > 0 ? (
+                  <Accordion type="multiple" className="p-6 space-y-4">
+                    {course.weeks.map((week) => (
+                      <AccordionItem
+                        key={week.id}
+                        value={week.id}
+                        className="border rounded-lg overflow-hidden"
+                        data-testid={`card-week-${week.id}`}
+                      >
+                        <AccordionTrigger className="px-4 py-3 hover:bg-muted/50">
+                          <div className="flex items-center gap-3 text-left">
+                            <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30">
+                              <span className="text-sm font-bold text-primary">Week {week.weekNumber}</span>
                             </div>
-                            <div className="flex-1 min-w-0 text-left">
-                              <p className="text-sm sm:text-base text-muted-foreground truncate leading-relaxed">
-                                {activeWeek.competencyFocus || "No competency focus set"}
-                              </p>
+                            <p className="text-muted-foreground truncate text-sm">
+                              {week.competencyFocus || "No competency focus set"}
+                            </p>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 py-4 bg-muted/5">
+                          <div className="space-y-4">
+                            {/* Competency Focus */}
+                            <div>
+                              <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
+                                Competency Focus
+                              </label>
+                              {editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
+                                <div className="space-y-2">
+                                  <Textarea
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    data-testid={`textarea-competency-${week.id}`}
+                                    className="min-h-[80px]"
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button size="sm" onClick={handleCellSave}>
+                                      Save
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={handleCellCancel}>
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  onClick={() => handleCellEdit(week.id, "competencyFocus", week.competencyFocus)}
+                                  className="p-3 rounded border bg-muted/30 cursor-text hover:bg-muted/50 text-sm min-h-[60px] flex items-center"
+                                  data-testid={`text-competency-${week.id}`}
+                                >
+                                  {week.competencyFocus || "Click to add competency focus"}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Objective */}
+                            <div>
+                              <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
+                                Objective
+                              </label>
+                              {editingCell?.id === week.id && editingCell?.field === "objective" ? (
+                                <div className="space-y-2">
+                                  <Textarea
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    data-testid={`textarea-objective-${week.id}`}
+                                    className="min-h-[80px]"
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button size="sm" onClick={handleCellSave}>
+                                      Save
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={handleCellCancel}>
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div
+                                  onClick={() => handleCellEdit(week.id, "objective", week.objective)}
+                                  className="p-3 rounded border bg-muted/30 cursor-text hover:bg-muted/50 text-sm min-h-[60px] flex items-center"
+                                  data-testid={`text-objective-${week.id}`}
+                                >
+                                  {week.objective || "Click to add objective"}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Files Section */}
+                            <div>
+                              <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
+                                Presentation Files
+                              </label>
+                              <ObjectUploader
+                                onGetUploadParameters={handleGetUploadParams}
+                                onComplete={handleUploadComplete(week.id)}
+                                maxNumberOfFiles={10}
+                                key={`uploader-${week.id}`}
+                              />
+                              {week.deckFiles && week.deckFiles.length > 0 && (
+                                <div className="mt-3 space-y-2">
+                                  {week.deckFiles.map((file) => (
+                                    <div key={file.id} className="flex items-center justify-between p-2 border rounded bg-muted/30">
+                                      <span className="text-sm truncate">{file.fileName}</span>
+                                      <div className="flex gap-1">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
+                                          data-testid={`button-view-${file.id}`}
+                                        >
+                                          <ExternalLink className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
+                                          data-testid={`button-delete-file-${file.id}`}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Week Actions */}
+                            <div className="flex gap-2 pt-2">
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => setDeleteWeekId(week.id)}
+                                data-testid={`button-delete-week-${week.id}`}
+                              >
+                                Delete Week
+                              </Button>
                             </div>
                           </div>
-                        ) : null;
-                      })()}
-                    </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                ) : isAdmin ? (
+                  <div className="px-6 py-8 text-center text-muted-foreground">
+                    No weeks in this course
                   </div>
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+                ) : null}
+
+                {/* Add Week Button */}
+                {isAdmin && (
+                  <div className="px-6 py-4 border-t bg-muted/5">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => createWeekMutation.mutate(course.id)}
+                      data-testid={`button-add-week-${course.id}`}
+                      className="w-full"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Week to This Course
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </main>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
+      {/* Delete Course Dialog */}
+      <AlertDialog open={deleteCourseId !== null} onOpenChange={() => setDeleteCourseId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Training Week</AlertDialogTitle>
+            <AlertDialogTitle>Delete Course</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this training week? This action cannot be undone.
+              Are you sure you want to delete this course and all its weeks? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (deleteId) {
-                  deleteWeekMutation.mutate(deleteId);
-                }
-              }}
-              className="bg-amber-600 hover:bg-amber-700"
-              data-testid="button-confirm-delete"
+              onClick={() => deleteCourseId && deleteCourseMutation.mutate(deleteCourseId)}
+              className="bg-destructive hover:bg-destructive/90"
             >
               Delete
             </AlertDialogAction>
@@ -910,7 +727,28 @@ export default function Home() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* File Viewer Dialog */}
+      {/* Delete Week Dialog */}
+      <AlertDialog open={deleteWeekId !== null} onOpenChange={() => setDeleteWeekId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Week</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this week? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteWeekId && deleteWeekMutation.mutate(deleteWeekId)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* File Viewer */}
       {viewingFile && (
         <PresentationViewer
           isOpen={!!viewingFile}
