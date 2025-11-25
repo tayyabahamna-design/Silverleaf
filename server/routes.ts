@@ -2425,6 +2425,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Assign course to batch (trainer)
+  app.post("/api/courses/:courseId/assign", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { targetId, targetType } = req.body;
+      const { courseId } = req.params;
+
+      if (!targetId || targetType !== "batch") {
+        return res.status(400).json({ error: "Invalid request: targetId and targetType='batch' required" });
+      }
+
+      const batch = await storage.getBatch(targetId);
+      if (!batch) return res.status(404).json({ error: "Batch not found" });
+
+      const assignment = await storage.assignCourseToBatch({
+        batchId: targetId,
+        courseId,
+        assignedBy: req.user!.id,
+      });
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error assigning course:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Reorder weeks for a course (admin only)
   app.post("/api/courses/:courseId/weeks/reorder", isAuthenticated, isAdmin, async (req, res) => {
     try {
