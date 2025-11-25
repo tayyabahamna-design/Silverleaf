@@ -603,7 +603,7 @@ export default function CourseView() {
                               />
                             ) : (selectedFile.fileName.toLowerCase().endsWith('.docx') || 
                                  selectedFile.fileName.toLowerCase().endsWith('.doc')) ? (
-                              <div className="rounded-lg shadow-md overflow-hidden bg-white dark:bg-slate-900">
+                              <div className="rounded-lg shadow-md overflow-y-auto max-h-[600px] bg-white dark:bg-slate-900">
                                 <DocumentViewer url={viewUrl} />
                               </div>
                             ) : (
