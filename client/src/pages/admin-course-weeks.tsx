@@ -9,8 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, ChevronLeft, GripVertical, Upload, FileText, ChevronDown, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { Plus, Trash2, ChevronLeft, GripVertical, Upload, FileText, ChevronDown, ChevronRight, Edit2, Check, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import type { Course, TrainingWeek } from "@shared/schema";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import type { UploadResult } from "@uppy/core";
@@ -32,11 +32,35 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-function SortableWeekItem({ week, onFilesUploaded }: { week: TrainingWeek; onFilesUploaded?: () => void }) {
+function SortableWeekItem({ week, onFilesUploaded, onWeekUpdated }: { week: TrainingWeek; onFilesUploaded?: () => void; onWeekUpdated?: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: week.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [editingField, setEditingField] = useState<"focus" | "objective" | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isSavingRef = useRef(false);
+
+  useEffect(() => {
+    if (editingField === "objective" && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [editingField]);
+
+  const updateWeekMutation = useMutation({
+    mutationFn: async (data: Partial<TrainingWeek>) => {
+      return apiRequest("PATCH", `/api/training-weeks/${week.id}`, data);
+    },
+    onSuccess: () => {
+      onWeekUpdated?.();
+      toast({ title: "Week updated successfully" });
+      setEditingField(null);
+    },
+    onError: () => {
+      toast({ title: "Failed to update week", variant: "destructive" });
+    },
+  });
 
   const handleUploadSuccess = (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
     if (result.successful && result.successful.length > 0) {
@@ -51,6 +75,24 @@ function SortableWeekItem({ week, onFilesUploaded }: { week: TrainingWeek; onFil
       method: "PUT" as const,
       url: response.url,
     };
+  };
+
+  const handleStartEdit = (field: "focus" | "objective") => {
+    isSavingRef.current = false;
+    setEditingField(field);
+    setEditValue(field === "focus" ? week.competencyFocus : week.objective);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editValue.trim()) return;
+    isSavingRef.current = true;
+    const fieldName = editingField === "focus" ? "competencyFocus" : "objective";
+    await updateWeekMutation.mutateAsync({ [fieldName]: editValue });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingField(null);
+    setEditValue("");
   };
 
   return (
@@ -76,8 +118,100 @@ function SortableWeekItem({ week, onFilesUploaded }: { week: TrainingWeek; onFil
                   )}
                 </button>
               </div>
-              <p className="text-sm font-semibold text-primary mb-2">{week.competencyFocus}</p>
-              <p className="text-sm text-muted-foreground line-clamp-2">{week.objective}</p>
+              
+              {/* Competency Focus - Editable */}
+              <div className="mb-2 group">
+                {editingField === "focus" ? (
+                  <div className="flex gap-2 items-start">
+                    <Input
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveEdit();
+                        if (e.key === "Escape") handleCancelEdit();
+                      }}
+                      onBlur={handleSaveEdit}
+                      className="text-sm font-semibold"
+                      data-testid={`input-edit-focus-${week.id}`}
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleSaveEdit}
+                      disabled={updateWeekMutation.isPending}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleCancelEdit}
+                      className="h-8 w-8 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleStartEdit("focus")}
+                    className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors text-left w-full py-1 px-2 rounded hover:bg-muted/50 flex items-center justify-between"
+                    data-testid={`button-edit-focus-${week.id}`}
+                  >
+                    <span>{week.competencyFocus}</span>
+                    <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+                  </button>
+                )}
+              </div>
+
+              {/* Objective - Editable */}
+              <div className="group">
+                {editingField === "objective" ? (
+                  <div className="flex gap-2 items-start">
+                    <Textarea
+                      ref={textareaRef}
+                      value={editValue}
+                      onChange={(e) => setEditValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && e.ctrlKey) handleSaveEdit();
+                        if (e.key === "Escape") handleCancelEdit();
+                      }}
+                      onBlur={handleSaveEdit}
+                      className="text-sm min-h-20"
+                      data-testid={`textarea-edit-objective-${week.id}`}
+                    />
+                    <div className="flex flex-col gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleSaveEdit}
+                        disabled={updateWeekMutation.isPending}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleCancelEdit}
+                        className="h-8 w-8 p-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleStartEdit("objective")}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors text-left w-full py-1 px-2 rounded hover:bg-muted/50 line-clamp-2 flex items-center justify-between"
+                    data-testid={`button-edit-objective-${week.id}`}
+                  >
+                    <span>{week.objective}</span>
+                    <Edit2 className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -297,6 +431,7 @@ export default function AdminCourseWeeks() {
                     <SortableWeekItem 
                       week={week}
                       onFilesUploaded={() => queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId] })}
+                      onWeekUpdated={() => queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId] })}
                     />
                     <Button
                       onClick={() => deleteWeekMutation.mutate(week.id)}
