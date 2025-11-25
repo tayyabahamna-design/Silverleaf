@@ -393,14 +393,16 @@ export default function CourseWeeks() {
 
                   {/* Actions */}
                   <div className="flex gap-2 pt-2">
-                    <Button
-                      size="sm"
-                      onClick={() => navigate(`/courses/${courseId}/weeks/${week.id}`)}
-                      data-testid={`button-view-week-${week.id}`}
-                    >
-                      <ChevronRight className="mr-1 h-4 w-4" />
-                      View Week
-                    </Button>
+                    {!isAdmin && (
+                      <Button
+                        size="sm"
+                        onClick={() => navigate(`/courses/${courseId}/weeks/${week.id}`)}
+                        data-testid={`button-view-week-${week.id}`}
+                      >
+                        <ChevronRight className="mr-1 h-4 w-4" />
+                        View Week
+                      </Button>
+                    )}
                     {isAdmin && (
                       <Button
                         size="sm"
