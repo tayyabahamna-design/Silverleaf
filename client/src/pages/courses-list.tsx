@@ -513,8 +513,25 @@ export default function CoursesList() {
                                 </DialogDescription>
                               </DialogHeader>
                               <div className="space-y-4 py-4">
+                                {/* Show already assigned batches */}
+                                {courseAssignments[course.id] && courseAssignments[course.id].length > 0 && (
+                                  <div className="p-3 bg-muted/50 rounded-lg border">
+                                    <p className="text-xs font-semibold text-muted-foreground mb-2">Already Assigned To:</p>
+                                    <div className="space-y-1">
+                                      {courseAssignments[course.id].map((batch) => (
+                                        <div key={batch.id} className="text-sm flex items-center gap-2">
+                                          <CheckCircle className="h-3 w-3 text-green-600" />
+                                          {batch.name}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
                                 <div className="space-y-2">
-                                  <Label htmlFor="batch-select">Select Batch</Label>
+                                  <Label htmlFor="batch-select">
+                                    {courseAssignments[course.id]?.length > 0 ? "Assign to Another Batch" : "Select Batch"}
+                                  </Label>
                                   <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
                                     <SelectTrigger id="batch-select" data-testid="select-batch">
                                       <SelectValue placeholder="Choose a batch..." />
@@ -525,11 +542,15 @@ export default function CoursesList() {
                                           No batches available. Create a batch first.
                                         </div>
                                       ) : (
-                                        batches.map((batch) => (
-                                          <SelectItem key={batch.id} value={batch.id}>
-                                            {batch.name}
-                                          </SelectItem>
-                                        ))
+                                        batches.map((batch) => {
+                                          const isAlreadyAssigned = courseAssignments[course.id]?.some((b) => b.id === batch.id);
+                                          return (
+                                            <SelectItem key={batch.id} value={batch.id} disabled={isAlreadyAssigned}>
+                                              {batch.name}
+                                              {isAlreadyAssigned && " (Already assigned)"}
+                                            </SelectItem>
+                                          );
+                                        })
                                       )}
                                     </SelectContent>
                                   </Select>
