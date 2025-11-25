@@ -334,7 +334,7 @@ export default function TeacherContentView() {
                 data-testid="button-back-to-weeks"
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
-                Back to {courseId ? 'Weeks' : 'Courses'}
+                Back to Dashboard
               </Button>
               <h2 className="text-3xl font-bold mb-2">
                 Week {currentWeek?.weekNumber}
