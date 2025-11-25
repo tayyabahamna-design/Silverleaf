@@ -225,145 +225,166 @@ export default function TeacherContentView() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="sticky top-0 z-40 bg-background border-b">
+    <div className="h-screen bg-background flex flex-col">
+      {/* Header with back button */}
+      <div className="border-b">
         <div className="container mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
           <Button
-            variant="outline"
-            size="icon"
+            variant="ghost"
+            size="sm"
             onClick={() => setLocation("/teacher/dashboard")}
             data-testid="button-back"
-            className="h-9 w-9"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Dashboard
           </Button>
-          <h1 className="text-lg sm:text-xl font-bold" data-testid="text-week-title">
-            {contentData?.week?.title || "Course Content"}
-          </h1>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 sm:px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column: Week Details */}
-          <div className="space-y-4">
-            <Card data-testid="card-week-details">
-              <CardHeader>
-                <CardTitle className="text-lg">Week Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {contentData?.week?.competencyFocus && (
-                  <div>
-                    <Label className="text-xs font-semibold text-muted-foreground mb-2 block">
-                      Competency Focus
-                    </Label>
-                    <p className="text-sm">{contentData.week.competencyFocus}</p>
-                  </div>
-                )}
-                {contentData?.week?.objective && (
-                  <div>
-                    <Label className="text-xs font-semibold text-muted-foreground mb-2 block">
-                      Objectives
-                    </Label>
-                    <p className="text-sm">{contentData.week.objective}</p>
-                  </div>
-                )}
-                {!contentData?.week?.competencyFocus && !contentData?.week?.objective && (
-                  <p className="text-sm text-muted-foreground">No additional details available</p>
-                )}
-              </CardContent>
-            </Card>
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar: Week Details & Content List */}
+        <div className="w-full lg:w-80 border-r bg-card flex flex-col overflow-hidden">
+          {/* Fixed Header */}
+          <div className="p-6 border-b flex-shrink-0">
+            <h2 className="text-2xl font-bold">
+              {contentData?.week?.title || "Course Content"}
+            </h2>
           </div>
 
-          {/* Right Column: Content Files */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold px-1">Content Files</h2>
-            {contentData?.content && contentData.content.length > 0 ? (
-              <div className="space-y-3">
-                {contentData.content.map((file) => {
-                  const status = file.status || "locked";
-                  const isLocked = status === "locked";
-                  const isCompleted = status === "completed";
-                  const canTakeQuiz = status === "viewed" || status === "completed";
-                  const Icon = getFileIcon(file.type);
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-6 pb-32 space-y-6">
+              {/* Competency Focus */}
+              {contentData?.week?.competencyFocus && (
+                <div>
+                  <h3 className="text-base font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    Competency Focus
+                  </h3>
+                  <p className="text-sm text-foreground leading-relaxed">
+                    {contentData.week.competencyFocus}
+                  </p>
+                </div>
+              )}
 
-                  return (
-                    <Card key={file.id} data-testid={`card-content-${file.id}`}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-3 flex-1 min-w-0">
-                            <Icon className="h-5 w-5 text-primary/60 flex-shrink-0 mt-0.5" />
-                            <div className="min-w-0">
-                              <CardTitle className="text-base">{file.title}</CardTitle>
-                              <CardDescription className="capitalize text-xs">
-                                {file.type}
-                              </CardDescription>
+              {/* Learning Objectives */}
+              {contentData?.week?.objective && (
+                <div>
+                  <h3 className="text-base font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                    Learning Objectives
+                  </h3>
+                  <div className="text-sm text-foreground leading-loose space-y-2">
+                    {contentData.week.objective.split(/(?=\d+\.)/).map((line: string, idx: number) => {
+                      const trimmed = line.trim();
+                      if (!trimmed) return null;
+                      return (
+                        <p key={idx} className="pl-2">
+                          {trimmed}
+                        </p>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Content Files */}
+              <div>
+                <h3 className="text-base font-semibold text-foreground mb-3">
+                  Content Files
+                </h3>
+                <div className="space-y-2">
+                  {contentData?.content && contentData.content.length > 0 ? (
+                    contentData.content.map((file) => {
+                      const status = file.status || "locked";
+                      const isLocked = status === "locked";
+                      const isCompleted = status === "completed";
+                      const canTakeQuiz = status === "viewed" || status === "completed";
+                      const Icon = getFileIcon(file.type);
+
+                      return (
+                        <div
+                          key={file.id}
+                          className="p-3 rounded-lg border border-border hover:bg-accent/50 cursor-pointer transition-colors"
+                          onClick={() => !isLocked && handleViewContent(file)}
+                          data-testid={`card-content-${file.id}`}
+                        >
+                          <div className="flex items-start gap-3 mb-2">
+                            <Icon className="h-4 w-4 text-primary/60 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium leading-tight">{file.title}</p>
+                              <p className="text-xs text-muted-foreground capitalize">{file.type}</p>
+                            </div>
+                            <div className="flex-shrink-0">
+                              {getStatusBadge(status)}
                             </div>
                           </div>
-                          <div className="flex-shrink-0">
-                            {getStatusBadge(status)}
+                          <div className="flex gap-1 flex-wrap ml-7">
+                            {isLocked && (
+                              <div className="text-xs text-muted-foreground">
+                                <Lock className="h-3 w-3 inline mr-1" />
+                                Locked
+                              </div>
+                            )}
+                            {canTakeQuiz && !isCompleted && (
+                              <Button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStartQuiz(file);
+                                }}
+                                variant="secondary"
+                                size="sm"
+                                data-testid={`button-quiz-${file.id}`}
+                                className="h-7 text-xs"
+                              >
+                                <FileText className="mr-1 h-3 w-3" />
+                                Quiz
+                              </Button>
+                            )}
+                            {isCompleted && (
+                              <div className="text-xs text-primary flex items-center gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                Done
+                              </div>
+                            )}
                           </div>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex gap-2 flex-wrap">
-                          <Button
-                            onClick={() => handleViewContent(file)}
-                            disabled={isLocked}
-                            data-testid={`button-view-${file.id}`}
-                            variant={isLocked ? "outline" : "default"}
-                            size="sm"
-                          >
-                            {isLocked ? (
-                              <>
-                                <Lock className="mr-2 h-3 w-3" />
-                                Locked
-                              </>
-                            ) : (
-                              <>
-                                <Play className="mr-2 h-3 w-3" />
-                                View
-                              </>
-                            )}
-                          </Button>
-                          
-                          {canTakeQuiz && !isCompleted && (
-                            <Button
-                              onClick={() => handleStartQuiz(file)}
-                              variant="secondary"
-                              data-testid={`button-quiz-${file.id}`}
-                              size="sm"
-                            >
-                              <FileText className="mr-2 h-3 w-3" />
-                              Quiz
-                            </Button>
-                          )}
-                          
-                          {isCompleted && (
-                            <Button
-                              variant="outline"
-                              disabled
-                              data-testid={`button-completed-${file.id}`}
-                              size="sm"
-                            >
-                              <CheckCircle className="mr-2 h-3 w-3" />
-                              Done
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-6">
+                      No content available
+                    </p>
+                  )}
+                </div>
               </div>
-            ) : (
-              <Card>
-                <CardContent className="pt-6">
-                  <p className="text-sm text-muted-foreground text-center">No content available</p>
-                </CardContent>
-              </Card>
-            )}
+            </div>
           </div>
+        </div>
+
+        {/* Right Panel: Content Preview */}
+        <div className="flex-1 hidden lg:flex flex-col items-center justify-center bg-muted/30">
+          {selectedFile ? (
+            <div className="flex flex-col items-center gap-4 text-center p-8">
+              <FileText className="h-12 w-12 text-muted-foreground/40" />
+              <div>
+                <h3 className="font-semibold">{selectedFile.title}</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Click "View" in the sidebar to open this content
+                </p>
+              </div>
+              <Button
+                onClick={() => handleViewContent(selectedFile)}
+                disabled={selectedFile.status === "locked"}
+              >
+                <Play className="mr-2 h-4 w-4" />
+                View Content
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-2 text-center">
+              <FileText className="h-16 w-16 text-muted-foreground/20" />
+              <p className="text-muted-foreground">Select a file to view</p>
+            </div>
+          )}
         </div>
       </div>
 
