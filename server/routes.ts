@@ -2322,6 +2322,298 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== COURSE MANAGEMENT (ADMIN ONLY) ====================
+  // Get all courses
+  app.get("/api/courses", async (req, res) => {
+    try {
+      const courses = await storage.getAllCourses();
+      res.json(courses);
+    } catch (error) {
+      console.error("Error getting courses:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get course with weeks
+  app.get("/api/courses/:id", async (req, res) => {
+    try {
+      const course = await storage.getCourse(req.params.id);
+      if (!course) return res.status(404).json({ error: "Course not found" });
+      const weeks = await storage.getWeeksForCourse(course.id);
+      res.json({ ...course, weeks });
+    } catch (error) {
+      console.error("Error getting course:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Create course (admin only)
+  app.post("/api/courses", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { name, description, orderIndex } = req.body;
+      const course = await storage.createCourse({ name, description, orderIndex: orderIndex || 0 });
+      res.json(course);
+    } catch (error) {
+      console.error("Error creating course:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update course (admin only)
+  app.patch("/api/courses/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const course = await storage.updateCourse(req.params.id, req.body);
+      if (!course) return res.status(404).json({ error: "Course not found" });
+      res.json(course);
+    } catch (error) {
+      console.error("Error updating course:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete course (admin only)
+  app.delete("/api/courses/:id", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const success = await storage.deleteCourse(req.params.id);
+      if (!success) return res.status(404).json({ error: "Course not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting course:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ==================== BATCH-COURSE ASSIGNMENTS (TRAINER) ====================
+  // Assign courses to batch (trainer)
+  app.post("/api/batches/:batchId/courses", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { courseId } = req.body;
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) return res.status(404).json({ error: "Batch not found" });
+      
+      const assignment = await storage.assignCourseToBatch({
+        batchId: req.params.batchId,
+        courseId,
+        assignedBy: req.user!.id,
+      });
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error assigning course:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get courses for batch
+  app.get("/api/batches/:batchId/courses", async (req, res) => {
+    try {
+      const courses = await storage.getCoursesForBatch(req.params.batchId);
+      res.json(courses);
+    } catch (error) {
+      console.error("Error getting courses:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Remove course from batch (trainer)
+  app.delete("/api/batches/:batchId/courses/:courseId", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const success = await storage.removeCoursesFromBatch(req.params.batchId, req.params.courseId);
+      if (!success) return res.status(404).json({ error: "Assignment not found" });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error removing course:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get courses for teacher (assigned to their batches)
+  app.get("/api/teacher/:teacherId/courses", async (req, res) => {
+    try {
+      const courses = await storage.getCoursesForTeacher(req.params.teacherId);
+      res.json(courses);
+    } catch (error) {
+      console.error("Error getting teacher courses:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ==================== CERTIFICATE MANAGEMENT ====================
+  // Get certificate template for batch
+  app.get("/api/batches/:batchId/certificate-template", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const template = await storage.getBatchCertificateTemplate(req.params.batchId);
+      res.json(template || null);
+    } catch (error) {
+      console.error("Error getting certificate template:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Upsert certificate template (admin)
+  app.post("/api/batches/:batchId/certificate-template", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { courseId, appreciationText, adminName1, adminName2 } = req.body;
+      const template = await storage.upsertBatchCertificateTemplate({
+        batchId: req.params.batchId,
+        courseId,
+        appreciationText,
+        adminName1,
+        adminName2,
+        status: "draft",
+      });
+      res.json(template);
+    } catch (error) {
+      console.error("Error saving certificate template:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Approve certificate template (admin)
+  app.post("/api/batches/:batchId/certificate-template/approve", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const template = await storage.approveBatchCertificateTemplate(req.params.batchId, req.user!.id);
+      if (!template) return res.status(404).json({ error: "Template not found" });
+      res.json(template);
+    } catch (error) {
+      console.error("Error approving certificate template:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Generate certificates for completed teachers in batch-course (admin)
+  app.post("/api/batches/:batchId/courses/:courseId/generate-certificates", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const completedTeachers = await storage.getCompletedTeachersForBatchCourse(req.params.batchId, req.params.courseId);
+      const template = await storage.getBatchCertificateTemplate(req.params.batchId);
+      const course = await storage.getCourse(req.params.courseId);
+
+      if (!template || !course) {
+        return res.status(404).json({ error: "Certificate template or course not found" });
+      }
+
+      const generatedCerts = await Promise.all(
+        completedTeachers.map(teacher =>
+          storage.generateTeacherCertificate({
+            teacherId: teacher.id,
+            batchId: req.params.batchId,
+            courseId: req.params.courseId,
+            templateId: template.id,
+            teacherName: teacher.name,
+            courseName: course.name,
+            appreciationText: template.appreciationText,
+            adminName1: template.adminName1 || undefined,
+            adminName2: template.adminName2 || undefined,
+          })
+        )
+      );
+
+      res.json({ count: generatedCerts.length, certificates: generatedCerts });
+    } catch (error) {
+      console.error("Error generating certificates:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get teacher certificate
+  app.get("/api/teacher/:teacherId/certificates/:batchId/:courseId", async (req, res) => {
+    try {
+      const cert = await storage.getTeacherCertificate(req.params.teacherId, req.params.batchId, req.params.courseId);
+      res.json(cert || null);
+    } catch (error) {
+      console.error("Error getting certificate:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get all certificates for teacher
+  app.get("/api/teacher/:teacherId/certificates", async (req, res) => {
+    try {
+      const certs = await storage.getTeacherCertificates(req.params.teacherId);
+      res.json(certs);
+    } catch (error) {
+      console.error("Error getting certificates:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get certificates for batch
+  app.get("/api/batches/:batchId/certificates", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const certs = await storage.getCertificatesForBatch(req.params.batchId);
+      res.json(certs);
+    } catch (error) {
+      console.error("Error getting batch certificates:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ==================== ANALYTICS ====================
+  // Admin analytics (all batches/courses)
+  app.get("/api/admin/analytics/batches", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const analytics = await storage.getBatchAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error getting batch analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get batch analytics
+  app.get("/api/admin/analytics/batches/:batchId", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const analytics = await storage.getBatchAnalytics(req.params.batchId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error getting batch analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Course analytics
+  app.get("/api/admin/analytics/courses", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const analytics = await storage.getCourseAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error getting course analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get course analytics
+  app.get("/api/admin/analytics/courses/:courseId", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const analytics = await storage.getCourseAnalytics(req.params.courseId);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error getting course analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Trainer analytics (their batches/teachers)
+  app.get("/api/trainer/analytics", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const analytics = await storage.getTrainerAnalytics(req.user!.id);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error getting trainer analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Trainer teacher analytics
+  app.get("/api/trainer/analytics/teachers", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const analytics = await storage.getTeacherAnalyticsForTrainer(req.user!.id);
+      res.json(analytics);
+    } catch (error) {
+      console.error("Error getting teacher analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

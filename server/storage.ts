@@ -37,6 +37,16 @@ import {
   type InsertTeacherQuizRegeneration,
   type ApprovalHistory,
   type InsertApprovalHistory,
+  type Course,
+  type InsertCourse,
+  type BatchCourse,
+  type InsertBatchCourse,
+  type TeacherCourseCompletion,
+  type InsertTeacherCourseCompletion,
+  type BatchCertificateTemplate,
+  type InsertBatchCertificateTemplate,
+  type TeacherCertificate,
+  type InsertTeacherCertificate,
   trainingWeeks,
   approvalHistory,
   users,
@@ -54,7 +64,12 @@ import {
   teacherReportCards,
   teacherContentProgress,
   teacherContentQuizAttempts,
-  teacherQuizRegenerations
+  teacherQuizRegenerations,
+  courses,
+  batchCourses,
+  teacherCourseCompletion,
+  batchCertificateTemplates,
+  teacherCertificates
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql as sqlOp, desc, max } from "drizzle-orm";
@@ -178,6 +193,42 @@ export interface IStorage {
   
   // Session store
   sessionStore: session.Store;
+  
+  // Course operations
+  getAllCourses(): Promise<Course[]>;
+  getCourse(id: string): Promise<Course | undefined>;
+  createCourse(course: InsertCourse): Promise<Course>;
+  updateCourse(id: string, updates: Partial<InsertCourse>): Promise<Course | undefined>;
+  deleteCourse(id: string): Promise<boolean>;
+  getWeeksForCourse(courseId: string): Promise<TrainingWeek[]>;
+  
+  // Batch course operations
+  assignCourseToBatch(batchCourse: InsertBatchCourse): Promise<BatchCourse>;
+  removeCoursesFromBatch(batchId: string, courseId: string): Promise<boolean>;
+  getCoursesForBatch(batchId: string): Promise<(Course & { assignedAt: Date | null })[]>;
+  getCoursesForTeacher(teacherId: string): Promise<Course[]>;
+  
+  // Teacher course completion operations
+  getTeacherCourseCompletion(teacherId: string, courseId: string, batchId: string): Promise<TeacherCourseCompletion | undefined>;
+  upsertTeacherCourseCompletion(completion: Partial<InsertTeacherCourseCompletion> & { teacherId: string; courseId: string; batchId: string }): Promise<TeacherCourseCompletion>;
+  getCompletedTeachersForBatchCourse(batchId: string, courseId: string): Promise<Teacher[]>;
+  
+  // Certificate template operations
+  getBatchCertificateTemplate(batchId: string): Promise<BatchCertificateTemplate | undefined>;
+  upsertBatchCertificateTemplate(template: Partial<InsertBatchCertificateTemplate> & { batchId: string; courseId: string }): Promise<BatchCertificateTemplate>;
+  approveBatchCertificateTemplate(batchId: string, approvedBy: string): Promise<BatchCertificateTemplate | undefined>;
+  
+  // Teacher certificate operations
+  generateTeacherCertificate(certificate: InsertTeacherCertificate): Promise<TeacherCertificate>;
+  getTeacherCertificate(teacherId: string, batchId: string, courseId: string): Promise<TeacherCertificate | undefined>;
+  getTeacherCertificates(teacherId: string): Promise<TeacherCertificate[]>;
+  getCertificatesForBatch(batchId: string): Promise<(TeacherCertificate & { teacher: Teacher })[]>;
+  
+  // Analytics operations
+  getBatchAnalytics(batchId?: string): Promise<any>;
+  getCourseAnalytics(courseId?: string): Promise<any>;
+  getTrainerAnalytics(trainerId: string): Promise<any>;
+  getTeacherAnalyticsForTrainer(trainerId: string): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1159,6 +1210,294 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(sqlOp`${teacherQuizRegenerations.requestedAt} DESC`);
+  }
+
+  // Course operations
+  async getAllCourses(): Promise<Course[]> {
+    return await db.select().from(courses).orderBy(courses.orderIndex);
+  }
+
+  async getCourse(id: string): Promise<Course | undefined> {
+    const [course] = await db.select().from(courses).where(eq(courses.id, id));
+    return course;
+  }
+
+  async createCourse(course: InsertCourse): Promise<Course> {
+    const [newCourse] = await db.insert(courses).values(course).returning();
+    return newCourse;
+  }
+
+  async updateCourse(id: string, updates: Partial<InsertCourse>): Promise<Course | undefined> {
+    const [updated] = await db.update(courses).set(updates).where(eq(courses.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCourse(id: string): Promise<boolean> {
+    const result = await db.delete(courses).where(eq(courses.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getWeeksForCourse(courseId: string): Promise<TrainingWeek[]> {
+    return await db.select().from(trainingWeeks).where(eq(trainingWeeks.courseId, courseId)).orderBy(trainingWeeks.weekNumber);
+  }
+
+  // Batch course operations
+  async assignCourseToBatch(batchCourse: InsertBatchCourse): Promise<BatchCourse> {
+    const [result] = await db.insert(batchCourses).values(batchCourse).returning();
+    return result;
+  }
+
+  async removeCoursesFromBatch(batchId: string, courseId: string): Promise<boolean> {
+    const result = await db.delete(batchCourses).where(and(eq(batchCourses.batchId, batchId), eq(batchCourses.courseId, courseId)));
+    return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getCoursesForBatch(batchId: string): Promise<(Course & { assignedAt: Date | null })[]> {
+    const results = await db
+      .select({ course: courses, assignedAt: batchCourses.assignedAt })
+      .from(batchCourses)
+      .innerJoin(courses, eq(batchCourses.courseId, courses.id))
+      .where(eq(batchCourses.batchId, batchId));
+    
+    return results.map(r => ({ ...r.course, assignedAt: r.assignedAt }));
+  }
+
+  async getCoursesForTeacher(teacherId: string): Promise<Course[]> {
+    const results = await db
+      .select({ course: courses })
+      .from(batchTeachers)
+      .innerJoin(batchCourses, eq(batchTeachers.batchId, batchCourses.batchId))
+      .innerJoin(courses, eq(batchCourses.courseId, courses.id))
+      .where(eq(batchTeachers.teacherId, teacherId));
+    
+    // Remove duplicates
+    const courseMap = new Map<string, Course>();
+    results.forEach(r => courseMap.set(r.course.id, r.course));
+    return Array.from(courseMap.values());
+  }
+
+  // Teacher course completion operations
+  async getTeacherCourseCompletion(teacherId: string, courseId: string, batchId: string): Promise<TeacherCourseCompletion | undefined> {
+    const [result] = await db
+      .select()
+      .from(teacherCourseCompletion)
+      .where(
+        and(
+          eq(teacherCourseCompletion.teacherId, teacherId),
+          eq(teacherCourseCompletion.courseId, courseId),
+          eq(teacherCourseCompletion.batchId, batchId)
+        )
+      );
+    return result;
+  }
+
+  async upsertTeacherCourseCompletion(completion: Partial<InsertTeacherCourseCompletion> & { teacherId: string; courseId: string; batchId: string }): Promise<TeacherCourseCompletion> {
+    const [result] = await db
+      .insert(teacherCourseCompletion)
+      .values({
+        teacherId: completion.teacherId,
+        courseId: completion.courseId,
+        batchId: completion.batchId,
+        status: completion.status || "in_progress",
+        completedAt: completion.completedAt || null,
+        totalWeeks: completion.totalWeeks || 0,
+        completedWeeks: completion.completedWeeks || 0,
+      })
+      .onConflictDoUpdate({
+        target: [teacherCourseCompletion.teacherId, teacherCourseCompletion.courseId, teacherCourseCompletion.batchId],
+        set: {
+          status: completion.status !== undefined ? completion.status : sqlOp`${teacherCourseCompletion.status}`,
+          completedAt: completion.completedAt !== undefined ? completion.completedAt : sqlOp`${teacherCourseCompletion.completedAt}`,
+          totalWeeks: completion.totalWeeks !== undefined ? completion.totalWeeks : sqlOp`${teacherCourseCompletion.totalWeeks}`,
+          completedWeeks: completion.completedWeeks !== undefined ? completion.completedWeeks : sqlOp`${teacherCourseCompletion.completedWeeks}`,
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  async getCompletedTeachersForBatchCourse(batchId: string, courseId: string): Promise<Teacher[]> {
+    const results = await db
+      .select({ teacher: teachers })
+      .from(teacherCourseCompletion)
+      .innerJoin(teachers, eq(teacherCourseCompletion.teacherId, teachers.id))
+      .where(
+        and(
+          eq(teacherCourseCompletion.batchId, batchId),
+          eq(teacherCourseCompletion.courseId, courseId),
+          eq(teacherCourseCompletion.status, "completed")
+        )
+      );
+    
+    return results.map(r => r.teacher);
+  }
+
+  // Certificate template operations
+  async getBatchCertificateTemplate(batchId: string): Promise<BatchCertificateTemplate | undefined> {
+    const [result] = await db.select().from(batchCertificateTemplates).where(eq(batchCertificateTemplates.batchId, batchId));
+    return result;
+  }
+
+  async upsertBatchCertificateTemplate(template: Partial<InsertBatchCertificateTemplate> & { batchId: string; courseId: string }): Promise<BatchCertificateTemplate> {
+    const [result] = await db
+      .insert(batchCertificateTemplates)
+      .values({
+        batchId: template.batchId,
+        courseId: template.courseId,
+        appreciationText: template.appreciationText || "In recognition of successfully completing the training program",
+        adminName1: template.adminName1 || undefined,
+        adminName2: template.adminName2 || undefined,
+        status: template.status || "draft",
+      })
+      .onConflictDoUpdate({
+        target: [batchCertificateTemplates.batchId],
+        set: {
+          appreciationText: template.appreciationText || sqlOp`${batchCertificateTemplates.appreciationText}`,
+          adminName1: template.adminName1 || sqlOp`${batchCertificateTemplates.adminName1}`,
+          adminName2: template.adminName2 || sqlOp`${batchCertificateTemplates.adminName2}`,
+          status: template.status || sqlOp`${batchCertificateTemplates.status}`,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return result;
+  }
+
+  async approveBatchCertificateTemplate(batchId: string, approvedBy: string): Promise<BatchCertificateTemplate | undefined> {
+    const [result] = await db
+      .update(batchCertificateTemplates)
+      .set({
+        status: "approved",
+        approvedBy,
+        approvedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(batchCertificateTemplates.batchId, batchId))
+      .returning();
+    return result;
+  }
+
+  // Teacher certificate operations
+  async generateTeacherCertificate(certificate: InsertTeacherCertificate): Promise<TeacherCertificate> {
+    const [result] = await db
+      .insert(teacherCertificates)
+      .values(certificate)
+      .onConflictDoUpdate({
+        target: [teacherCertificates.teacherId, teacherCertificates.batchId, teacherCertificates.courseId],
+        set: certificate as any,
+      })
+      .returning();
+    return result;
+  }
+
+  async getTeacherCertificate(teacherId: string, batchId: string, courseId: string): Promise<TeacherCertificate | undefined> {
+    const [result] = await db
+      .select()
+      .from(teacherCertificates)
+      .where(
+        and(
+          eq(teacherCertificates.teacherId, teacherId),
+          eq(teacherCertificates.batchId, batchId),
+          eq(teacherCertificates.courseId, courseId)
+        )
+      );
+    return result;
+  }
+
+  async getTeacherCertificates(teacherId: string): Promise<TeacherCertificate[]> {
+    return await db.select().from(teacherCertificates).where(eq(teacherCertificates.teacherId, teacherId));
+  }
+
+  async getCertificatesForBatch(batchId: string): Promise<(TeacherCertificate & { teacher: Teacher })[]> {
+    const results = await db
+      .select({ certificate: teacherCertificates, teacher: teachers })
+      .from(teacherCertificates)
+      .innerJoin(teachers, eq(teacherCertificates.teacherId, teachers.id))
+      .where(eq(teacherCertificates.batchId, batchId));
+    
+    return results.map(r => ({ ...r.certificate, teacher: r.teacher }));
+  }
+
+  // Analytics operations
+  async getBatchAnalytics(batchId?: string): Promise<any> {
+    if (batchId) {
+      const batch = await this.getBatch(batchId);
+      const batchTeacherCount = await db
+        .select({ count: sqlOp`COUNT(*)::int` })
+        .from(batchTeachers)
+        .where(eq(batchTeachers.batchId, batchId));
+      
+      const courses = await this.getCoursesForBatch(batchId);
+      
+      return {
+        batch,
+        teacherCount: batchTeacherCount[0]?.count || 0,
+        courseCount: courses.length,
+        courses,
+      };
+    } else {
+      const allBatches = await this.getAllBatches();
+      return allBatches.map(b => ({ ...b, type: "batch" }));
+    }
+  }
+
+  async getCourseAnalytics(courseId?: string): Promise<any> {
+    if (courseId) {
+      const course = await this.getCourse(courseId);
+      const weeks = await this.getWeeksForCourse(courseId);
+      const assignmentCount = await db
+        .select({ count: sqlOp`COUNT(*)::int` })
+        .from(batchCourses)
+        .where(eq(batchCourses.courseId, courseId));
+      
+      return {
+        course,
+        weekCount: weeks.length,
+        batchAssignments: assignmentCount[0]?.count || 0,
+      };
+    } else {
+      return await this.getAllCourses();
+    }
+  }
+
+  async getTrainerAnalytics(trainerId: string): Promise<any> {
+    const createdBatches = await this.getAllBatches(trainerId);
+    const assignedCourses = await db
+      .select({ count: sqlOp`COUNT(DISTINCT ${batchCourses.courseId})::int` })
+      .from(batchCourses)
+      .where(eq(batchCourses.assignedBy, trainerId));
+    
+    return {
+      trainerId,
+      batchCount: createdBatches.length,
+      courseAssignmentCount: assignedCourses[0]?.count || 0,
+      batches: createdBatches,
+    };
+  }
+
+  async getTeacherAnalyticsForTrainer(trainerId: string): Promise<any> {
+    const trainerBatches = await this.getAllBatches(trainerId);
+    const batchIds = trainerBatches.map(b => b.id);
+    
+    if (batchIds.length === 0) {
+      return { trainerId, teachers: [] };
+    }
+    
+    const teachers = await db
+      .select({ 
+        teacher: teachers,
+        batchCount: sqlOp`COUNT(DISTINCT ${batchTeachers.batchId})::int`,
+      })
+      .from(batchTeachers)
+      .innerJoin(teachers, eq(batchTeachers.teacherId, teachers.id))
+      .where(sqlOp`${batchTeachers.batchId} IN (${batchIds.join(",")})`)
+      .groupBy(teachers.id);
+    
+    return {
+      trainerId,
+      teacherCount: teachers.length,
+      teachers: teachers.map(t => ({ ...t.teacher, assignedBatches: t.batchCount })),
+    };
   }
 }
 

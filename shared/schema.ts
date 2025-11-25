@@ -79,9 +79,27 @@ export const deckFileSchema = z.object({
 
 export type DeckFile = z.infer<typeof deckFileSchema>;
 
-// Training weeks table
+// Courses table (parent of weeks)
+export const courses = pgTable("courses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  orderIndex: integer("order_index").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCourseSchema = createInsertSchema(courses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCourse = z.infer<typeof insertCourseSchema>;
+export type Course = typeof courses.$inferSelect;
+
+// Training weeks table (now belongs to a course)
 export const trainingWeeks = pgTable("training_weeks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  courseId: varchar("course_id").references(() => courses.id, { onDelete: "cascade" }),
   weekNumber: integer("week_number").notNull(),
   competencyFocus: text("competency_focus").notNull().default(""),
   objective: text("objective").notNull().default(""),
@@ -453,3 +471,92 @@ export const insertApprovalHistorySchema = createInsertSchema(approvalHistory).o
 
 export type InsertApprovalHistory = z.infer<typeof insertApprovalHistorySchema>;
 export type ApprovalHistory = typeof approvalHistory.$inferSelect;
+
+// Batch courses junction table (courses assigned to batches)
+export const batchCourses = pgTable("batch_courses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  batchId: varchar("batch_id").notNull().references(() => batches.id, { onDelete: "cascade" }),
+  courseId: varchar("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+  assignedBy: varchar("assigned_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  assignedAt: timestamp("assigned_at").defaultNow(),
+}, (table) => [
+  index("idx_batch_courses").on(table.batchId, table.courseId),
+]);
+
+export const insertBatchCourseSchema = createInsertSchema(batchCourses).omit({
+  id: true,
+  assignedAt: true,
+});
+
+export type InsertBatchCourse = z.infer<typeof insertBatchCourseSchema>;
+export type BatchCourse = typeof batchCourses.$inferSelect;
+
+// Teacher course completion tracking (for certificate eligibility)
+export const teacherCourseCompletion = pgTable("teacher_course_completion", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  courseId: varchar("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+  batchId: varchar("batch_id").notNull().references(() => batches.id, { onDelete: "cascade" }),
+  status: varchar("status").notNull().default("in_progress"), // 'in_progress', 'completed'
+  completedAt: timestamp("completed_at"),
+  totalWeeks: integer("total_weeks").notNull().default(0),
+  completedWeeks: integer("completed_weeks").notNull().default(0),
+}, (table) => [
+  uniqueIndex("idx_teacher_course_completion_unique").on(table.teacherId, table.courseId, table.batchId),
+]);
+
+export const insertTeacherCourseCompletionSchema = createInsertSchema(teacherCourseCompletion).omit({
+  id: true,
+});
+
+export type InsertTeacherCourseCompletion = z.infer<typeof insertTeacherCourseCompletionSchema>;
+export type TeacherCourseCompletion = typeof teacherCourseCompletion.$inferSelect;
+
+// Batch certificate templates (one template per batch, requires admin approval)
+export const batchCertificateTemplates = pgTable("batch_certificate_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  batchId: varchar("batch_id").notNull().unique().references(() => batches.id, { onDelete: "cascade" }),
+  courseId: varchar("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+  appreciationText: text("appreciation_text").notNull().default("In recognition of successfully completing the training program"),
+  adminName1: varchar("admin_name_1"),
+  adminName2: varchar("admin_name_2"),
+  status: varchar("status").notNull().default("draft"), // 'draft', 'pending_approval', 'approved'
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBatchCertificateTemplateSchema = createInsertSchema(batchCertificateTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBatchCertificateTemplate = z.infer<typeof insertBatchCertificateTemplateSchema>;
+export type BatchCertificateTemplate = typeof batchCertificateTemplates.$inferSelect;
+
+// Generated certificates for teachers
+export const teacherCertificates = pgTable("teacher_certificates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  batchId: varchar("batch_id").notNull().references(() => batches.id, { onDelete: "cascade" }),
+  courseId: varchar("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+  templateId: varchar("template_id").notNull().references(() => batchCertificateTemplates.id, { onDelete: "cascade" }),
+  teacherName: varchar("teacher_name").notNull(),
+  courseName: varchar("course_name").notNull(),
+  appreciationText: text("appreciation_text").notNull(),
+  adminName1: varchar("admin_name_1"),
+  adminName2: varchar("admin_name_2"),
+  generatedAt: timestamp("generated_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_teacher_certificate_unique").on(table.teacherId, table.batchId, table.courseId),
+]);
+
+export const insertTeacherCertificateSchema = createInsertSchema(teacherCertificates).omit({
+  id: true,
+  generatedAt: true,
+});
+
+export type InsertTeacherCertificate = z.infer<typeof insertTeacherCertificateSchema>;
+export type TeacherCertificate = typeof teacherCertificates.$inferSelect;
