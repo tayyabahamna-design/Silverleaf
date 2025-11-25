@@ -7,8 +7,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
-import Home from "@/pages/home";
+import CoursesList from "@/pages/courses-list";
+import CourseWeeks from "@/pages/course-weeks";
 import CourseView from "@/pages/course-view";
+import Home from "@/pages/home";
 import UnifiedAuth from "@/pages/unified-auth";
 import TeacherDashboard from "@/pages/teacher-dashboard";
 import TeacherContentView from "@/pages/teacher-content-view";
@@ -25,16 +27,21 @@ import AdminCertificateApproval from "@/pages/admin-certificate-approval";
 import AdminCertificateView from "@/pages/admin-certificate-view";
 import NotFound from "@/pages/not-found";
 
-// UPDATED: Router now uses unified authentication
 function Router() {
   return (
     <Switch>
-      <ProtectedRoute path="/" component={Home} />
+      {/* New course hierarchy */}
+      <ProtectedRoute path="/" component={CoursesList} />
+      <ProtectedRoute path="/courses/:courseId" component={CourseWeeks} />
+      <ProtectedRoute path="/courses/:courseId/weeks/:weekId" component={CourseView} />
+      
+      {/* Legacy routes for backward compatibility */}
       <ProtectedRoute path="/course/:weekId" component={CourseView} />
+      
+      {/* Other routes */}
       <ProtectedRoute path="/trainer/batches" component={TrainerBatches} />
       <ProtectedRoute path="/trainer/teachers/:teacherId/weeks/:weekId/content-history" component={TrainerTeacherContentHistory} />
       <ProtectedRoute path="/approvals" component={Approvals} />
-      {/* Admin Dashboard Routes */}
       <ProtectedRoute path="/admin" component={AdminHome} />
       <ProtectedRoute path="/admin/trainers" component={AdminTrainers} />
       <ProtectedRoute path="/admin/trainers/:id" component={AdminTrainerDetail} />
@@ -43,7 +50,6 @@ function Router() {
       <ProtectedRoute path="/admin/analytics" component={AdminAnalytics} />
       <ProtectedRoute path="/admin/certificates/:batchId/approve" component={AdminCertificateApproval} />
       <ProtectedRoute path="/admin/certificates/batch/:batchId/view" component={AdminCertificateView} />
-      {/* UPDATED: New unified auth page for all roles (Admin, Teacher, Trainer) */}
       <Route path="/auth" component={UnifiedAuth} />
       <Route path="/login" component={UnifiedAuth} />
       <Route path="/teacher/dashboard" component={TeacherDashboard} />

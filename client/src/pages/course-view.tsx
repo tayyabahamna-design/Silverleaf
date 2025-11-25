@@ -97,7 +97,9 @@ interface WeekProgress {
 }
 
 export default function CourseView() {
-  const { weekId } = useParams<{ weekId: string }>();
+  const params = useParams<{ courseId?: string; weekId: string }>();
+  const weekId = params.weekId;
+  const courseId = params.courseId;
   const [, navigate] = useLocation();
   const { user, isTrainer } = useAuth();
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
@@ -323,12 +325,12 @@ export default function CourseView() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate('/')}
+                onClick={() => courseId ? navigate(`/courses/${courseId}`) : navigate('/')}
                 className="mb-4 -ml-2"
                 data-testid="button-back-to-weeks"
               >
                 <ChevronLeft className="h-4 w-4 mr-1" />
-                Back to Weeks
+                Back to {courseId ? 'Weeks' : 'Courses'}
               </Button>
               <h2 className="text-3xl font-bold mb-2">
                 Week {currentWeek?.weekNumber}

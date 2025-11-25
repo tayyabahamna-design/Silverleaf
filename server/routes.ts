@@ -2347,6 +2347,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get weeks for a course
+  app.get("/api/courses/:courseId/weeks", async (req, res) => {
+    try {
+      const weeks = await storage.getWeeksForCourse(req.params.courseId);
+      res.json(weeks);
+    } catch (error) {
+      console.error("Error getting weeks:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Create course (admin only)
   app.post("/api/courses", isAuthenticated, isAdmin, async (req, res) => {
     try {

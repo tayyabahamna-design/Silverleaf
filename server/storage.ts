@@ -102,7 +102,7 @@ export interface IStorage {
   deleteContentItem(id: string): Promise<boolean>;
   
   // User progress operations
-  saveUserProgress(progress: Partial<InsertUserProgress>): Promise<UserProgress>;
+  saveUserProgress(progress: Partial<InsertUserContentProgress>): Promise<UserContentProgress>;
   getWeekProgress(weekId: string, userId: string): Promise<{ total: number; completed: number; percentage: number }>;
   
   // Deck file progress operations
@@ -346,11 +346,11 @@ export class DatabaseStorage implements IStorage {
       items.map(async (item) => {
         const [progress] = await db
           .select()
-          .from(userProgress)
+          .from(userContentProgress)
           .where(
             and(
-              eq(userProgress.contentItemId, item.id),
-              eq(userProgress.userId, userId)
+              eq(userContentProgress.contentItemId, item.id),
+              eq(userContentProgress.userId, userId)
             )
           );
         
