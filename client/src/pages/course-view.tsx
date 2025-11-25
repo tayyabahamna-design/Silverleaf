@@ -153,16 +153,15 @@ export default function CourseView() {
           const convertUrl = `/api/files/convert-to-pdf?url=${encodeURIComponent(selectedFile.fileUrl)}`;
           setViewUrl(convertUrl);
         } else {
-          // For other files, use the proxy endpoint
-          const response = await fetch(
-            `/api/files/view-url?fileUrl=${encodeURIComponent(selectedFile.fileUrl)}`
-          );
-          const data = await response.json();
-          setViewUrl(data.viewUrl);
+          // For all other files (videos, documents, etc.), use the proxy endpoint
+          // This ensures files are served with inline disposition headers
+          const proxyUrl = `/api/files/proxy?url=${encodeURIComponent(selectedFile.fileUrl)}`;
+          setViewUrl(proxyUrl);
         }
       } catch (error) {
         console.error('Error fetching view URL:', error);
-        setViewUrl(selectedFile.fileUrl); // Fallback to direct URL
+        // Fallback to proxy endpoint
+        setViewUrl(`/api/files/proxy?url=${encodeURIComponent(selectedFile.fileUrl)}`);
       }
     };
 
@@ -559,6 +558,7 @@ export default function CourseView() {
                                   className="w-full flex-1 min-h-0 rounded-xl shadow-2xl border-0 p-4 bg-white dark:bg-slate-900 text-black dark:text-white font-mono resize-none"
                                   data-testid="text-viewer"
                                   style={{ lineHeight: '1.5' }}
+                                  onContextMenu={(e) => e.preventDefault()}
                                 />
                               ) : (
                                 <iframe
@@ -567,6 +567,8 @@ export default function CourseView() {
                                   title={selectedFile.fileName}
                                   data-testid="file-viewer"
                                   style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+                                  sandbox="allow-same-origin allow-scripts"
+                                  onContextMenu={(e) => e.preventDefault()}
                                 />
                               )}
                               <div className="mt-4 flex gap-3 justify-center">
@@ -809,6 +811,8 @@ export default function CourseView() {
                     className="w-full h-full border-0 select-none"
                     title={selectedFile.fileName}
                     style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+                    sandbox="allow-same-origin allow-scripts"
+                    onContextMenu={(e) => e.preventDefault()}
                   />
                 )
               )}
