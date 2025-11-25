@@ -889,131 +889,127 @@ export default function TrainerBatches() {
                 </TabsContent>
 
                 {/* Certificates Tab */}
-                <TabsContent value="certificates" className="flex-1 overflow-hidden flex flex-col p-4">
-                  <div className="overflow-y-auto flex-1">
-                    <div className="space-y-4 pr-4">
-                      <div className="bg-muted/30 p-4 rounded-lg border">
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Configure the certificate template for this batch. After setup, contact admin to approve.
-                        </p>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="text-sm font-medium">Appreciation Text</label>
-                            <Textarea
-                              value={appreciationText || (template?.appreciationText ?? "")}
-                              onChange={(e) => setAppreciationText(e.target.value)}
-                              placeholder="In recognition of successfully completing the training program"
-                              className="mt-2"
-                              data-testid="input-cert-appreciation-text"
-                            />
-                          </div>
+                <TabsContent value="certificates" className="space-y-4 p-4">
+                  <div className="bg-muted/30 p-4 rounded-lg border">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Configure the certificate template for this batch. After setup, contact admin to approve.
+                    </p>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">Appreciation Text</label>
+                        <Textarea
+                          value={appreciationText || (template?.appreciationText ?? "")}
+                          onChange={(e) => setAppreciationText(e.target.value)}
+                          placeholder="In recognition of successfully completing the training program"
+                          className="mt-2"
+                          data-testid="input-cert-appreciation-text"
+                        />
+                      </div>
 
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <label className="text-sm font-medium">Admin Name 1</label>
-                              <Input
-                                value={adminName1 || (template?.adminName1 ?? "")}
-                                onChange={(e) => setAdminName1(e.target.value)}
-                                placeholder="First admin name"
-                                className="mt-2"
-                                data-testid="input-cert-admin-name-1"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-sm font-medium">Admin Name 2</label>
-                              <Input
-                                value={adminName2 || (template?.adminName2 ?? "")}
-                                onChange={(e) => setAdminName2(e.target.value)}
-                                placeholder="Second admin name (optional)"
-                                className="mt-2"
-                                data-testid="input-cert-admin-name-2"
-                              />
-                            </div>
-                          </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm font-medium">Admin Name 1</label>
+                          <Input
+                            value={adminName1 || (template?.adminName1 ?? "")}
+                            onChange={(e) => setAdminName1(e.target.value)}
+                            placeholder="First admin name"
+                            className="mt-2"
+                            data-testid="input-cert-admin-name-1"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Admin Name 2</label>
+                          <Input
+                            value={adminName2 || (template?.adminName2 ?? "")}
+                            onChange={(e) => setAdminName2(e.target.value)}
+                            placeholder="Second admin name (optional)"
+                            className="mt-2"
+                            data-testid="input-cert-admin-name-2"
+                          />
+                        </div>
+                      </div>
 
-                          <Button
-                            onClick={() => saveCertificateTemplateMutation.mutate()}
-                            disabled={saveCertificateTemplateMutation.isPending}
-                            data-testid="button-save-cert-template"
-                          >
-                            {saveCertificateTemplateMutation.isPending ? "Saving..." : "Save Template"}
-                          </Button>
+                      <Button
+                        onClick={() => saveCertificateTemplateMutation.mutate()}
+                        disabled={saveCertificateTemplateMutation.isPending}
+                        data-testid="button-save-cert-template"
+                      >
+                        {saveCertificateTemplateMutation.isPending ? "Saving..." : "Save Template"}
+                      </Button>
 
-                          {template?.status && (
-                            <div className="text-sm p-3 rounded-lg bg-muted/50">
-                              <p className="font-medium">
-                                Status: <span className="capitalize">{template.status}</span>
-                              </p>
-                              {template.status === "approved" && (
-                                <p className="text-green-600 flex items-center gap-1 mt-1">
-                                  <CheckCircle className="w-4 h-4" /> Approved by admin
-                                </p>
-                              )}
-                              {template.status === "draft" && (
-                                <p className="text-muted-foreground text-xs mt-1">
-                                  Save your template and request approval from admin
-                                </p>
-                              )}
-                            </div>
+                      {template?.status && (
+                        <div className="text-sm p-3 rounded-lg bg-muted/50">
+                          <p className="font-medium">
+                            Status: <span className="capitalize">{template.status}</span>
+                          </p>
+                          {template.status === "approved" && (
+                            <p className="text-green-600 flex items-center gap-1 mt-1">
+                              <CheckCircle className="w-4 h-4" /> Approved by admin
+                            </p>
+                          )}
+                          {template.status === "draft" && (
+                            <p className="text-muted-foreground text-xs mt-1">
+                              Save your template and request approval from admin
+                            </p>
                           )}
                         </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border">
+                    <p className="text-sm font-medium mb-4 text-foreground">Certificate Preview</p>
+                    <div className="border-2 border-primary rounded-lg p-8 space-y-6 text-center bg-white dark:bg-slate-900">
+                      {/* Certificate Header */}
+                      <div className="space-y-2">
+                        <h1 className="text-3xl font-bold text-primary">Certificate of Completion</h1>
+                        <p className="text-sm text-muted-foreground">Silverleaf Academy</p>
                       </div>
 
-                      <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border">
-                        <p className="text-sm font-medium mb-4 text-foreground">Certificate Preview</p>
-                        <div className="border-2 border-primary rounded-lg p-8 space-y-6 text-center bg-white dark:bg-slate-900">
-                          {/* Certificate Header */}
-                          <div className="space-y-2">
-                            <h1 className="text-3xl font-bold text-primary">Certificate of Completion</h1>
-                            <p className="text-sm text-muted-foreground">Silverleaf Academy</p>
-                          </div>
+                      {/* Divider */}
+                      <div className="flex justify-center">
+                        <div className="w-16 h-1 bg-primary rounded-full" />
+                      </div>
 
-                          {/* Divider */}
-                          <div className="flex justify-center">
-                            <div className="w-16 h-1 bg-primary rounded-full" />
-                          </div>
+                      {/* Content */}
+                      <div className="space-y-4">
+                        <p className="text-sm text-foreground">This certificate is proudly presented to</p>
+                        <p className="text-2xl font-bold text-primary">Teacher Name</p>
+                        <p className="text-xs text-muted-foreground border-t-2 border-primary pt-4">
+                          For successfully completing the course
+                        </p>
+                        <p className="text-lg font-bold text-primary">{selectedBatch?.name || "Course Name"}</p>
+                      </div>
 
-                          {/* Content */}
-                          <div className="space-y-4">
-                            <p className="text-sm text-foreground">This certificate is proudly presented to</p>
-                            <p className="text-2xl font-bold text-primary">Teacher Name</p>
-                            <p className="text-xs text-muted-foreground border-t-2 border-primary pt-4">
-                              For successfully completing the course
-                            </p>
-                            <p className="text-lg font-bold text-primary">{selectedBatch?.name || "Course Name"}</p>
-                          </div>
+                      {/* Appreciation Text */}
+                      <div className="bg-primary/5 p-4 rounded-lg">
+                        <p className="text-xs leading-relaxed text-foreground italic">
+                          {appreciationText || template?.appreciationText || "In recognition of successfully completing the training program"}
+                        </p>
+                      </div>
 
-                          {/* Appreciation Text */}
-                          <div className="bg-primary/5 p-4 rounded-lg">
-                            <p className="text-xs leading-relaxed text-foreground italic">
-                              {appreciationText || template?.appreciationText || "In recognition of successfully completing the training program"}
-                            </p>
+                      {/* Signatures */}
+                      <div className="grid grid-cols-2 gap-6 pt-6">
+                        <div className="space-y-8 text-center">
+                          <div className="h-12" />
+                          <div>
+                            <p className="text-xs font-semibold text-foreground">{adminName1 || template?.adminName1 || "Administrator"}</p>
+                            <p className="text-xs text-muted-foreground">Authorized Signatory</p>
                           </div>
-
-                          {/* Signatures */}
-                          <div className="grid grid-cols-2 gap-6 pt-6">
-                            <div className="space-y-8 text-center">
-                              <div className="h-12" />
-                              <div>
-                                <p className="text-xs font-semibold text-foreground">{adminName1 || template?.adminName1 || "Administrator"}</p>
-                                <p className="text-xs text-muted-foreground">Authorized Signatory</p>
-                              </div>
-                            </div>
-                            <div className="space-y-8 text-center">
-                              <div className="h-12" />
-                              <div>
-                                <p className="text-xs font-semibold text-foreground">{adminName2 || template?.adminName2 || "Director"}</p>
-                                <p className="text-xs text-muted-foreground">Program Director</p>
-                              </div>
-                            </div>
+                        </div>
+                        <div className="space-y-8 text-center">
+                          <div className="h-12" />
+                          <div>
+                            <p className="text-xs font-semibold text-foreground">{adminName2 || template?.adminName2 || "Director"}</p>
+                            <p className="text-xs text-muted-foreground">Program Director</p>
                           </div>
-
-                          {/* Date */}
-                          <p className="text-xs text-muted-foreground pt-4">
-                            Issued on {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-                          </p>
                         </div>
                       </div>
+
+                      {/* Date */}
+                      <p className="text-xs text-muted-foreground pt-4">
+                        Issued on {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                      </p>
                     </div>
                   </div>
                 </TabsContent>
