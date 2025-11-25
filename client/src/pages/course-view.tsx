@@ -111,6 +111,7 @@ export default function CourseView() {
   const [fileQuizDialogOpen, setFileQuizDialogOpen] = useState<boolean>(false);
   const [selectedQuizFileId, setSelectedQuizFileId] = useState<string | null>(null);
   const [pageInputValue, setPageInputValue] = useState<string>('');
+  const [documentLoadError, setDocumentLoadError] = useState<boolean>(false);
   
   // Mobile sidebar drawer state
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
@@ -195,6 +196,7 @@ export default function CourseView() {
     const fetchViewUrl = async () => {
       if (!selectedFile) {
         setViewUrl(null);
+        setDocumentLoadError(false);
         return;
       }
 
@@ -207,20 +209,24 @@ export default function CourseView() {
         if (isPptx) {
           // For PowerPoint files, convert to PDF for HD viewing
           const convertUrl = `/api/files/convert-to-pdf?url=${encodeURIComponent(selectedFile.fileUrl)}`;
+          setDocumentLoadError(false);
           setViewUrl(convertUrl);
         } else if (isDocx) {
           // For Word documents, convert to HTML using mammoth
           const convertUrl = `/api/files/convert-to-html?url=${encodeURIComponent(selectedFile.fileUrl)}`;
+          setDocumentLoadError(false);
           setViewUrl(convertUrl);
         } else {
           // For all other files (videos, documents, etc.), use the proxy endpoint
           // This ensures files are served with inline disposition headers
           const proxyUrl = `/api/files/proxy?url=${encodeURIComponent(selectedFile.fileUrl)}`;
+          setDocumentLoadError(false);
           setViewUrl(proxyUrl);
         }
       } catch (error) {
         console.error('Error fetching view URL:', error);
         // Fallback to proxy endpoint
+        setDocumentLoadError(false);
         setViewUrl(`/api/files/proxy?url=${encodeURIComponent(selectedFile.fileUrl)}`);
       }
     };
@@ -571,20 +577,37 @@ export default function CourseView() {
                     <div className="flex flex-col items-center p-8 pb-24">
                       {/* Slides Viewer */}
                       <div className="w-full max-w-5xl flex flex-col items-center gap-6">
-                        {viewUrl && (
-                          <Document
-                            file={viewUrl}
-                            onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-                            onLoadError={(error) => console.error('PDF load error:', error)}
-                            className="shadow-2xl rounded-xl overflow-hidden"
-                          >
-                            <Page
-                              pageNumber={pageNumber}
-                              scale={scale}
-                              renderTextLayer={true}
-                              renderAnnotationLayer={true}
-                            />
-                          </Document>
+                        {viewUrl ? (
+                          <>
+                            <Document
+                              file={viewUrl}
+                              onLoadSuccess={({ numPages }) => {
+                                setNumPages(numPages);
+                                setDocumentLoadError(false);
+                              }}
+                              onLoadError={(error) => {
+                                console.error('PDF load error:', error);
+                                setDocumentLoadError(true);
+                              }}
+                              className="shadow-2xl rounded-xl overflow-hidden"
+                            >
+                              <Page
+                                pageNumber={pageNumber}
+                                scale={scale}
+                                renderTextLayer={true}
+                                renderAnnotationLayer={true}
+                              />
+                            </Document>
+                            {documentLoadError && (
+                              <div className="p-8 text-center text-destructive">
+                                Failed to load document. Please try another file.
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="p-8 text-center text-muted-foreground">
+                            Loading document...
+                          </div>
                         )}
                       </div>
                     </div>
@@ -761,25 +784,45 @@ export default function CourseView() {
 
             {/* Fullscreen content - scrollable with fixed control bar */}
             <div className="flex-1 overflow-y-auto bg-muted/20 relative pb-24">
-              {selectedFile && viewUrl && (
+              {selectedFile && (
                 (selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                  selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                  selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
                   <div className="flex flex-col items-center p-6">
-                    <div className="select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
-                      <Document
-                        file={viewUrl}
-                        onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-                        className="shadow-2xl"
-                      >
-                        <Page
-                          pageNumber={pageNumber}
-                          scale={scale}
-                          renderTextLayer={true}
-                          renderAnnotationLayer={true}
-                        />
-                      </Document>
-                    </div>
+                    {viewUrl ? (
+                      <>
+                        <div className="select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
+                          <Document
+                            file={viewUrl}
+                            onLoadSuccess={({ numPages }) => {
+                              setNumPages(numPages);
+                              setDocumentLoadError(false);
+                            }}
+                            onLoadError={(error) => {
+                              console.error('PDF load error:', error);
+                              setDocumentLoadError(true);
+                            }}
+                            className="shadow-2xl"
+                          >
+                            <Page
+                              pageNumber={pageNumber}
+                              scale={scale}
+                              renderTextLayer={true}
+                              renderAnnotationLayer={true}
+                            />
+                          </Document>
+                        </div>
+                        {documentLoadError && (
+                          <div className="p-8 text-center text-destructive mt-4">
+                            Failed to load document. Please try another file.
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="p-8 text-center text-muted-foreground">
+                        Loading document...
+                      </div>
+                    )}
                   </div>
                 ) : (selectedFile.fileName.toLowerCase().endsWith('.docx') || 
                      selectedFile.fileName.toLowerCase().endsWith('.doc')) ? (
