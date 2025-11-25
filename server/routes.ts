@@ -2181,17 +2181,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get dashboard statistics
   app.get("/api/admin/dashboard-stats", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const trainers = await storage.getPendingTrainers();
-      const approvedTrainers = await db.select().from(users).where(and(eq(users.role, "trainer"), eq(users.approvalStatus, "approved")));
-      const teachers = await storage.getPendingTeachers();
-      const approvedTeachers = await db.select().from(teachers as any).where(eq((teachers as any).approvalStatus, "approved"));
+      const allTrainers = await db.select().from(users).where(eq(users.role, "trainer"));
+      const allTeachers = await db.select().from(teachers as any);
       const weeks = await storage.getAllTrainingWeeks();
 
       res.json({
-        totalTrainers: (approvedTrainers as any).length,
-        totalTeachers: (approvedTeachers as any).length,
+        totalTrainers: (allTrainers as any).length,
+        totalTeachers: (allTeachers as any).length,
         totalCourses: weeks.length,
-        activeUsers: (approvedTrainers as any).length + (approvedTeachers as any).length,
+        activeUsers: (allTrainers as any).length + (allTeachers as any).length,
       });
     } catch (error) {
       console.error("Error getting dashboard stats:", error);
