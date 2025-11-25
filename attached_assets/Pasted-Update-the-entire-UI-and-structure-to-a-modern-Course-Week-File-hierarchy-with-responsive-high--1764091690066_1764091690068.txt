@@ -1,0 +1,87 @@
+Update the entire UI and structure to a modern Course → Week → File hierarchy with responsive, high-quality styling.
+
+Add a new 'Add Course' button for admins.
+
+Clicking it opens a modern modal to enter the course name.
+
+Save this as a new Course entry.
+
+Create a new 'Courses' page for admins that shows all courses as floating, modern, card-styled tiles with shadows, rounded edges, readable font sizes, and spacious layout. Each course card must include:
+
+Course name
+
+Created date
+
+A 'Manage Weeks' button
+
+When the admin clicks 'Manage Weeks', open a page showing ONLY the weeks under that course.
+
+Convert existing Week UI into floating cards with rounded corners, smooth hover animations, soft shadows, spacing, and clean typography.
+
+Weeks must be draggable/reorderable with graceful animations.
+
+Add Week button must match the modern style.
+
+Teachers and trainers must also see the courses — but WEEK CARDS AND COURSE CARDS MUST BE READ-ONLY for them.
+
+No edit icons, delete buttons, or drag handles.
+
+UI should look identical but in a non-editable state.
+
+UI & UX Upgrade Checklist:
+
+All weeks, course cards, and file lists should FLOAT as modern cards.
+
+Add soft drop shadow (material design style).
+
+Use smooth animations: fade, slide, or scale on hover.
+
+Typography must be readable: 15–17px body text, bolder headers, high contrast.
+
+Improve spacing: generous padding and margin around elements.
+
+Buttons should be rounded, pill-shaped, with hover glow.
+
+Add responsive grid layout for courses and weeks.
+
+Make sure UI adapts perfectly to mobile, tablet, laptop, and desktop.
+
+Responsiveness Requirements:
+
+Use CSS grid / flexbox so Course cards and Week cards realign on smaller screens.
+
+On mobile:
+
+1 card per row
+
+Large touch-friendly padding
+
+No clipped text
+
+Collapsible menus where needed
+
+On tablet:
+
+2 cards per row
+
+On desktop:
+
+3–4 cards per row
+
+Viewer area must scale correctly inside smaller devices.
+
+Database updates:
+
+Add 'courses' table with id + name.
+
+Each week must contain a 'courseId'.
+
+All existing file logic stays the same, now under weekId → courseId.
+
+Keep all viewer functionality (ppt, pdf, docx) working as before.
+
+Teachers see viewer in read-only mode.
+
+Admin sees editable controls.
+
+Implement this entire redesign with modern UI components, floating cards, large readable fonts, and fully responsive layout that adjusts to every screen size.

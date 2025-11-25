@@ -22,6 +22,7 @@ import AdminTeachers from "@/pages/admin-teachers";
 import AdminTeacherDetail from "@/pages/admin-teacher-detail";
 import AdminCourses from "@/pages/admin-courses";
 import AdminCourseWeeks from "@/pages/admin-course-weeks";
+import CoursesView from "@/pages/courses-view";
 import NotFound from "@/pages/not-found";
 
 // UPDATED: Router now uses unified authentication
@@ -41,6 +42,9 @@ function Router() {
       <ProtectedRoute path="/admin/teachers/:id" component={AdminTeacherDetail} />
       <ProtectedRoute path="/admin/courses" component={AdminCourses} />
       <ProtectedRoute path="/admin/courses/:courseId" component={AdminCourseWeeks} />
+      {/* Teacher/Trainer course views (read-only) */}
+      <Route path="/courses" component={() => <CoursesView mode="courses" />} />
+      <Route path="/courses/:courseId" component={() => <CoursesView mode="weeks" />} />
       {/* UPDATED: New unified auth page for all roles (Admin, Teacher, Trainer) */}
       <Route path="/auth" component={UnifiedAuth} />
       <Route path="/login" component={UnifiedAuth} />
