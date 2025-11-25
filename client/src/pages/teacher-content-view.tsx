@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,9 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 import { 
   ArrowLeft, 
   Lock, 
@@ -18,15 +21,76 @@ import {
   Eye,
   Play,
   RotateCcw,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Minimize2
 } from "lucide-react";
+
+// Configure PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+// DocumentViewer component for displaying DOCX files converted to HTML
+function DocumentViewer({ url }: { url: string }) {
+  const [html, setHtml] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDocument = async () => {
+      try {
+        const response = await fetch(url);
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          throw new Error('Invalid response format: expected JSON');
+        }
+        const data = await response.json();
+        if (data.html) {
+          setHtml(data.html);
+          setError(null);
+        } else {
+          throw new Error('No HTML content in response');
+        }
+      } catch (error) {
+        console.error('Error loading document:', error);
+        setError('Failed to load document. Please try again.');
+        setHtml('');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDocument();
+  }, [url]);
+
+  if (loading) {
+    return <div className="flex items-center justify-center w-full p-12"><p className="text-muted-foreground">Loading document...</p></div>;
+  }
+
+  if (error) {
+    return <div className="flex items-center justify-center w-full p-12"><p className="text-destructive">{error}</p></div>;
+  }
+
+  return (
+    <div 
+      className="w-full p-8 bg-white dark:bg-slate-900 text-black dark:text-white prose dark:prose-invert max-w-none"
+      dangerouslySetInnerHTML={{ __html: html }}
+      onContextMenu={(e) => e.preventDefault()}
+    />
+  );
+}
 
 type ContentStatus = "locked" | "available" | "viewed" | "completed";
 
 interface ContentFile {
   id: string;
-  title: string;
-  type: "slide" | "video" | "file";
+  fileName: string;
+  fileUrl: string;
+  fileSize: number;
+  title?: string;
+  type?: "slide" | "video" | "file";
   url?: string;
   storageUrl?: string;
 }
@@ -47,6 +111,10 @@ export default function TeacherContentView() {
   const [quizDialogOpen, setQuizDialogOpen] = useState(false);
   const [currentQuiz, setCurrentQuiz] = useState<any>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [numPages, setNumPages] = useState<number>(0);
+  const [pageNumber, setPageNumber] = useState<number>(1);
+  const [scale, setScale] = useState<number>(1.0);
+  const [viewUrl, setViewUrl] = useState<string | null>(null);
 
   const { data: contentData, isLoading } = useQuery<{
     week: any;
@@ -193,6 +261,39 @@ export default function TeacherContentView() {
     });
   };
 
+  // Fetch presigned URL when file is selected
+  useEffect(() => {
+    const fetchViewUrl = async () => {
+      if (!selectedFile || !selectedFile.fileUrl) {
+        setViewUrl(null);
+        return;
+      }
+
+      try {
+        const fileName = selectedFile.fileName.toLowerCase();
+        const isPptx = fileName.endsWith('.pptx') || fileName.endsWith('.ppt');
+        const isDocx = fileName.endsWith('.docx') || fileName.endsWith('.doc');
+        
+        if (isPptx) {
+          const convertUrl = `/api/files/convert-to-pdf?url=${encodeURIComponent(selectedFile.fileUrl)}`;
+          setViewUrl(convertUrl);
+        } else if (isDocx) {
+          const convertUrl = `/api/files/convert-to-html?url=${encodeURIComponent(selectedFile.fileUrl)}`;
+          setViewUrl(convertUrl);
+        } else {
+          const proxyUrl = `/api/files/proxy?url=${encodeURIComponent(selectedFile.fileUrl)}`;
+          setViewUrl(proxyUrl);
+        }
+      } catch (error) {
+        console.error('Error fetching view URL:', error);
+        setViewUrl(`/api/files/proxy?url=${encodeURIComponent(selectedFile.fileUrl)}`);
+      }
+    };
+
+    fetchViewUrl();
+    setPageNumber(1);
+  }, [selectedFile]);
+
   const getFileIcon = (type: string) => {
     if (type === "video") return Video;
     if (type === "slide") return FileText;
@@ -310,8 +411,8 @@ export default function TeacherContentView() {
                           <div className="flex items-start gap-3 mb-2">
                             <Icon className="h-4 w-4 text-primary/60 flex-shrink-0 mt-0.5" />
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium leading-tight">{file.title}</p>
-                              <p className="text-xs text-muted-foreground capitalize">{file.type}</p>
+                              <p className="text-sm font-medium leading-tight">{file.fileName}</p>
+                              <p className="text-xs text-muted-foreground">{(file.fileSize / 1024 / 1024).toFixed(2)} MB</p>
                             </div>
                             <div className="flex-shrink-0">
                               {getStatusBadge(status)}
@@ -366,9 +467,9 @@ export default function TeacherContentView() {
             <div className="flex flex-col items-center gap-4 text-center p-8">
               <FileText className="h-12 w-12 text-muted-foreground/40" />
               <div>
-                <h3 className="font-semibold">{selectedFile.title}</h3>
+                <h3 className="font-semibold">{selectedFile.fileName}</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Click "View" in the sidebar to open this content
+                  Click on the file to open this content
                 </p>
               </div>
               <Button
@@ -390,55 +491,146 @@ export default function TeacherContentView() {
 
       {/* View Content Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
+        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>{selectedFile?.title}</DialogTitle>
+            <DialogTitle>{selectedFile?.fileName}</DialogTitle>
             <DialogDescription className="capitalize">
               {selectedFile?.type} Content
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {selectedFile?.type === "video" ? (
-              <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-                <p className="text-muted-foreground">Video player placeholder</p>
-                {selectedFile.url && (
-                  <div className="text-sm text-muted-foreground mt-2">
-                    URL: {selectedFile.url}
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {viewUrl && (
+              <>
+                {selectedFile?.fileName.toLowerCase().endsWith('.pdf') ? (
+                  <div className="flex-1 overflow-auto bg-muted">
+                    <Document
+                      file={viewUrl}
+                      onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                      loading={<div className="flex items-center justify-center p-8">Loading PDF...</div>}
+                      error={<div className="flex items-center justify-center p-8 text-destructive">Failed to load PDF</div>}
+                    >
+                      <Page pageNumber={pageNumber} scale={scale} />
+                    </Document>
+                    <div className="flex gap-2 justify-center p-4 bg-card border-t flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPageNumber(Math.max(1, pageNumber - 1))}
+                        disabled={pageNumber <= 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm flex items-center px-2">
+                        Page {pageNumber} of {numPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPageNumber(Math.min(numPages, pageNumber + 1))}
+                        disabled={pageNumber >= numPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setScale(Math.max(0.5, scale - 0.2))}
+                      >
+                        <ZoomOut className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setScale(Math.min(2, scale + 0.2))}
+                      >
+                        <ZoomIn className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm flex items-center px-2">
+                        {Math.round(scale * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                ) : selectedFile?.fileName.toLowerCase().endsWith('.docx') || selectedFile?.fileName.toLowerCase().endsWith('.doc') ? (
+                  <div className="flex-1 overflow-auto">
+                    <DocumentViewer url={viewUrl} />
+                  </div>
+                ) : (
+                  <div className="flex-1 overflow-auto bg-muted">
+                    <Document
+                      file={viewUrl}
+                      onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                      loading={<div className="flex items-center justify-center p-8">Loading document...</div>}
+                      error={<div className="flex items-center justify-center p-8 text-destructive">Failed to load document</div>}
+                    >
+                      <Page pageNumber={pageNumber} scale={scale} />
+                    </Document>
+                    <div className="flex gap-2 justify-center p-4 bg-card border-t flex-wrap">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPageNumber(Math.max(1, pageNumber - 1))}
+                        disabled={pageNumber <= 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm flex items-center px-2">
+                        Page {pageNumber} of {numPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPageNumber(Math.min(numPages, pageNumber + 1))}
+                        disabled={pageNumber >= numPages}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setScale(Math.max(0.5, scale - 0.2))}
+                      >
+                        <ZoomOut className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setScale(Math.min(2, scale + 0.2))}
+                      >
+                        <ZoomIn className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm flex items-center px-2">
+                        {Math.round(scale * 100)}%
+                      </span>
+                    </div>
                   </div>
                 )}
-              </div>
-            ) : (
-              <div className="p-6 bg-muted rounded-lg">
-                <p className="text-muted-foreground">
-                  Content for "{selectedFile?.title}" would be displayed here.
-                </p>
-                {selectedFile?.storageUrl && (
-                  <div className="text-sm text-muted-foreground mt-2">
-                    Storage URL: {selectedFile.storageUrl}
-                  </div>
-                )}
+              </>
+            )}
+            {!viewUrl && (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-muted-foreground">Loading content...</p>
               </div>
             )}
-            <div className="flex justify-end gap-2">
+          </div>
+          <div className="flex justify-end gap-2 border-t pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setViewDialogOpen(false)}
+              data-testid="button-close-view"
+            >
+              Close
+            </Button>
+            {selectedFile && (
               <Button
-                variant="outline"
-                onClick={() => setViewDialogOpen(false)}
-                data-testid="button-close-view"
+                onClick={() => {
+                  setViewDialogOpen(false);
+                  handleStartQuiz(selectedFile);
+                }}
+                data-testid="button-start-quiz-from-view"
               >
-                Close
+                Start Quiz
               </Button>
-              {selectedFile && (
-                <Button
-                  onClick={() => {
-                    setViewDialogOpen(false);
-                    handleStartQuiz(selectedFile);
-                  }}
-                  data-testid="button-start-quiz-from-view"
-                >
-                  Start Quiz
-                </Button>
-              )}
-            </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
