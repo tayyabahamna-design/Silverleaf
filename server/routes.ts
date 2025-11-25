@@ -1827,31 +1827,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const teacherId = req.teacherId!;
       
-      // Get teacher's batches
-      const batches = await storage.getBatchesForTeacher(teacherId);
-      if (batches.length === 0) {
+      // Get all UNIQUE courses assigned to this teacher (deduplication handled by storage)
+      const courses = await storage.getCoursesForTeacher(teacherId);
+      
+      if (courses.length === 0) {
         return res.json([]);
-      }
-      
-      // Get all UNIQUE courses assigned to ANY of the teacher's batches
-      const batchIds = batches.map(b => b.id);
-      const uniqueCourses = new Map<string, any>();
-      
-      for (const batch of batches) {
-        const batchCourses = await storage.getCoursesForBatch(batch.id);
-        if (batchCourses && batchCourses.length > 0) {
-          for (const course of batchCourses) {
-            // Keep only the first occurrence of each course
-            if (!uniqueCourses.has(course.id)) {
-              uniqueCourses.set(course.id, course);
-            }
-          }
-        }
       }
       
       // For each unique course, get its weeks
       const allWeeks: any[] = [];
-      for (const course of Array.from(uniqueCourses.values())) {
+      
+      for (const course of courses) {
         const courseWeeks = await storage.getWeeksForCourse(course.id);
         
         for (const week of courseWeeks) {
