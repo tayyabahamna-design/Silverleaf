@@ -226,95 +226,144 @@ export default function TeacherContentView() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto p-4 sm:p-6 space-y-6">
-        <div className="flex items-center gap-4">
+      <div className="sticky top-0 z-40 bg-background border-b">
+        <div className="container mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
           <Button
             variant="outline"
             size="icon"
             onClick={() => setLocation("/teacher/dashboard")}
             data-testid="button-back"
+            className="h-9 w-9"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-week-title">
-              {contentData?.week?.title || "Course Content"}
-            </h1>
-            <p className="text-muted-foreground">
-              Complete quizzes to unlock next content
-            </p>
-          </div>
+          <h1 className="text-lg sm:text-xl font-bold" data-testid="text-week-title">
+            {contentData?.week?.title || "Course Content"}
+          </h1>
         </div>
+      </div>
 
-        <div className="space-y-4">
-          {contentData?.content?.map((file) => {
-            const status = file.status || "locked";
-            const isLocked = status === "locked";
-            const isCompleted = status === "completed";
-            const canTakeQuiz = status === "viewed" || status === "completed";
-            const Icon = getFileIcon(file.type);
+      <div className="container mx-auto px-4 sm:px-6 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column: Week Details */}
+          <div className="space-y-4">
+            <Card data-testid="card-week-details">
+              <CardHeader>
+                <CardTitle className="text-lg">Week Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {contentData?.week?.competencyFocus && (
+                  <div>
+                    <Label className="text-xs font-semibold text-muted-foreground mb-2 block">
+                      Competency Focus
+                    </Label>
+                    <p className="text-sm">{contentData.week.competencyFocus}</p>
+                  </div>
+                )}
+                {contentData?.week?.objective && (
+                  <div>
+                    <Label className="text-xs font-semibold text-muted-foreground mb-2 block">
+                      Objectives
+                    </Label>
+                    <p className="text-sm">{contentData.week.objective}</p>
+                  </div>
+                )}
+                {!contentData?.week?.competencyFocus && !contentData?.week?.objective && (
+                  <p className="text-sm text-muted-foreground">No additional details available</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
-            return (
-              <Card key={file.id} data-testid={`card-content-${file.id}`}>
-                <CardHeader>
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 flex-1">
-                      <Icon className="h-5 w-5 text-primary/60" />
-                      <div>
-                        <CardTitle className="text-lg">{file.title}</CardTitle>
-                        <CardDescription className="capitalize">{file.type}</CardDescription>
-                      </div>
-                    </div>
-                    {getStatusBadge(status)}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      onClick={() => handleViewContent(file)}
-                      disabled={isLocked}
-                      data-testid={`button-view-${file.id}`}
-                      variant={isLocked ? "outline" : "default"}
-                    >
-                      {isLocked ? (
-                        <>
-                          <Lock className="mr-2 h-4 w-4" />
-                          Locked
-                        </>
-                      ) : (
-                        <>
-                          <Play className="mr-2 h-4 w-4" />
-                          View Content
-                        </>
-                      )}
-                    </Button>
-                    
-                    {canTakeQuiz && !isCompleted && (
-                      <Button
-                        onClick={() => handleStartQuiz(file)}
-                        variant="secondary"
-                        data-testid={`button-quiz-${file.id}`}
-                      >
-                        <FileText className="mr-2 h-4 w-4" />
-                        Take Quiz
-                      </Button>
-                    )}
-                    
-                    {isCompleted && (
-                      <Button
-                        variant="outline"
-                        disabled
-                        data-testid={`button-completed-${file.id}`}
-                      >
-                        <CheckCircle className="mr-2 h-4 w-4" />
-                        Completed
-                      </Button>
-                    )}
-                  </div>
+          {/* Right Column: Content Files */}
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold px-1">Content Files</h2>
+            {contentData?.content && contentData.content.length > 0 ? (
+              <div className="space-y-3">
+                {contentData.content.map((file) => {
+                  const status = file.status || "locked";
+                  const isLocked = status === "locked";
+                  const isCompleted = status === "completed";
+                  const canTakeQuiz = status === "viewed" || status === "completed";
+                  const Icon = getFileIcon(file.type);
+
+                  return (
+                    <Card key={file.id} data-testid={`card-content-${file.id}`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                            <Icon className="h-5 w-5 text-primary/60 flex-shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                              <CardTitle className="text-base">{file.title}</CardTitle>
+                              <CardDescription className="capitalize text-xs">
+                                {file.type}
+                              </CardDescription>
+                            </div>
+                          </div>
+                          <div className="flex-shrink-0">
+                            {getStatusBadge(status)}
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex gap-2 flex-wrap">
+                          <Button
+                            onClick={() => handleViewContent(file)}
+                            disabled={isLocked}
+                            data-testid={`button-view-${file.id}`}
+                            variant={isLocked ? "outline" : "default"}
+                            size="sm"
+                          >
+                            {isLocked ? (
+                              <>
+                                <Lock className="mr-2 h-3 w-3" />
+                                Locked
+                              </>
+                            ) : (
+                              <>
+                                <Play className="mr-2 h-3 w-3" />
+                                View
+                              </>
+                            )}
+                          </Button>
+                          
+                          {canTakeQuiz && !isCompleted && (
+                            <Button
+                              onClick={() => handleStartQuiz(file)}
+                              variant="secondary"
+                              data-testid={`button-quiz-${file.id}`}
+                              size="sm"
+                            >
+                              <FileText className="mr-2 h-3 w-3" />
+                              Quiz
+                            </Button>
+                          )}
+                          
+                          {isCompleted && (
+                            <Button
+                              variant="outline"
+                              disabled
+                              data-testid={`button-completed-${file.id}`}
+                              size="sm"
+                            >
+                              <CheckCircle className="mr-2 h-3 w-3" />
+                              Done
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="pt-6">
+                  <p className="text-sm text-muted-foreground text-center">No content available</p>
                 </CardContent>
               </Card>
-            );
-          })}
+            )}
+          </div>
         </div>
       </div>
 
