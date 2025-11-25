@@ -59,6 +59,7 @@ export default function CourseWeeks() {
   const [deleteWeekId, setDeleteWeekId] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<{ url: string; name: string } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [scale, setScale] = useState(1.5);
   const [numPages, setNumPages] = useState(0);
@@ -217,6 +218,17 @@ export default function CourseWeeks() {
     },
   });
 
+  // Reorder files mutation
+  const reorderFilesMutation = useMutation({
+    mutationFn: async ({ weekId, fileIds }: { weekId: string; fileIds: string[] }) => {
+      return apiRequest("POST", `/api/training-weeks/${weekId}/deck/reorder`, { fileIds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "weeks"] });
+      toast({ title: "Files reordered" });
+    },
+  });
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
@@ -236,6 +248,30 @@ export default function CourseWeeks() {
     }
     
     setActiveId(null);
+  };
+
+  const handleFileDragStart = (event: DragStartEvent) => {
+    setActiveFileId(event.active.id as string);
+  };
+
+  const handleFileDragEnd = (event: DragEndEvent, weekId: string) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const week = weeks.find(w => w.id === weekId);
+      if (week?.deckFiles) {
+        const oldIndex = week.deckFiles.findIndex((f) => f.id === active.id);
+        const newIndex = week.deckFiles.findIndex((f) => f.id === over.id);
+
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const reorderedFiles = arrayMove(week.deckFiles, oldIndex, newIndex);
+          const fileIds = reorderedFiles.map(f => f.id);
+          reorderFilesMutation.mutate({ weekId, fileIds });
+        }
+      }
+    }
+    
+    setActiveFileId(null);
   };
 
   const handleGetUploadParams = async () => {
@@ -298,6 +334,73 @@ export default function CourseWeeks() {
     setEditingCell(null);
     setEditValue("");
   };
+
+  // Sortable File Item Component
+  interface SortableFileItemProps {
+    file: { id: string; fileName: string; fileUrl: string; fileSize: number };
+    weekId: string;
+    onView: () => void;
+    onDelete: () => void;
+  }
+
+  function SortableFileItem({ file, onView, onDelete }: SortableFileItemProps) {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: file.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.3 : 1,
+      zIndex: isDragging ? 50 : undefined,
+    };
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`flex items-center justify-between p-2 border rounded bg-muted/30 transition-all ${
+          isDragging ? 'shadow-lg scale-105 ring-2 ring-primary' : ''
+        }`}
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <button
+            className="flex items-center cursor-grab active:cursor-grabbing hover:bg-muted/20 p-1 rounded transition-all touch-none select-none"
+            {...attributes}
+            {...listeners}
+            data-testid={`drag-handle-file-${file.id}`}
+            aria-label="Drag to reorder"
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <span className="text-sm truncate">{file.fileName}</span>
+        </div>
+        <div className="flex gap-1 flex-shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onView}
+            data-testid={`button-view-${file.id}`}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            data-testid={`button-delete-file-${file.id}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Sortable Week Item Component for Drag and Drop
   interface SortableWeekItemProps {
@@ -483,30 +586,56 @@ export default function CourseWeeks() {
                   key={`uploader-${week.id}`}
                 />
                 {week.deckFiles && week.deckFiles.length > 0 && (
-                  <div className="mt-3 space-y-2">
-                    {week.deckFiles.map((file) => (
-                      <div key={file.id} className="flex items-center justify-between p-2 border rounded bg-muted/30">
-                        <span className="text-sm truncate">{file.fileName}</span>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
-                            data-testid={`button-view-${file.id}`}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
-                            data-testid={`button-delete-file-${file.id}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                  <div className="mt-3">
+                    {isAdmin ? (
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragStart={handleFileDragStart}
+                        onDragEnd={(event) => handleFileDragEnd(event, week.id)}
+                      >
+                        <SortableContext
+                          items={week.deckFiles.map((f) => f.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="space-y-2">
+                            {week.deckFiles.map((file) => (
+                              <SortableFileItem
+                                key={file.id}
+                                file={file}
+                                weekId={week.id}
+                                onView={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
+                                onDelete={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                        <DragOverlay dropAnimation={null}>
+                          {activeFileId ? (
+                            <div className="border rounded overflow-hidden bg-card shadow-2xl ring-2 ring-primary scale-105 opacity-95 p-2 flex items-center gap-2">
+                              <GripVertical className="h-5 w-5 text-primary" />
+                              <span className="text-sm font-semibold">{week.deckFiles.find(f => f.id === activeFileId)?.fileName}</span>
+                            </div>
+                          ) : null}
+                        </DragOverlay>
+                      </DndContext>
+                    ) : (
+                      <div className="space-y-2">
+                        {week.deckFiles.map((file) => (
+                          <div key={file.id} className="flex items-center justify-between p-2 border rounded bg-muted/30">
+                            <span className="text-sm truncate">{file.fileName}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
+                              data-testid={`button-view-${file.id}`}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
               </div>

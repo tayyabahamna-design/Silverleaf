@@ -652,6 +652,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reorder deck files (admin only)
+  app.post("/api/training-weeks/:id/deck/reorder", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { fileIds } = req.body;
+
+      if (!fileIds || !Array.isArray(fileIds)) {
+        return res.status(400).json({ error: "Invalid request: fileIds array required" });
+      }
+
+      const week = await storage.getTrainingWeek(id);
+      if (!week) {
+        return res.status(404).json({ error: "Training week not found" });
+      }
+
+      const currentDeckFiles = week.deckFiles || [];
+      
+      // Reorder files based on the provided fileIds order
+      const reorderedFiles = fileIds
+        .map(fileId => currentDeckFiles.find(f => f.id === fileId))
+        .filter(f => f !== undefined);
+
+      const updatedWeek = await storage.updateTrainingWeek({
+        id,
+        deckFiles: reorderedFiles,
+      });
+
+      res.json({ week: updatedWeek });
+    } catch (error) {
+      console.error("Error reordering deck files:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Serve uploaded files
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
