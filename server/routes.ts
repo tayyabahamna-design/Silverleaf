@@ -2885,7 +2885,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .from(teacherCourseCompletion)
           .where(eq(teacherCourseCompletion.teacherId, userId));
         
-        const progressPercentage = totalAssigned > 0 ? Math.round((completions[0]?.count || 0) / totalAssigned * 100) : 0;
+        const progressPercentage = totalAssigned > 0 ? Math.round((Number(completions[0]?.count || 0)) / totalAssigned * 100) : 0;
         
         res.json({
           userId,
