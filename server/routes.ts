@@ -8,13 +8,13 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers, batches, batchCourses } from "@shared/schema";
+import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers, batches, batchCourses, teacherCourseCompletion } from "@shared/schema";
 import { setupAuth, hashPassword } from "./auth";
 import { setupTeacherAuth, isTeacherAuthenticated } from "./teacherAuth";
 import { z } from "zod";
 import * as mammoth from "mammoth";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 const execAsync = promisify(exec);
 
@@ -2807,7 +2807,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const trainers = await db.select().from(users).where(eq(users.role, "trainer"));
       
       // Get all teachers
-      const allTeachers = await db.select().from(teachers).where(eq(teachers.status, "approved"));
+      const allTeachers = await db.select().from(teachers);
       
       // Enrich trainers with batch count
       const enrichedTrainers = await Promise.all(
@@ -2855,7 +2855,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Trainer stats
         const batches = await storage.getAllBatches(userId);
         const courseAssignments = await db
-          .select({ count: sqlOp`COUNT(DISTINCT ${batchCourses.courseId})::int` })
+          .select({ count: sql`COUNT(DISTINCT ${batchCourses.courseId})::int` })
           .from(batchCourses)
           .where(eq(batchCourses.assignedBy, userId));
         
@@ -2881,7 +2881,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Calculate completion percentage
         const totalAssigned = batches.length;
         const completions = await db
-          .select({ count: sqlOp`COUNT(*)::int` })
+          .select({ count: sql`COUNT(*)::int` })
           .from(teacherCourseCompletion)
           .where(eq(teacherCourseCompletion.teacherId, userId));
         
