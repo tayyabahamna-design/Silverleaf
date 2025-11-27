@@ -331,7 +331,7 @@ export default function CoursesList() {
           {isAdmin && (
             <Dialog open={createOpen} onOpenChange={setCreateOpen}>
               <DialogTrigger asChild>
-                <Button data-testid="button-add-course" className="bg-green-600 hover:bg-green-700">
+                <Button data-testid="button-add-course">
                   <Plus className="mr-2 h-4 w-4" />
                   Add Course
                 </Button>
