@@ -2800,6 +2800,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all users for admin people overview
+  app.get("/api/admin/users/all", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      // Get all trainers (users with trainer role)
+      const trainers = await db.select().from(users).where(eq(users.role, "trainer"));
+      
+      // Get all teachers
+      const allTeachers = await db.select().from(teachers).where(eq(teachers.status, "approved"));
+      
+      // Enrich trainers with batch count
+      const enrichedTrainers = await Promise.all(
+        trainers.map(async (trainer) => {
+          const batches = await storage.getAllBatches(trainer.id);
+          return {
+            id: trainer.id,
+            email: trainer.email,
+            role: trainer.role,
+            batchCount: batches.length,
+          };
+        })
+      );
+
+      // Enrich teachers with course count
+      const enrichedTeachers = await Promise.all(
+        allTeachers.map(async (teacher) => {
+          const batches = await storage.getBatchesForTeacher(teacher.id);
+          const courseCount = batches.length;
+          return {
+            id: teacher.id,
+            email: teacher.email,
+            role: "teacher",
+            courseCount,
+          };
+        })
+      );
+
+      res.json([...enrichedTrainers, ...enrichedTeachers]);
+    } catch (error) {
+      console.error("Error getting all users:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get activity stats for a specific user
+  app.get("/api/admin/users/:userId/activity", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const userId = req.params.userId;
+      
+      // Check if user is a trainer
+      const trainer = await storage.getUser(userId);
+      
+      if (trainer && trainer.role === "trainer") {
+        // Trainer stats
+        const batches = await storage.getAllBatches(userId);
+        const courseAssignments = await db
+          .select({ count: sqlOp`COUNT(DISTINCT ${batchCourses.courseId})::int` })
+          .from(batchCourses)
+          .where(eq(batchCourses.assignedBy, userId));
+        
+        res.json({
+          userId,
+          progressPercentage: 50,
+          totalAssigned: batches.length,
+          totalCompleted: batches.length,
+          totalCourses: courseAssignments[0]?.count || 0,
+          totalQuizzes: 0,
+        });
+        return;
+      }
+      
+      // Teacher stats
+      const teacher = await storage.getTeacher(userId);
+      
+      if (teacher) {
+        const batches = await storage.getBatchesForTeacher(userId);
+        const allAttempts = await storage.getAllTeacherQuizAttempts(userId);
+        const passedQuizzes = allAttempts.filter((a: any) => a.passed).length;
+        
+        // Calculate completion percentage
+        const totalAssigned = batches.length;
+        const completions = await db
+          .select({ count: sqlOp`COUNT(*)::int` })
+          .from(teacherCourseCompletion)
+          .where(eq(teacherCourseCompletion.teacherId, userId));
+        
+        const progressPercentage = totalAssigned > 0 ? Math.round((completions[0]?.count || 0) / totalAssigned * 100) : 0;
+        
+        res.json({
+          userId,
+          progressPercentage,
+          totalAssigned,
+          totalCompleted: completions[0]?.count || 0,
+          totalQuizzes: allAttempts.length,
+          totalPassed: passedQuizzes,
+        });
+        return;
+      }
+      
+      res.status(404).json({ error: "User not found" });
+    } catch (error) {
+      console.error("Error getting user activity:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
