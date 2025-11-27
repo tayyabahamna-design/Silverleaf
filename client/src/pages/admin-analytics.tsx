@@ -27,6 +27,13 @@ interface TrainerAnalytics {
   batches: any[];
 }
 
+interface ExpandedBatchDetails {
+  batch?: { id: string; name: string };
+  teacherCount: number;
+  courseCount: number;
+  courses: any[];
+}
+
 export default function AdminAnalytics() {
   const [, navigate] = useLocation();
   const { user, isAdmin } = useAuth();
@@ -38,7 +45,7 @@ export default function AdminAnalytics() {
   });
 
   // Query for expanded batch details with teacher/trainer activities
-  const { data: expandedBatchDetails } = useQuery({
+  const { data: expandedBatchDetails = null } = useQuery<ExpandedBatchDetails | null>({
     queryKey: ["/api/admin/analytics/batches", expandedBatchId],
     enabled: isAdmin && expandedBatchId !== null,
   });
@@ -71,11 +78,11 @@ export default function AdminAnalytics() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 border rounded-lg">
                     <div className="text-sm text-muted-foreground">Batches Created</div>
-                    <div className="text-2xl font-bold">{trainersAnalytics.batchCount || 0}</div>
+                    <div className="text-2xl font-bold">{(trainersAnalytics as TrainerAnalytics)?.batchCount || 0}</div>
                   </div>
                   <div className="p-4 border rounded-lg">
                     <div className="text-sm text-muted-foreground">Courses Assigned</div>
-                    <div className="text-2xl font-bold">{trainersAnalytics.courseAssignmentCount || 0}</div>
+                    <div className="text-2xl font-bold">{(trainersAnalytics as TrainerAnalytics)?.courseAssignmentCount || 0}</div>
                   </div>
                 </div>
               </div>
@@ -151,12 +158,12 @@ export default function AdminAnalytics() {
                               <div>
                                 <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
                                   <Users className="w-4 h-4" />
-                                  Teachers ({expandedBatchDetails.teacherCount || 0})
+                                  Teachers ({(expandedBatchDetails as ExpandedBatchDetails)?.teacherCount || 0})
                                 </h4>
-                                {expandedBatchDetails.teacherCount > 0 ? (
+                                {(expandedBatchDetails as ExpandedBatchDetails)?.teacherCount > 0 ? (
                                   <div className="space-y-1 pl-6">
-                                    {Array.isArray(expandedBatchDetails.courses) && expandedBatchDetails.courses.length > 0 ? (
-                                      expandedBatchDetails.courses.map((course: any, idx: number) => (
+                                    {Array.isArray((expandedBatchDetails as ExpandedBatchDetails)?.courses) && (expandedBatchDetails as ExpandedBatchDetails)?.courses.length > 0 ? (
+                                      (expandedBatchDetails as ExpandedBatchDetails)?.courses.map((course: any, idx: number) => (
                                         <p key={idx} className="text-xs text-muted-foreground">
                                           • {course.name}
                                         </p>
@@ -174,11 +181,11 @@ export default function AdminAnalytics() {
                               <div>
                                 <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
                                   <BookOpen className="w-4 h-4" />
-                                  Courses ({expandedBatchDetails.courseCount || 0})
+                                  Courses ({(expandedBatchDetails as ExpandedBatchDetails)?.courseCount || 0})
                                 </h4>
-                                {expandedBatchDetails.courseCount > 0 && Array.isArray(expandedBatchDetails.courses) ? (
+                                {(expandedBatchDetails as ExpandedBatchDetails)?.courseCount > 0 && Array.isArray((expandedBatchDetails as ExpandedBatchDetails)?.courses) ? (
                                   <div className="space-y-1 pl-6">
-                                    {expandedBatchDetails.courses.map((course: any, idx: number) => (
+                                    {(expandedBatchDetails as ExpandedBatchDetails)?.courses.map((course: any, idx: number) => (
                                       <p key={idx} className="text-xs text-muted-foreground">
                                         • {course.name}
                                       </p>

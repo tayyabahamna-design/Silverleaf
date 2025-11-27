@@ -716,7 +716,6 @@ export default function CourseWeeks() {
               onClick={() => createWeekMutation.mutate()}
               disabled={createWeekMutation.isPending}
               data-testid="button-add-week"
-              className="bg-green-600 hover:bg-green-700"
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Week
