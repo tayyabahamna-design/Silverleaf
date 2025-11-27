@@ -4,7 +4,10 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface BatchAnalytics {
   batch: { id: string; name: string };
@@ -34,10 +37,32 @@ interface ExpandedBatchDetails {
   courses: any[];
 }
 
+interface UserWithStats {
+  id: string;
+  email: string;
+  role: string;
+  name?: string;
+  createdAt?: string;
+  batchCount?: number;
+  courseCount?: number;
+}
+
+interface UserActivityStats {
+  userId: string;
+  progressPercentage: number;
+  totalAssigned: number;
+  totalCompleted: number;
+  totalQuizzes?: number;
+  totalPassed?: number;
+  totalCourses?: number;
+}
+
 export default function AdminAnalytics() {
   const [, navigate] = useLocation();
   const { user, isAdmin } = useAuth();
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserWithStats | null>(null);
+  const [viewingActivityUserId, setViewingActivityUserId] = useState<string | null>(null);
 
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
     queryKey: ["/api/admin/analytics/batches"],
@@ -58,6 +83,36 @@ export default function AdminAnalytics() {
   const { data: trainersAnalytics = [], isLoading: loadingTrainers } = useQuery({
     queryKey: ["/api/trainer/analytics"],
     enabled: !isAdmin,
+  });
+
+  // Fetch all users for people overview (simple mock - extend with real endpoint)
+  const { data: allUsers = [], isLoading: loadingUsers } = useQuery({
+    queryKey: ["/api/admin/users/all"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      try {
+        const response = await fetch("/api/admin/users/all");
+        if (!response.ok) return [];
+        return await response.json();
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  const { data: userActivityStats = {} } = useQuery({
+    queryKey: ["/api/admin/users", selectedUser?.id, "activity"],
+    enabled: isAdmin && selectedUser !== null,
+    queryFn: async () => {
+      try {
+        if (!selectedUser?.id) return {};
+        const response = await fetch(`/api/admin/users/${selectedUser.id}/activity`);
+        if (!response.ok) return {};
+        return await response.json();
+      } catch {
+        return {};
+      }
+    },
   });
 
   if (!isAdmin) {
@@ -249,8 +304,185 @@ export default function AdminAnalytics() {
               )}
             </CardContent>
           </Card>
+
+          {/* People Overview */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                People Overview
+              </CardTitle>
+              <CardDescription>Trainers and Teachers with activity stats</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingUsers ? (
+                <p>Loading...</p>
+              ) : (
+                <Tabs defaultValue="trainers" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="trainers">Trainers</TabsTrigger>
+                    <TabsTrigger value="teachers">Teachers</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="trainers" className="space-y-3 mt-4">
+                    {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "trainer").length > 0 ? (
+                      allUsers
+                        .filter((u: any) => u.role === "trainer")
+                        .map((trainer: UserWithStats) => (
+                          <button
+                            key={trainer.id}
+                            onClick={() => setSelectedUser(trainer)}
+                            className="w-full p-4 border rounded-lg hover-elevate text-left flex justify-between items-center"
+                            data-testid={`button-trainer-${trainer.id}`}
+                          >
+                            <div>
+                              <p className="font-semibold">{trainer.email}</p>
+                              <p className="text-xs text-muted-foreground">Trainer</p>
+                            </div>
+                            <div className="text-right text-sm">
+                              <p className="text-muted-foreground">{trainer.batchCount || 0} batches</p>
+                            </div>
+                          </button>
+                        ))
+                    ) : (
+                      <p className="text-muted-foreground">No trainers</p>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="teachers" className="space-y-3 mt-4">
+                    {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "teacher").length > 0 ? (
+                      allUsers
+                        .filter((u: any) => u.role === "teacher")
+                        .map((teacher: UserWithStats) => (
+                          <button
+                            key={teacher.id}
+                            onClick={() => setSelectedUser(teacher)}
+                            className="w-full p-4 border rounded-lg hover-elevate text-left flex justify-between items-center"
+                            data-testid={`button-teacher-${teacher.id}`}
+                          >
+                            <div>
+                              <p className="font-semibold">{teacher.email}</p>
+                              <p className="text-xs text-muted-foreground">Teacher</p>
+                            </div>
+                            <div className="text-right text-sm">
+                              <p className="text-muted-foreground">{teacher.courseCount || 0} courses</p>
+                            </div>
+                          </button>
+                        ))
+                    ) : (
+                      <p className="text-muted-foreground">No teachers</p>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
+
+      {/* User Profile Modal */}
+      <Dialog open={selectedUser !== null} onOpenChange={(open) => !open && setSelectedUser(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex justify-between items-start">
+              <DialogTitle>User Profile</DialogTitle>
+              <button onClick={() => setSelectedUser(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </DialogHeader>
+
+          {selectedUser && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Email</p>
+                <p className="font-semibold">{selectedUser.email}</p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Role</p>
+                <p className="font-semibold capitalize">{selectedUser.role}</p>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">ID</p>
+                <p className="text-xs font-mono text-muted-foreground break-all">{selectedUser.id}</p>
+              </div>
+
+              {selectedUser.role === "trainer" && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Batches Created</p>
+                  <p className="font-semibold">{selectedUser.batchCount || 0}</p>
+                </div>
+              )}
+
+              {selectedUser.role === "teacher" && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">Courses Assigned</p>
+                  <p className="font-semibold">{selectedUser.courseCount || 0}</p>
+                </div>
+              )}
+
+              <Button
+                onClick={() => setViewingActivityUserId(selectedUser.id)}
+                className="w-full mt-4"
+                data-testid={`button-view-activity-${selectedUser.id}`}
+              >
+                View Activity
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* User Activity Modal */}
+      <Dialog open={viewingActivityUserId !== null} onOpenChange={(open) => !open && setViewingActivityUserId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>User Activity</DialogTitle>
+          </DialogHeader>
+
+          {selectedUser && viewingActivityUserId && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">Progress</p>
+                <Progress value={(userActivityStats as any)?.progressPercentage || 0} className="h-2" />
+                <p className="text-sm font-semibold">{(userActivityStats as any)?.progressPercentage || 0}% Complete</p>
+              </div>
+
+              {selectedUser.role === "teacher" && (
+                <div className="space-y-3">
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Quizzes Attempted</p>
+                    <p className="text-lg font-bold">{(userActivityStats as any)?.totalQuizzes || 0}</p>
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Quizzes Passed</p>
+                    <p className="text-lg font-bold">{(userActivityStats as any)?.totalPassed || 0}</p>
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Courses Completed</p>
+                    <p className="text-lg font-bold">{(userActivityStats as any)?.totalCompleted || 0} / {(userActivityStats as any)?.totalAssigned || 0}</p>
+                  </div>
+                </div>
+              )}
+
+              {selectedUser.role === "trainer" && (
+                <div className="space-y-3">
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Courses Created</p>
+                    <p className="text-lg font-bold">{(userActivityStats as any)?.totalCourses || 0}</p>
+                  </div>
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Quizzes Generated</p>
+                    <p className="text-lg font-bold">{(userActivityStats as any)?.totalQuizzes || 0}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
