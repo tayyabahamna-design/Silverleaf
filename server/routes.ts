@@ -1894,11 +1894,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // For each unique course, get its weeks
       const allWeeks: any[] = [];
+      const seenWeekIds = new Set<string>();
       
       for (const course of courses) {
         const courseWeeks = await storage.getWeeksForCourse(course.id);
         
         for (const week of courseWeeks) {
+          // Skip if we've already added this week (prevents duplicates)
+          if (seenWeekIds.has(week.id)) {
+            continue;
+          }
+          seenWeekIds.add(week.id);
+          
           const progressRecords = await storage.getAllTeacherContentProgressForWeek(teacherId, week.id);
           const totalFiles = week.deckFiles?.length || 0;
           const completedFiles = progressRecords.filter(p => p.status === "completed").length;
