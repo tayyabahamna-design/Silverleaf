@@ -2817,6 +2817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: trainer.id,
             email: trainer.email,
             role: trainer.role,
+            approvalStatus: trainer.approvalStatus,
             batchCount: batches.length,
           };
         })
@@ -2831,6 +2832,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             id: teacher.id,
             email: teacher.email,
             role: "teacher",
+            approvalStatus: teacher.approvalStatus,
             courseCount,
           };
         })
@@ -2982,6 +2984,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error restricting teacher:", error);
       res.status(500).json({ error: "Failed to restrict teacher" });
+    }
+  });
+
+  // Unrestrict a trainer (admin only)
+  app.post("/api/admin/unrestrict-user/:userId", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Update approval status back to approved
+      await db.update(users).set({ approvalStatus: "approved" }).where(eq(users.id, userId));
+      
+      res.json({ success: true, message: "Trainer unrestricted successfully" });
+    } catch (error) {
+      console.error("Error unrestricting user:", error);
+      res.status(500).json({ error: "Failed to unrestrict trainer" });
+    }
+  });
+
+  // Unrestrict a teacher (admin only)
+  app.post("/api/admin/unrestrict-teacher/:teacherId", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { teacherId } = req.params;
+      
+      const teacher = await storage.getTeacher(teacherId);
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      // Update approval status back to approved
+      await db.update(teachers).set({ approvalStatus: "approved" }).where(eq(teachers.id, teacherId));
+      
+      res.json({ success: true, message: "Teacher unrestricted successfully" });
+    } catch (error) {
+      console.error("Error unrestricting teacher:", error);
+      res.status(500).json({ error: "Failed to unrestrict teacher" });
     }
   });
 

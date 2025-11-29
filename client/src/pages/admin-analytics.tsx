@@ -41,6 +41,7 @@ interface UserWithStats {
   createdAt?: string;
   batchCount?: number;
   courseCount?: number;
+  approvalStatus?: string;
 }
 
 interface UserActivityStats {
@@ -99,7 +100,7 @@ export default function AdminAnalytics() {
   const [userToManage, setUserToManage] = useState<UserWithStats | null>(null);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showConfirmRestrict, setShowConfirmRestrict] = useState(false);
-  const [actionType, setActionType] = useState<"delete" | "restrict">("delete");
+  const [actionType, setActionType] = useState<"delete" | "restrict" | "unrestrict">("delete");
 
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
     queryKey: ["/api/admin/analytics/batches"],
@@ -209,6 +210,36 @@ export default function AdminAnalytics() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to restrict teacher.", variant: "destructive" });
+    },
+  });
+
+  // Mutation for unrestricting trainers
+  const unrestrictTrainerMutation = useMutation({
+    mutationFn: async (trainerId: string) =>
+      apiRequest("POST", `/api/admin/unrestrict-user/${trainerId}`),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Trainer has been unrestricted." });
+      setUserToManage(null);
+      setShowManageTrainers(false);
+      window.location.reload();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to unrestrict trainer.", variant: "destructive" });
+    },
+  });
+
+  // Mutation for unrestricting teachers
+  const unrestrictTeacherMutation = useMutation({
+    mutationFn: async (teacherId: string) =>
+      apiRequest("POST", `/api/admin/unrestrict-teacher/${teacherId}`),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Teacher has been unrestricted." });
+      setUserToManage(null);
+      setShowManageTeachers(false);
+      window.location.reload();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to unrestrict teacher.", variant: "destructive" });
     },
   });
 
@@ -715,20 +746,37 @@ export default function AdminAnalytics() {
                       <p className="text-xs text-muted-foreground">{trainer.batchCount || 0} batches</p>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setUserToManage(trainer);
-                          setActionType("restrict");
-                          setShowConfirmRestrict(true);
-                        }}
-                        data-testid={`button-restrict-trainer-${trainer.id}`}
-                        disabled={restrictTrainerMutation.isPending}
-                      >
-                        <Ban className="w-3 h-3 mr-1" />
-                        Restrict
-                      </Button>
+                      {trainer.approvalStatus === "restricted" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setUserToManage(trainer);
+                            setActionType("unrestrict");
+                            setShowConfirmRestrict(true);
+                          }}
+                          data-testid={`button-unrestrict-trainer-${trainer.id}`}
+                          disabled={unrestrictTrainerMutation.isPending}
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Unrestrict
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setUserToManage(trainer);
+                            setActionType("restrict");
+                            setShowConfirmRestrict(true);
+                          }}
+                          data-testid={`button-restrict-trainer-${trainer.id}`}
+                          disabled={restrictTrainerMutation.isPending}
+                        >
+                          <Ban className="w-3 h-3 mr-1" />
+                          Restrict
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="destructive"
@@ -775,20 +823,37 @@ export default function AdminAnalytics() {
                       <p className="text-xs text-muted-foreground">{teacher.courseCount || 0} courses</p>
                     </div>
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setUserToManage(teacher);
-                          setActionType("restrict");
-                          setShowConfirmRestrict(true);
-                        }}
-                        data-testid={`button-restrict-teacher-${teacher.id}`}
-                        disabled={restrictTeacherMutation.isPending}
-                      >
-                        <Ban className="w-3 h-3 mr-1" />
-                        Restrict
-                      </Button>
+                      {teacher.approvalStatus === "restricted" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setUserToManage(teacher);
+                            setActionType("unrestrict");
+                            setShowConfirmRestrict(true);
+                          }}
+                          data-testid={`button-unrestrict-teacher-${teacher.id}`}
+                          disabled={unrestrictTeacherMutation.isPending}
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Unrestrict
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setUserToManage(teacher);
+                            setActionType("restrict");
+                            setShowConfirmRestrict(true);
+                          }}
+                          data-testid={`button-restrict-teacher-${teacher.id}`}
+                          disabled={restrictTeacherMutation.isPending}
+                        >
+                          <Ban className="w-3 h-3 mr-1" />
+                          Restrict
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="destructive"
@@ -851,37 +916,53 @@ export default function AdminAnalytics() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Restrict Modal */}
+      {/* Confirm Restrict/Unrestrict Modal */}
       <Dialog open={showConfirmRestrict} onOpenChange={setShowConfirmRestrict}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Restrict User?</DialogTitle>
+            <DialogTitle>{actionType === "unrestrict" ? "Unrestrict User?" : "Restrict User?"}</DialogTitle>
           </DialogHeader>
 
           {userToManage && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Are you sure you want to restrict <strong>{userToManage.email}</strong>? They will be unable to access the system.
+                {actionType === "unrestrict"
+                  ? `Are you sure you want to unrestrict ${userToManage.email}? They will be able to access the system again.`
+                  : `Are you sure you want to restrict ${userToManage.email}? They will be unable to access the system.`}
               </p>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowConfirmRestrict(false)} data-testid="button-cancel-restrict">
                   Cancel
                 </Button>
                 <Button
-                  variant="secondary"
+                  variant={actionType === "unrestrict" ? "default" : "secondary"}
                   className="flex-1"
                   onClick={() => {
-                    if (userToManage.role === "trainer") {
-                      restrictTrainerMutation.mutate(userToManage.id);
-                    } else if (userToManage.role === "teacher") {
-                      restrictTeacherMutation.mutate(userToManage.id);
+                    if (actionType === "restrict") {
+                      if (userToManage.role === "trainer") {
+                        restrictTrainerMutation.mutate(userToManage.id);
+                      } else if (userToManage.role === "teacher") {
+                        restrictTeacherMutation.mutate(userToManage.id);
+                      }
+                    } else if (actionType === "unrestrict") {
+                      if (userToManage.role === "trainer") {
+                        unrestrictTrainerMutation.mutate(userToManage.id);
+                      } else if (userToManage.role === "teacher") {
+                        unrestrictTeacherMutation.mutate(userToManage.id);
+                      }
                     }
                     setShowConfirmRestrict(false);
                   }}
                   data-testid="button-confirm-restrict"
-                  disabled={restrictTrainerMutation.isPending || restrictTeacherMutation.isPending}
+                  disabled={restrictTrainerMutation.isPending || restrictTeacherMutation.isPending || unrestrictTrainerMutation.isPending || unrestrictTeacherMutation.isPending}
                 >
-                  {restrictTrainerMutation.isPending || restrictTeacherMutation.isPending ? "Restricting..." : "Restrict"}
+                  {restrictTrainerMutation.isPending || restrictTeacherMutation.isPending || unrestrictTrainerMutation.isPending || unrestrictTeacherMutation.isPending
+                    ? actionType === "unrestrict"
+                      ? "Unrestricting..."
+                      : "Restricting..."
+                    : actionType === "unrestrict"
+                      ? "Unrestrict"
+                      : "Restrict"}
                 </Button>
               </div>
             </div>
