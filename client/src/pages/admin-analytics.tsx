@@ -7,7 +7,7 @@ import { Link, useLocation } from "wouter";
 import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock, Trash2, Ban } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -636,6 +636,7 @@ export default function AdminAnalytics() {
               </button>
             </div>
           </DialogHeader>
+          <DialogDescription>View user details and activity</DialogDescription>
 
           {selectedUser && (
             <div className="space-y-4">
@@ -681,6 +682,7 @@ export default function AdminAnalytics() {
           <DialogHeader>
             <DialogTitle>User Activity</DialogTitle>
           </DialogHeader>
+          <DialogDescription>Track user progress and performance</DialogDescription>
 
           {selectedUser && viewingActivityUserId && (
             <div className="space-y-4">
@@ -730,6 +732,7 @@ export default function AdminAnalytics() {
           <DialogHeader>
             <DialogTitle>Manage Trainers</DialogTitle>
           </DialogHeader>
+          <DialogDescription>Restrict, unrestrict, or remove trainers from the system</DialogDescription>
 
           <div className="space-y-2">
             {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "trainer").length > 0 ? (
@@ -807,6 +810,7 @@ export default function AdminAnalytics() {
           <DialogHeader>
             <DialogTitle>Manage Teachers</DialogTitle>
           </DialogHeader>
+          <DialogDescription>Restrict, unrestrict, or remove teachers from the system</DialogDescription>
 
           <div className="space-y-2">
             {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "teacher").length > 0 ? (
@@ -884,6 +888,7 @@ export default function AdminAnalytics() {
           <DialogHeader>
             <DialogTitle>Remove User?</DialogTitle>
           </DialogHeader>
+          <DialogDescription>This action cannot be undone</DialogDescription>
 
           {userToManage && (
             <div className="space-y-4">
@@ -922,6 +927,7 @@ export default function AdminAnalytics() {
           <DialogHeader>
             <DialogTitle>{actionType === "unrestrict" ? "Unrestrict User?" : "Restrict User?"}</DialogTitle>
           </DialogHeader>
+          <DialogDescription>Please confirm this action</DialogDescription>
 
           {userToManage && (
             <div className="space-y-4">
