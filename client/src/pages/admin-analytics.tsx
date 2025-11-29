@@ -104,7 +104,7 @@ export default function AdminAnalytics() {
     enabled: isAdmin,
   });
 
-  const { data: expandedBatchDetails = null } = useQuery({
+  const { data: expandedBatchDetails = null as any } = useQuery({
     queryKey: ["/api/admin/analytics/batches", expandedBatchId],
     enabled: isAdmin && expandedBatchId !== null,
   });
@@ -145,6 +145,38 @@ export default function AdminAnalytics() {
       } catch {
         return {};
       }
+    },
+  });
+
+  // Mutation for deleting/dismissing trainers
+  const dismissTrainerMutation = useMutation({
+    mutationFn: async (trainerId: string) =>
+      apiRequest("DELETE", `/api/admin/dismiss-user/${trainerId}`),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Trainer has been removed." });
+      setUserToManage(null);
+      setShowManageTrainers(false);
+      // Refetch users list
+      window.location.reload();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to remove trainer.", variant: "destructive" });
+    },
+  });
+
+  // Mutation for deleting/dismissing teachers
+  const dismissTeacherMutation = useMutation({
+    mutationFn: async (teacherId: string) =>
+      apiRequest("DELETE", `/api/admin/dismiss-teacher/${teacherId}`),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Teacher has been removed." });
+      setUserToManage(null);
+      setShowManageTeachers(false);
+      // Refetch users list
+      window.location.reload();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to remove teacher.", variant: "destructive" });
     },
   });
 
@@ -323,11 +355,21 @@ export default function AdminAnalytics() {
                 <CardTitle className="text-base">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <Button variant="outline" className="w-full justify-start text-sm" data-testid="button-manage-trainers">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-sm"
+                  onClick={() => setShowManageTrainers(true)}
+                  data-testid="button-manage-trainers"
+                >
                   <Users className="w-4 h-4 mr-2" />
                   Manage Trainers
                 </Button>
-                <Button variant="outline" className="w-full justify-start text-sm" data-testid="button-manage-teachers">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-sm"
+                  onClick={() => setShowManageTeachers(true)}
+                  data-testid="button-manage-teachers"
+                >
                   <Users className="w-4 h-4 mr-2" />
                   Manage Teachers
                 </Button>
@@ -614,6 +656,130 @@ export default function AdminAnalytics() {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Trainers Modal */}
+      <Dialog open={showManageTrainers} onOpenChange={setShowManageTrainers}>
+        <DialogContent className="max-w-2xl max-h-96 overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Trainers</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "trainer").length > 0 ? (
+              allUsers
+                .filter((u: any) => u.role === "trainer")
+                .map((trainer: UserWithStats) => (
+                  <div
+                    key={trainer.id}
+                    className="p-3 border rounded-lg flex justify-between items-center"
+                    data-testid={`item-trainer-${trainer.id}`}
+                  >
+                    <div>
+                      <p className="font-semibold text-sm">{trainer.email}</p>
+                      <p className="text-xs text-muted-foreground">{trainer.batchCount || 0} batches</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        setUserToManage(trainer);
+                        setShowConfirmDelete(true);
+                      }}
+                      data-testid={`button-delete-trainer-${trainer.id}`}
+                      disabled={dismissTrainerMutation.isPending}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Remove
+                    </Button>
+                  </div>
+                ))
+            ) : (
+              <p className="text-muted-foreground text-center py-4">No trainers to manage</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Teachers Modal */}
+      <Dialog open={showManageTeachers} onOpenChange={setShowManageTeachers}>
+        <DialogContent className="max-w-2xl max-h-96 overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Teachers</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "teacher").length > 0 ? (
+              allUsers
+                .filter((u: any) => u.role === "teacher")
+                .map((teacher: UserWithStats) => (
+                  <div
+                    key={teacher.id}
+                    className="p-3 border rounded-lg flex justify-between items-center"
+                    data-testid={`item-teacher-${teacher.id}`}
+                  >
+                    <div>
+                      <p className="font-semibold text-sm">{teacher.email}</p>
+                      <p className="text-xs text-muted-foreground">{teacher.courseCount || 0} courses</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => {
+                        setUserToManage(teacher);
+                        setShowConfirmDelete(true);
+                      }}
+                      data-testid={`button-delete-teacher-${teacher.id}`}
+                      disabled={dismissTeacherMutation.isPending}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Remove
+                    </Button>
+                  </div>
+                ))
+            ) : (
+              <p className="text-muted-foreground text-center py-4">No teachers to manage</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Delete Modal */}
+      <Dialog open={showConfirmDelete} onOpenChange={setShowConfirmDelete}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Remove User?</DialogTitle>
+          </DialogHeader>
+
+          {userToManage && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to remove <strong>{userToManage.email}</strong>? This action cannot be undone.
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setShowConfirmDelete(false)} data-testid="button-cancel-delete">
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => {
+                    if (userToManage.role === "trainer") {
+                      dismissTrainerMutation.mutate(userToManage.id);
+                    } else if (userToManage.role === "teacher") {
+                      dismissTeacherMutation.mutate(userToManage.id);
+                    }
+                    setShowConfirmDelete(false);
+                  }}
+                  data-testid="button-confirm-delete"
+                  disabled={dismissTrainerMutation.isPending || dismissTeacherMutation.isPending}
+                >
+                  {dismissTrainerMutation.isPending || dismissTeacherMutation.isPending ? "Removing..." : "Remove"}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

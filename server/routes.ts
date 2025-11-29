@@ -2905,6 +2905,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Dismiss/Delete a trainer (admin only)
+  app.delete("/api/admin/dismiss-user/:userId", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Delete the user from database
+      const result = await storage.dismissUser(userId);
+      
+      if (!result) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      res.json({ success: true, message: "Trainer removed successfully" });
+    } catch (error) {
+      console.error("Error dismissing user:", error);
+      res.status(500).json({ error: "Failed to remove trainer" });
+    }
+  });
+
+  // Dismiss/Delete a teacher (admin only)
+  app.delete("/api/admin/dismiss-teacher/:teacherId", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { teacherId } = req.params;
+      
+      // Delete the teacher from database
+      const result = await storage.dismissTeacher(teacherId);
+      
+      if (!result) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      res.json({ success: true, message: "Teacher removed successfully" });
+    } catch (error) {
+      console.error("Error dismissing teacher:", error);
+      res.status(500).json({ error: "Failed to remove teacher" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
