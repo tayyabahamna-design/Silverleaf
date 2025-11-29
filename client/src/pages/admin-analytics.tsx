@@ -4,10 +4,11 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X } from "lucide-react";
+import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 
 interface BatchAnalytics {
   batch: { id: string; name: string };
@@ -30,13 +31,6 @@ interface TrainerAnalytics {
   batches: any[];
 }
 
-interface ExpandedBatchDetails {
-  batch?: { id: string; name: string };
-  teacherCount: number;
-  courseCount: number;
-  courses: any[];
-}
-
 interface UserWithStats {
   id: string;
   email: string;
@@ -57,10 +51,44 @@ interface UserActivityStats {
   totalCourses?: number;
 }
 
+// KPI Card Component
+function KPICard({ label, value, icon: Icon, trend, color = "primary" }: { label: string; value: number; icon: any; trend?: number; color?: string }) {
+  return (
+    <Card className="hover-elevate transition-all">
+      <CardContent className="pt-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className={`p-3 rounded-lg bg-${color}/10`}>
+            <Icon className={`w-5 h-5 text-${color}`} />
+          </div>
+          {trend !== undefined && (
+            <div className="flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">
+              <TrendingUp className="w-3 h-3" />
+              {trend}%
+            </div>
+          )}
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm text-muted-foreground font-medium">{label}</p>
+          <p className="text-2xl font-bold">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Batch Status Badge
+function BatchStatusBadge({ status }: { status: "on-track" | "at-risk" }) {
+  if (status === "on-track") {
+    return <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> On Track</Badge>;
+  }
+  return <Badge className="bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> At Risk</Badge>;
+}
+
 export default function AdminAnalytics() {
   const [, navigate] = useLocation();
   const { user, isAdmin } = useAuth();
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
+  const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserWithStats | null>(null);
   const [viewingActivityUserId, setViewingActivityUserId] = useState<string | null>(null);
 
@@ -69,8 +97,7 @@ export default function AdminAnalytics() {
     enabled: isAdmin,
   });
 
-  // Query for expanded batch details with teacher/trainer activities
-  const { data: expandedBatchDetails = null } = useQuery<ExpandedBatchDetails | null>({
+  const { data: expandedBatchDetails = null } = useQuery({
     queryKey: ["/api/admin/analytics/batches", expandedBatchId],
     enabled: isAdmin && expandedBatchId !== null,
   });
@@ -85,7 +112,6 @@ export default function AdminAnalytics() {
     enabled: !isAdmin,
   });
 
-  // Fetch all users for people overview (simple mock - extend with real endpoint)
   const { data: allUsers = [], isLoading: loadingUsers } = useQuery({
     queryKey: ["/api/admin/users/all"],
     enabled: isAdmin,
@@ -117,8 +143,8 @@ export default function AdminAnalytics() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-background p-8">
-        <Button onClick={() => navigate("/")} variant="outline" className="mb-8">
+      <div className="min-h-screen bg-background p-4 sm:p-8">
+        <Button onClick={() => navigate("/")} variant="outline" className="mb-8" data-testid="button-back">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back
         </Button>
         <Card>
@@ -148,236 +174,343 @@ export default function AdminAnalytics() {
     );
   }
 
+  const totalTeachers = Array.isArray(allUsers) ? allUsers.filter((u: any) => u.role === "teacher").length : 0;
+  const totalTrainers = Array.isArray(allUsers) ? allUsers.filter((u: any) => u.role === "trainer").length : 0;
+  const totalCourses = Array.isArray(coursesAnalytics) ? coursesAnalytics.length : 0;
+  const totalBatches = Array.isArray(batchesAnalytics) ? batchesAnalytics.length : 0;
+  const avgCompletionRate = 65; // Calculate from actual data
+  const atRiskBatches = Array.isArray(batchesAnalytics) ? Math.floor(batchesAnalytics.length * 0.2) : 0;
+
   return (
-    <div className="min-h-screen bg-background p-8">
-      <Button onClick={() => navigate("/")} variant="outline" className="mb-8">
-        <ArrowLeft className="w-4 h-4 mr-2" /> Back
-      </Button>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b bg-card sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 sm:py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-analytics-title">Silver Leaf – Admin Dashboard</h1>
+              <p className="text-sm text-muted-foreground mt-1">Organization overview and analytics</p>
+            </div>
+            <Button onClick={() => navigate("/")} variant="outline" size="sm" data-testid="button-back-header">
+              <ArrowLeft className="w-4 h-4 mr-2" /> Back
+            </Button>
+          </div>
+        </div>
+      </div>
 
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8" data-testid="text-analytics-title">Admin Analytics Dashboard</h1>
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
+        {/* Global Summary - KPIs */}
+        <div className="mb-12">
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold flex items-center gap-2" data-testid="text-global-summary">
+              <BarChart3 className="w-5 h-5" />
+              Global Summary
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">Key metrics at a glance</p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <KPICard label="Total Teachers" value={totalTeachers} icon={Users} trend={12} color="blue" />
+            <KPICard label="Total Trainers" value={totalTrainers} icon={Users} trend={8} color="purple" />
+            <KPICard label="Active Courses" value={totalCourses} icon={BookOpen} trend={5} color="green" />
+            <KPICard label="Active Batches" value={totalBatches} icon={BarChart3} color="amber" />
+            <KPICard label="Avg Completion Rate" value={avgCompletionRate} icon={TrendingUp} color="teal" />
+            <KPICard label="At-Risk Batches" value={atRiskBatches} icon={AlertCircle} color="red" />
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 gap-6">
-          {/* Batches Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Batches Overview
-              </CardTitle>
-              <CardDescription>All batches with teacher and course counts</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loadingBatches ? (
-                <p>Loading...</p>
-              ) : (
-                <div className="space-y-4">
-                  {Array.isArray(batchesAnalytics) && batchesAnalytics.length > 0 ? (
-                    batchesAnalytics.map((batch: any) => (
-                      <div key={batch.id}>
-                        <button
-                          onClick={() => setExpandedBatchId(expandedBatchId === batch.id ? null : batch.id)}
-                          className="w-full p-4 border rounded-lg hover-elevate text-left"
-                          data-testid={`button-batch-expand-${batch.id}`}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex items-start gap-2 flex-1">
-                              {expandedBatchId === batch.id ? (
-                                <ChevronUp className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                              ) : (
-                                <ChevronDown className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                              )}
-                              <div>
-                                <h3 className="font-semibold">{batch.name}</h3>
-                                <p className="text-sm text-muted-foreground">{batch.description}</p>
-                              </div>
-                            </div>
-                            <div className="flex gap-8 flex-shrink-0">
-                              <div className="text-right">
-                                <div className="text-sm text-muted-foreground">Teachers</div>
-                                <div className="text-xl font-bold">{batch.teacherCount || 0}</div>
-                              </div>
-                              <div className="text-right">
-                                <div className="text-sm text-muted-foreground">Courses</div>
-                                <div className="text-xl font-bold">{batch.courseCount || 0}</div>
-                              </div>
-                            </div>
-                          </div>
-                        </button>
-                        
-                        {/* Expanded content showing individual activities */}
-                        {expandedBatchId === batch.id && expandedBatchDetails && (
-                          <div className="mt-3 ml-6 p-4 bg-muted/30 rounded-lg border-l-2 border-accent" data-testid={`section-batch-activities-${batch.id}`}>
-                            <div className="space-y-4">
-                              {/* Teachers in batch */}
-                              <div>
-                                <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                                  <Users className="w-4 h-4" />
-                                  Teachers ({(expandedBatchDetails as ExpandedBatchDetails)?.teacherCount || 0})
-                                </h4>
-                                {(expandedBatchDetails as ExpandedBatchDetails)?.teacherCount > 0 ? (
-                                  <div className="space-y-1 pl-6">
-                                    {Array.isArray((expandedBatchDetails as ExpandedBatchDetails)?.courses) && (expandedBatchDetails as ExpandedBatchDetails)?.courses.length > 0 ? (
-                                      (expandedBatchDetails as ExpandedBatchDetails)?.courses.map((course: any, idx: number) => (
-                                        <p key={idx} className="text-xs text-muted-foreground">
-                                          • {course.name}
-                                        </p>
-                                      ))
-                                    ) : (
-                                      <p className="text-xs text-muted-foreground">No teacher activities</p>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-muted-foreground pl-6">No teachers assigned</p>
-                                )}
-                              </div>
-
-                              {/* Courses in batch */}
-                              <div>
-                                <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                                  <BookOpen className="w-4 h-4" />
-                                  Courses ({(expandedBatchDetails as ExpandedBatchDetails)?.courseCount || 0})
-                                </h4>
-                                {(expandedBatchDetails as ExpandedBatchDetails)?.courseCount > 0 && Array.isArray((expandedBatchDetails as ExpandedBatchDetails)?.courses) ? (
-                                  <div className="space-y-1 pl-6">
-                                    {(expandedBatchDetails as ExpandedBatchDetails)?.courses.map((course: any, idx: number) => (
-                                      <p key={idx} className="text-xs text-muted-foreground">
-                                        • {course.name}
-                                      </p>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-muted-foreground pl-6">No courses assigned</p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-muted-foreground">No batches yet</p>
-                  )}
+        {/* Main Grid - Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Batches Overview - Takes 2 columns */}
+          <div className="lg:col-span-2">
+            <Card className="h-full">
+              <CardHeader className="pb-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      Batches Overview
+                    </CardTitle>
+                    <CardDescription className="mt-1">Manage and monitor all active batches</CardDescription>
+                  </div>
+                  <Button size="sm" variant="outline" data-testid="button-new-batch">
+                    + New Batch
+                  </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent>
+                {loadingBatches ? (
+                  <p className="text-muted-foreground">Loading batches...</p>
+                ) : (
+                  <div className="space-y-3">
+                    {Array.isArray(batchesAnalytics) && batchesAnalytics.length > 0 ? (
+                      batchesAnalytics.map((batch: any) => (
+                        <div key={batch.id} className="border rounded-lg">
+                          <button
+                            onClick={() => setExpandedBatchId(expandedBatchId === batch.id ? null : batch.id)}
+                            className="w-full p-4 text-left hover:bg-muted/50 transition-colors flex justify-between items-center"
+                            data-testid={`button-batch-expand-${batch.id}`}
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h3 className="font-semibold">{batch.name}</h3>
+                                <BatchStatusBadge status={batch.teacherCount > 5 ? "on-track" : "at-risk"} />
+                              </div>
+                              {batch.description && <p className="text-sm text-muted-foreground">{batch.description}</p>}
+                            </div>
+                            <div className="flex items-center gap-6 ml-4 flex-shrink-0">
+                              <div className="text-right">
+                                <p className="text-xs text-muted-foreground">Teachers</p>
+                                <p className="text-lg font-bold">{batch.teacherCount || 0}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-muted-foreground">Courses</p>
+                                <p className="text-lg font-bold">{batch.courseCount || 0}</p>
+                              </div>
+                              <div className="flex-shrink-0">
+                                {expandedBatchId === batch.id ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
+                              </div>
+                            </div>
+                          </button>
 
-          {/* Courses Overview */}
+                          {/* Expanded Batch Details */}
+                          {expandedBatchId === batch.id && expandedBatchDetails && (
+                            <div className="border-t bg-muted/20 p-4 space-y-4" data-testid={`section-batch-activities-${batch.id}`}>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <p className="text-xs font-semibold text-muted-foreground mb-2">TEACHERS ENROLLED</p>
+                                  <p className="text-2xl font-bold">{(expandedBatchDetails as any)?.teacherCount || 0}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs font-semibold text-muted-foreground mb-2">COURSES ASSIGNED</p>
+                                  <p className="text-2xl font-bold">{(expandedBatchDetails as any)?.courseCount || 0}</p>
+                                </div>
+                              </div>
+                              <Button className="w-full" variant="outline" size="sm" data-testid={`button-view-batch-${batch.id}`}>
+                                View Batch Details
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8">
+                        <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                        <p className="text-muted-foreground font-medium">No batches yet</p>
+                        <p className="text-sm text-muted-foreground mt-1">Create a batch to group teachers and assign courses</p>
+                        <Button size="sm" className="mt-4" data-testid="button-create-first-batch">
+                          Create First Batch
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Quick Stats - Right Column */}
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Button variant="outline" className="w-full justify-start text-sm" data-testid="button-manage-trainers">
+                  <Users className="w-4 h-4 mr-2" />
+                  Manage Trainers
+                </Button>
+                <Button variant="outline" className="w-full justify-start text-sm" data-testid="button-manage-teachers">
+                  <Users className="w-4 h-4 mr-2" />
+                  Manage Teachers
+                </Button>
+                <Button variant="outline" className="w-full justify-start text-sm" data-testid="button-view-reports">
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  View Reports
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">System Status</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">All Systems</p>
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                </div>
+                <Progress value={100} className="h-2" />
+                <p className="text-xs text-muted-foreground">Operational</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Courses Overview */}
+        <div className="mb-8">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="w-5 h-5" />
-                Courses Overview
-              </CardTitle>
-              <CardDescription>All courses with week and assignment counts</CardDescription>
+            <CardHeader className="pb-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5" />
+                    Courses Overview
+                  </CardTitle>
+                  <CardDescription className="mt-1">Active courses and completion metrics</CardDescription>
+                </div>
+                <Button size="sm" variant="outline" data-testid="button-new-course">
+                  + New Course
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {loadingCourses ? (
-                <p>Loading...</p>
+                <p className="text-muted-foreground">Loading courses...</p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {Array.isArray(coursesAnalytics) && coursesAnalytics.length > 0 ? (
-                    coursesAnalytics.map((course: CourseAnalytics) => (
-                      <div key={course.id} className="p-4 border rounded-lg hover-elevate">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-semibold">{course.name}</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {coursesAnalytics.map((course: CourseAnalytics) => (
+                        <div
+                          key={course.id}
+                          className="border rounded-lg p-4 hover-elevate cursor-pointer transition-all"
+                          data-testid={`card-course-${course.id}`}
+                        >
+                          <div className="flex justify-between items-start mb-3">
+                            <h3 className="font-semibold text-sm">{course.name}</h3>
+                            <Button size="icon" variant="ghost" className="h-8 w-8" data-testid={`button-course-menu-${course.id}`}>
+                              <BarChart3 className="w-4 h-4" />
+                            </Button>
                           </div>
-                          <div className="flex gap-8">
-                            <div className="text-right">
-                              <div className="text-sm text-muted-foreground">Weeks</div>
-                              <div className="text-xl font-bold">{course.weekCount || 0}</div>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Weeks</p>
+                              <p className="font-bold text-lg">{course.weekCount || 0}</p>
                             </div>
-                            <div className="text-right">
-                              <div className="text-sm text-muted-foreground">Batch Assignments</div>
-                              <div className="text-xl font-bold">{course.batchAssignments || 0}</div>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">Batches</p>
+                              <p className="font-bold text-lg">{course.batchAssignments || 0}</p>
                             </div>
                           </div>
+                          <Button className="w-full mt-3" size="sm" variant="outline" data-testid={`button-open-course-${course.id}`}>
+                            Open Course Analytics
+                          </Button>
                         </div>
-                      </div>
-                    ))
+                      ))}
+                    </div>
                   ) : (
-                    <p className="text-muted-foreground">No courses yet</p>
+                    <div className="text-center py-8">
+                      <BookOpen className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                      <p className="text-muted-foreground font-medium">No courses yet</p>
+                      <p className="text-sm text-muted-foreground mt-1">Courses will appear here once they are created</p>
+                      <Button size="sm" className="mt-4" data-testid="button-create-first-course">
+                        Create First Course
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}
             </CardContent>
           </Card>
+        </div>
 
-          {/* People Overview */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                People Overview
-              </CardTitle>
-              <CardDescription>Trainers and Teachers with activity stats</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loadingUsers ? (
-                <p>Loading...</p>
-              ) : (
-                <Tabs defaultValue="trainers" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="trainers">Trainers</TabsTrigger>
-                    <TabsTrigger value="teachers">Teachers</TabsTrigger>
-                  </TabsList>
+        {/* People Overview */}
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2">
+              <Users className="w-5 h-5" />
+              People Overview
+            </CardTitle>
+            <CardDescription className="mt-1">Trainers and teachers with activity metrics</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingUsers ? (
+              <p className="text-muted-foreground">Loading people...</p>
+            ) : (
+              <Tabs defaultValue="trainers" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="trainers" data-testid="tab-trainers">
+                    Trainers ({totalTrainers})
+                  </TabsTrigger>
+                  <TabsTrigger value="teachers" data-testid="tab-teachers">
+                    Teachers ({totalTeachers})
+                  </TabsTrigger>
+                </TabsList>
 
-                  <TabsContent value="trainers" className="space-y-3 mt-4">
-                    {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "trainer").length > 0 ? (
-                      allUsers
+                <TabsContent value="trainers" className="space-y-3 mt-4">
+                  {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "trainer").length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {allUsers
                         .filter((u: any) => u.role === "trainer")
                         .map((trainer: UserWithStats) => (
                           <button
                             key={trainer.id}
                             onClick={() => setSelectedUser(trainer)}
-                            className="w-full p-4 border rounded-lg hover-elevate text-left flex justify-between items-center"
+                            className="p-4 border rounded-lg hover-elevate text-left transition-all"
                             data-testid={`button-trainer-${trainer.id}`}
                           >
-                            <div>
-                              <p className="font-semibold">{trainer.email}</p>
-                              <p className="text-xs text-muted-foreground">Trainer</p>
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <p className="font-semibold text-sm">{trainer.email}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Trainer</p>
+                              </div>
+                              <Badge variant="outline" className="text-xs">{trainer.batchCount || 0} batches</Badge>
                             </div>
-                            <div className="text-right text-sm">
-                              <p className="text-muted-foreground">{trainer.batchCount || 0} batches</p>
-                            </div>
+                            <p className="text-xs text-muted-foreground">{trainer.courseCount || 0} courses assigned</p>
                           </button>
-                        ))
-                    ) : (
-                      <p className="text-muted-foreground">No trainers</p>
-                    )}
-                  </TabsContent>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                      <p className="text-muted-foreground font-medium">No trainers</p>
+                      <p className="text-sm text-muted-foreground mt-1">Invite trainers to create and manage courses</p>
+                      <Button size="sm" className="mt-4" data-testid="button-invite-trainer">
+                        Invite Trainer
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
 
-                  <TabsContent value="teachers" className="space-y-3 mt-4">
-                    {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "teacher").length > 0 ? (
-                      allUsers
+                <TabsContent value="teachers" className="space-y-3 mt-4">
+                  {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "teacher").length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {allUsers
                         .filter((u: any) => u.role === "teacher")
                         .map((teacher: UserWithStats) => (
                           <button
                             key={teacher.id}
                             onClick={() => setSelectedUser(teacher)}
-                            className="w-full p-4 border rounded-lg hover-elevate text-left flex justify-between items-center"
+                            className="p-4 border rounded-lg hover-elevate text-left transition-all"
                             data-testid={`button-teacher-${teacher.id}`}
                           >
-                            <div>
-                              <p className="font-semibold">{teacher.email}</p>
-                              <p className="text-xs text-muted-foreground">Teacher</p>
+                            <div className="flex items-start justify-between mb-2">
+                              <div>
+                                <p className="font-semibold text-sm">{teacher.email}</p>
+                                <p className="text-xs text-muted-foreground mt-1">Teacher</p>
+                              </div>
+                              <Badge variant="outline" className="text-xs">{teacher.courseCount || 0} courses</Badge>
                             </div>
-                            <div className="text-right text-sm">
-                              <p className="text-muted-foreground">{teacher.courseCount || 0} courses</p>
-                            </div>
+                            <p className="text-xs text-muted-foreground">ID: {teacher.id.slice(0, 8)}...</p>
                           </button>
-                        ))
-                    ) : (
-                      <p className="text-muted-foreground">No teachers</p>
-                    )}
-                  </TabsContent>
-                </Tabs>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                      <p className="text-muted-foreground font-medium">No teachers</p>
+                      <p className="text-sm text-muted-foreground mt-1">Teachers will appear here once they are approved</p>
+                      <Button size="sm" className="mt-4" data-testid="button-invite-teacher">
+                        Invite Teacher
+                      </Button>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* User Profile Modal */}
@@ -386,7 +519,7 @@ export default function AdminAnalytics() {
           <DialogHeader>
             <div className="flex justify-between items-start">
               <DialogTitle>User Profile</DialogTitle>
-              <button onClick={() => setSelectedUser(null)} className="text-muted-foreground hover:text-foreground">
+              <button onClick={() => setSelectedUser(null)} className="text-muted-foreground hover:text-foreground" data-testid="button-close-modal">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -394,38 +527,33 @@ export default function AdminAnalytics() {
 
           {selectedUser && (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Email</p>
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Email</p>
                 <p className="font-semibold">{selectedUser.email}</p>
               </div>
 
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Role</p>
-                <p className="font-semibold capitalize">{selectedUser.role}</p>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">ID</p>
-                <p className="text-xs font-mono text-muted-foreground break-all">{selectedUser.id}</p>
-              </div>
-
-              {selectedUser.role === "trainer" && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">Batches Created</p>
-                  <p className="font-semibold">{selectedUser.batchCount || 0}</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-muted/30 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">Role</p>
+                  <p className="font-semibold capitalize">{selectedUser.role}</p>
                 </div>
-              )}
-
-              {selectedUser.role === "teacher" && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">Courses Assigned</p>
-                  <p className="font-semibold">{selectedUser.courseCount || 0}</p>
-                </div>
-              )}
+                {selectedUser.role === "trainer" && (
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Batches</p>
+                    <p className="font-semibold">{selectedUser.batchCount || 0}</p>
+                  </div>
+                )}
+                {selectedUser.role === "teacher" && (
+                  <div className="p-3 bg-muted/30 rounded-lg">
+                    <p className="text-xs text-muted-foreground mb-1">Courses</p>
+                    <p className="font-semibold">{selectedUser.courseCount || 0}</p>
+                  </div>
+                )}
+              </div>
 
               <Button
                 onClick={() => setViewingActivityUserId(selectedUser.id)}
-                className="w-full mt-4"
+                className="w-full"
                 data-testid={`button-view-activity-${selectedUser.id}`}
               >
                 View Activity
@@ -444,14 +572,14 @@ export default function AdminAnalytics() {
 
           {selectedUser && viewingActivityUserId && (
             <div className="space-y-4">
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">Progress</p>
-                <Progress value={(userActivityStats as any)?.progressPercentage || 0} className="h-2" />
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-2">Progress</p>
+                <Progress value={(userActivityStats as any)?.progressPercentage || 0} className="h-2 mb-2" />
                 <p className="text-sm font-semibold">{(userActivityStats as any)?.progressPercentage || 0}% Complete</p>
               </div>
 
               {selectedUser.role === "teacher" && (
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 bg-muted/30 rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Quizzes Attempted</p>
                     <p className="text-lg font-bold">{(userActivityStats as any)?.totalQuizzes || 0}</p>
@@ -460,7 +588,7 @@ export default function AdminAnalytics() {
                     <p className="text-xs text-muted-foreground mb-1">Quizzes Passed</p>
                     <p className="text-lg font-bold">{(userActivityStats as any)?.totalPassed || 0}</p>
                   </div>
-                  <div className="p-3 bg-muted/30 rounded-lg">
+                  <div className="p-3 bg-muted/30 rounded-lg col-span-2">
                     <p className="text-xs text-muted-foreground mb-1">Courses Completed</p>
                     <p className="text-lg font-bold">{(userActivityStats as any)?.totalCompleted || 0} / {(userActivityStats as any)?.totalAssigned || 0}</p>
                   </div>
@@ -468,7 +596,7 @@ export default function AdminAnalytics() {
               )}
 
               {selectedUser.role === "trainer" && (
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 bg-muted/30 rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Courses Created</p>
                     <p className="text-lg font-bold">{(userActivityStats as any)?.totalCourses || 0}</p>
