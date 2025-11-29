@@ -152,6 +152,34 @@ export default function TeacherDashboard() {
     return "outline";
   };
 
+  // Group weeks by course name and aggregate progress
+  const groupedCourses = assignedWeeks.reduce((acc: any, week: any) => {
+    const courseName = week.courseName || week.title;
+    if (!acc[courseName]) {
+      acc[courseName] = {
+        courseName,
+        weeks: [],
+        totalCompleted: 0,
+        totalFiles: 0,
+      };
+    }
+    acc[courseName].weeks.push(week);
+    acc[courseName].totalCompleted += week.progress?.completed || 0;
+    acc[courseName].totalFiles += week.progress?.total || 0;
+    return acc;
+  }, {});
+
+  const uniqueCourses = Object.values(groupedCourses).map((course: any) => ({
+    ...course,
+    aggregateProgress: {
+      completed: course.totalCompleted,
+      total: course.totalFiles,
+      percentage: course.totalFiles > 0 
+        ? Math.round((course.totalCompleted / course.totalFiles) * 100) 
+        : 0,
+    },
+  }));
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header matching Admin dashboard */}
@@ -261,45 +289,43 @@ export default function TeacherDashboard() {
             <CardDescription>View course materials and complete quizzes to progress</CardDescription>
           </CardHeader>
           <CardContent>
-            {assignedWeeks.length === 0 ? (
+            {uniqueCourses.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">
                 No training weeks assigned yet
               </p>
             ) : (
               <div className="space-y-4">
-                {assignedWeeks.map((week: any) => (
-                  <Card key={week.id} data-testid={`card-week-${week.id}`} className="shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border-border/50 rounded-lg">
+                {uniqueCourses.map((course: any) => (
+                  <Card key={course.courseName} data-testid={`card-course-${course.courseName}`} className="shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 border-border/50 rounded-lg">
                     <CardHeader>
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <CardTitle className="text-lg">{week.title}</CardTitle>
-                          <CardDescription>{week.courseName || week.title}</CardDescription>
+                          <CardTitle className="text-lg">{course.courseName}</CardTitle>
+                          <CardDescription>{course.weeks.length} week{course.weeks.length !== 1 ? 's' : ''} assigned</CardDescription>
                         </div>
-                        {week.progress && (
-                          <Badge variant={week.progress.percentage === 100 ? "default" : "secondary"}>
-                            {week.progress.completed}/{week.progress.total} Completed
-                          </Badge>
-                        )}
+                        <Badge variant={course.aggregateProgress.percentage === 100 ? "default" : "secondary"}>
+                          {course.aggregateProgress.completed}/{course.aggregateProgress.total} Completed
+                        </Badge>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      {week.progress && week.progress.total > 0 && (
+                      {course.aggregateProgress.total > 0 && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium">{week.progress.percentage}%</span>
+                            <span className="font-medium">{course.aggregateProgress.percentage}%</span>
                           </div>
                           <div className="w-full bg-muted rounded-full h-2">
                             <div 
                               className="bg-primary rounded-full h-2 transition-all duration-300"
-                              style={{ width: `${week.progress.percentage}%` }}
+                              style={{ width: `${course.aggregateProgress.percentage}%` }}
                             />
                           </div>
                         </div>
                       )}
                       <Button 
-                        onClick={() => setLocation(`/teacher/week/${week.id}/content`)} 
-                        data-testid={`button-view-content-${week.id}`}
+                        onClick={() => setLocation(`/teacher/week/${course.weeks[0].id}/content`)} 
+                        data-testid={`button-view-content-${course.courseName}`}
                         className="w-full"
                       >
                         View Content
