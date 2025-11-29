@@ -382,7 +382,7 @@ export default function UnifiedAuth() {
                           <Input
                             id="login-email"
                             data-testid="input-login-email"
-                            type={loginRole === "teacher" ? "text" : "email"}
+                            type="text"
                             placeholder=" "
                             value={loginEmail}
                             onChange={(e) => setLoginEmail(e.target.value)}
