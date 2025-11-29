@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock, Trash2, Ban } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface BatchAnalytics {
   batch: { id: string; name: string };
@@ -87,10 +89,15 @@ function BatchStatusBadge({ status }: { status: "on-track" | "at-risk" }) {
 export default function AdminAnalytics() {
   const [, navigate] = useLocation();
   const { user, isAdmin } = useAuth();
+  const { toast } = useToast();
   const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
   const [expandedCourseId, setExpandedCourseId] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserWithStats | null>(null);
   const [viewingActivityUserId, setViewingActivityUserId] = useState<string | null>(null);
+  const [showManageTrainers, setShowManageTrainers] = useState(false);
+  const [showManageTeachers, setShowManageTeachers] = useState(false);
+  const [userToManage, setUserToManage] = useState<UserWithStats | null>(null);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
     queryKey: ["/api/admin/analytics/batches"],
