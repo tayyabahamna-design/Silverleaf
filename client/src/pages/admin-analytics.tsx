@@ -98,6 +98,8 @@ export default function AdminAnalytics() {
   const [showManageTeachers, setShowManageTeachers] = useState(false);
   const [userToManage, setUserToManage] = useState<UserWithStats | null>(null);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [showConfirmRestrict, setShowConfirmRestrict] = useState(false);
+  const [actionType, setActionType] = useState<"delete" | "restrict">("delete");
 
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
     queryKey: ["/api/admin/analytics/batches"],
@@ -177,6 +179,36 @@ export default function AdminAnalytics() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to remove teacher.", variant: "destructive" });
+    },
+  });
+
+  // Mutation for restricting trainers
+  const restrictTrainerMutation = useMutation({
+    mutationFn: async (trainerId: string) =>
+      apiRequest("POST", `/api/admin/restrict-user/${trainerId}`),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Trainer has been restricted." });
+      setUserToManage(null);
+      setShowManageTrainers(false);
+      window.location.reload();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to restrict trainer.", variant: "destructive" });
+    },
+  });
+
+  // Mutation for restricting teachers
+  const restrictTeacherMutation = useMutation({
+    mutationFn: async (teacherId: string) =>
+      apiRequest("POST", `/api/admin/restrict-teacher/${teacherId}`),
+    onSuccess: () => {
+      toast({ title: "Success", description: "Teacher has been restricted." });
+      setUserToManage(null);
+      setShowManageTeachers(false);
+      window.location.reload();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to restrict teacher.", variant: "destructive" });
     },
   });
 
@@ -682,19 +714,36 @@ export default function AdminAnalytics() {
                       <p className="font-semibold text-sm">{trainer.email}</p>
                       <p className="text-xs text-muted-foreground">{trainer.batchCount || 0} batches</p>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => {
-                        setUserToManage(trainer);
-                        setShowConfirmDelete(true);
-                      }}
-                      data-testid={`button-delete-trainer-${trainer.id}`}
-                      disabled={dismissTrainerMutation.isPending}
-                    >
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      Remove
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setUserToManage(trainer);
+                          setActionType("restrict");
+                          setShowConfirmRestrict(true);
+                        }}
+                        data-testid={`button-restrict-trainer-${trainer.id}`}
+                        disabled={restrictTrainerMutation.isPending}
+                      >
+                        <Ban className="w-3 h-3 mr-1" />
+                        Restrict
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          setUserToManage(trainer);
+                          setActionType("delete");
+                          setShowConfirmDelete(true);
+                        }}
+                        data-testid={`button-delete-trainer-${trainer.id}`}
+                        disabled={dismissTrainerMutation.isPending}
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
                   </div>
                 ))
             ) : (
@@ -725,19 +774,36 @@ export default function AdminAnalytics() {
                       <p className="font-semibold text-sm">{teacher.email}</p>
                       <p className="text-xs text-muted-foreground">{teacher.courseCount || 0} courses</p>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => {
-                        setUserToManage(teacher);
-                        setShowConfirmDelete(true);
-                      }}
-                      data-testid={`button-delete-teacher-${teacher.id}`}
-                      disabled={dismissTeacherMutation.isPending}
-                    >
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      Remove
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setUserToManage(teacher);
+                          setActionType("restrict");
+                          setShowConfirmRestrict(true);
+                        }}
+                        data-testid={`button-restrict-teacher-${teacher.id}`}
+                        disabled={restrictTeacherMutation.isPending}
+                      >
+                        <Ban className="w-3 h-3 mr-1" />
+                        Restrict
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          setUserToManage(teacher);
+                          setActionType("delete");
+                          setShowConfirmDelete(true);
+                        }}
+                        data-testid={`button-delete-teacher-${teacher.id}`}
+                        disabled={dismissTeacherMutation.isPending}
+                      >
+                        <Trash2 className="w-3 h-3 mr-1" />
+                        Remove
+                      </Button>
+                    </div>
                   </div>
                 ))
             ) : (
@@ -778,6 +844,44 @@ export default function AdminAnalytics() {
                   disabled={dismissTrainerMutation.isPending || dismissTeacherMutation.isPending}
                 >
                   {dismissTrainerMutation.isPending || dismissTeacherMutation.isPending ? "Removing..." : "Remove"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Restrict Modal */}
+      <Dialog open={showConfirmRestrict} onOpenChange={setShowConfirmRestrict}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Restrict User?</DialogTitle>
+          </DialogHeader>
+
+          {userToManage && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Are you sure you want to restrict <strong>{userToManage.email}</strong>? They will be unable to access the system.
+              </p>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setShowConfirmRestrict(false)} data-testid="button-cancel-restrict">
+                  Cancel
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => {
+                    if (userToManage.role === "trainer") {
+                      restrictTrainerMutation.mutate(userToManage.id);
+                    } else if (userToManage.role === "teacher") {
+                      restrictTeacherMutation.mutate(userToManage.id);
+                    }
+                    setShowConfirmRestrict(false);
+                  }}
+                  data-testid="button-confirm-restrict"
+                  disabled={restrictTrainerMutation.isPending || restrictTeacherMutation.isPending}
+                >
+                  {restrictTrainerMutation.isPending || restrictTeacherMutation.isPending ? "Restricting..." : "Restrict"}
                 </Button>
               </div>
             </div>

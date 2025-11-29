@@ -2943,6 +2943,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Restrict a trainer (admin only)
+  app.post("/api/admin/restrict-user/:userId", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      
+      // Update user's approval status to 'restricted'
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Update approval status to restricted
+      await db.update(users).set({ approvalStatus: "restricted" }).where(eq(users.id, userId));
+      
+      res.json({ success: true, message: "Trainer restricted successfully" });
+    } catch (error) {
+      console.error("Error restricting user:", error);
+      res.status(500).json({ error: "Failed to restrict trainer" });
+    }
+  });
+
+  // Restrict a teacher (admin only)
+  app.post("/api/admin/restrict-teacher/:teacherId", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { teacherId } = req.params;
+      
+      // Update teacher's approval status to 'restricted'
+      const teacher = await storage.getTeacher(teacherId);
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      // Update approval status to restricted
+      await db.update(teachers).set({ approvalStatus: "restricted" }).where(eq(teachers.id, teacherId));
+      
+      res.json({ success: true, message: "Teacher restricted successfully" });
+    } catch (error) {
+      console.error("Error restricting teacher:", error);
+      res.status(500).json({ error: "Failed to restrict teacher" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
