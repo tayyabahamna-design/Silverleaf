@@ -766,8 +766,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Convert PPTX to PDF for HD viewing (authenticated users)
-  app.get("/api/files/convert-to-pdf", isAuthenticated, async (req, res) => {
+  // Convert PPTX to PDF for HD viewing (authenticated users - teachers and trainers)
+  app.get("/api/files/convert-to-pdf", (req, res, next) => {
+    // Allow both trainer and teacher authentication
+    if (req.user || req.teacherId) {
+      return next();
+    }
+    res.status(401).json({ message: "Unauthorized" });
+  }, async (req, res) => {
     const tempFiles: string[] = [];
     
     try {
