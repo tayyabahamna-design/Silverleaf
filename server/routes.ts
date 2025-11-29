@@ -769,7 +769,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Convert PPTX to PDF for HD viewing (authenticated users - teachers and trainers)
   app.get("/api/files/convert-to-pdf", (req, res, next) => {
     // Allow both trainer and teacher authentication
-    if (req.user || req.teacherId) {
+    const isTrainerAuth = req.isAuthenticated?.() || req.user;
+    const isTeacherAuth = (req.session as any)?.teacherId;
+    if (isTrainerAuth || isTeacherAuth) {
       return next();
     }
     res.status(401).json({ message: "Unauthorized" });
