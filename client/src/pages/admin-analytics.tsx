@@ -4,13 +4,16 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock, Trash2, Ban } from "lucide-react";
+import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock, Trash2, Ban, UserPlus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface BatchAnalytics {
   batch: { id: string; name: string };
@@ -101,6 +104,11 @@ export default function AdminAnalytics() {
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showConfirmRestrict, setShowConfirmRestrict] = useState(false);
   const [actionType, setActionType] = useState<"delete" | "restrict" | "unrestrict">("delete");
+  const [showAddUser, setShowAddUser] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserRole, setNewUserRole] = useState<"admin" | "trainer" | "teacher">("teacher");
 
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
     queryKey: ["/api/admin/analytics/batches"],
@@ -240,6 +248,28 @@ export default function AdminAnalytics() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to unrestrict teacher.", variant: "destructive" });
+    },
+  });
+
+  // Mutation for creating new users
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: { email: string; password: string; name: string; role: string }) =>
+      apiRequest("POST", "/api/admin/users/create", userData),
+    onSuccess: (data: any) => {
+      toast({ title: "Success", description: data.message || "User created successfully." });
+      setShowAddUser(false);
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserName("");
+      setNewUserRole("teacher");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users/all"] });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to create user.", 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -530,11 +560,19 @@ export default function AdminAnalytics() {
         {/* People Overview */}
         <Card>
           <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              People Overview
-            </CardTitle>
-            <CardDescription className="mt-1">Trainers and teachers with activity metrics</CardDescription>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  People Overview
+                </CardTitle>
+                <CardDescription className="mt-1">Trainers and teachers with activity metrics</CardDescription>
+              </div>
+              <Button size="sm" onClick={() => setShowAddUser(true)} data-testid="button-add-user">
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add User
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {loadingUsers ? (
@@ -973,6 +1011,110 @@ export default function AdminAnalytics() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add User Modal */}
+      <Dialog open={showAddUser} onOpenChange={setShowAddUser}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+            <DialogDescription>Create a new admin, trainer, or teacher account</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                placeholder="Enter full name"
+                value={newUserName}
+                onChange={(e) => setNewUserName(e.target.value)}
+                data-testid="input-new-user-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter email address"
+                value={newUserEmail}
+                onChange={(e) => setNewUserEmail(e.target.value)}
+                data-testid="input-new-user-email"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter password (min 6 characters)"
+                value={newUserPassword}
+                onChange={(e) => setNewUserPassword(e.target.value)}
+                data-testid="input-new-user-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Select value={newUserRole} onValueChange={(value: "admin" | "trainer" | "teacher") => setNewUserRole(value)}>
+                <SelectTrigger data-testid="select-new-user-role">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="teacher">Teacher</SelectItem>
+                  <SelectItem value="trainer">Trainer</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              className="flex-1" 
+              onClick={() => {
+                setShowAddUser(false);
+                setNewUserEmail("");
+                setNewUserPassword("");
+                setNewUserName("");
+                setNewUserRole("teacher");
+              }} 
+              data-testid="button-cancel-add-user"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                if (!newUserEmail || !newUserPassword || !newUserName) {
+                  toast({ 
+                    title: "Error", 
+                    description: "Please fill in all fields.", 
+                    variant: "destructive" 
+                  });
+                  return;
+                }
+                if (newUserPassword.length < 6) {
+                  toast({ 
+                    title: "Error", 
+                    description: "Password must be at least 6 characters.", 
+                    variant: "destructive" 
+                  });
+                  return;
+                }
+                createUserMutation.mutate({
+                  email: newUserEmail,
+                  password: newUserPassword,
+                  name: newUserName,
+                  role: newUserRole,
+                });
+              }}
+              disabled={createUserMutation.isPending}
+              data-testid="button-confirm-add-user"
+            >
+              {createUserMutation.isPending ? "Creating..." : "Create User"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
