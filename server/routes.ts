@@ -2860,6 +2860,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Create a new user (admin, trainer, or teacher) with email and password
+  app.post("/api/admin/users/create", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { email, password, name, role } = req.body;
+      
+      // Validate required fields
+      if (!email || !password || !name || !role) {
+        return res.status(400).json({ error: "Email, password, name, and role are required" });
+      }
+      
+      // Validate role
+      if (!["admin", "trainer", "teacher"].includes(role)) {
+        return res.status(400).json({ error: "Role must be admin, trainer, or teacher" });
+      }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: "Invalid email format" });
+      }
+      
+      // Validate password length
+      if (password.length < 6) {
+        return res.status(400).json({ error: "Password must be at least 6 characters" });
+      }
+      
+      // Hash the password
+      const hashedPassword = await hashPassword(password);
+      
+      if (role === "teacher") {
+        // Check if teacher with this email already exists
+        const existingTeacher = await storage.getTeacherByEmail(email);
+        if (existingTeacher) {
+          return res.status(400).json({ error: "A teacher with this email already exists" });
+        }
+        
+        // Create teacher with approved status
+        const teacher = await storage.createTeacher({
+          name,
+          email,
+          password: hashedPassword,
+          approvalStatus: "approved",
+        });
+        
+        // Create initial report card
+        await storage.upsertTeacherReportCard({
+          teacherId: teacher.id,
+          level: "Beginner",
+          totalQuizzesTaken: 0,
+          totalQuizzesPassed: 0,
+          averageScore: 0,
+        });
+        
+        const { password: _, ...teacherWithoutPassword } = teacher;
+        res.status(201).json({ 
+          ...teacherWithoutPassword, 
+          role: "teacher",
+          message: "Teacher created successfully" 
+        });
+      } else {
+        // Check if user (admin/trainer) with this email already exists
+        const existingUser = await storage.getUserByEmail(email);
+        if (existingUser) {
+          return res.status(400).json({ error: "A user with this email already exists" });
+        }
+        
+        // Check if username (email) already exists
+        const existingUsername = await storage.getUserByUsername(email);
+        if (existingUsername) {
+          return res.status(400).json({ error: "A user with this username already exists" });
+        }
+        
+        // Create user (admin or trainer) - use email as username
+        const [newUser] = await db.insert(users).values({
+          username: email,
+          email,
+          password: hashedPassword,
+          firstName: name.split(' ')[0],
+          lastName: name.split(' ').slice(1).join(' ') || undefined,
+          role,
+          approvalStatus: "approved",
+          approvedBy: req.user!.id,
+          approvedAt: new Date(),
+        }).returning();
+        
+        const { password: _, ...userWithoutPassword } = newUser;
+        res.status(201).json({ 
+          ...userWithoutPassword, 
+          message: `${role.charAt(0).toUpperCase() + role.slice(1)} created successfully` 
+        });
+      }
+    } catch (error) {
+      console.error("Error creating user:", error);
+      res.status(500).json({ error: "Failed to create user" });
+    }
+  });
+
   // Get activity stats for a specific user
   app.get("/api/admin/users/:userId/activity", isAuthenticated, isAdmin, async (req, res) => {
     try {
