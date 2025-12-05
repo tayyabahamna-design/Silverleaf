@@ -5,14 +5,20 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
-import { Shield, GraduationCap, Users, Mail, Lock, Sparkles } from "lucide-react";
+import { Shield, GraduationCap, Users, Mail, Sparkles } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 type Role = "admin" | "teacher" | "trainer";
 type AccountType = "teacher" | "trainer";
+
+interface MultiRoleOption {
+  id: string;
+  role: Role;
+  name: string;
+}
 
 const SilverleafLogo = ({ className = "w-12 h-12" }: { className?: string }) => (
   <img src={logoImage} alt="Silverleaf Academy" className={className} />
@@ -27,6 +33,11 @@ export default function UnifiedAuth() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   
+  // Multi-role selection state
+  const [showRolePicker, setShowRolePicker] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<MultiRoleOption[]>([]);
+  const [selectingRole, setSelectingRole] = useState(false);
+  
   // Registration state
   const [accountType, setAccountType] = useState<AccountType | null>(null);
   const [regName, setRegName] = useState("");
@@ -38,81 +49,126 @@ export default function UnifiedAuth() {
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
 
-  // Handle login based on selected role
+  // Handle role selection when multiple roles are available
+  const handleRoleSelection = async (selectedRole: MultiRoleOption) => {
+    setSelectingRole(true);
+    
+    try {
+      const response = await fetch("/api/login/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          roleId: selectedRole.id, 
+          role: selectedRole.role 
+        }),
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const user = await response.json();
+        setShowRolePicker(false);
+        
+        // Update the auth context's query cache
+        if (user.role !== 'teacher') {
+          queryClient.setQueryData(["/api/user"], user);
+        }
+
+        toast({
+          title: "Welcome!",
+          description: `Successfully logged in as ${selectedRole.role}`,
+        });
+        
+        // Redirect based on role
+        if (selectedRole.role === 'teacher') {
+          window.location.href = "/teacher/dashboard";
+        } else {
+          window.location.href = "/";
+        }
+      } else {
+        const data = await response.json();
+        toast({
+          variant: "destructive",
+          title: "Login failed",
+          description: data.message || "Could not complete login",
+        });
+        setShowRolePicker(false);
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "An error occurred during role selection",
+      });
+      setShowRolePicker(false);
+    } finally {
+      setSelectingRole(false);
+    }
+  };
+
+  // Handle login - now uses unified endpoint for all roles
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
 
     try {
-      if (loginRole === "teacher") {
-        // Teacher login - accepts either Teacher ID or email
-        const response = await fetch("/api/teacher/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ identifier: loginEmail, password: loginPassword }),
-          credentials: "include",
-        });
+      // Use unified login endpoint for all roles
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          username: loginEmail, 
+          password: loginPassword 
+        }),
+        credentials: "include",
+      });
 
-        if (response.ok) {
-          const teacherData = await response.json();
+      const data = await response.json();
+
+      if (response.ok) {
+        // Check if multiple roles are available
+        if (data.multiRole) {
+          setAvailableRoles(data.roles);
+          setShowRolePicker(true);
+          setLoginLoading(false);
+          return;
+        }
+        
+        // Single role - direct login
+        const userRole = data.role;
+        
+        // For single role login, verify it matches selection if not teacher
+        if (userRole !== 'teacher' && userRole !== loginRole) {
           toast({
-            title: "Welcome!",
-            description: "Successfully logged in as Teacher",
+            variant: "destructive",
+            title: "Role mismatch",
+            description: `This account is registered as ${userRole}, not ${loginRole}. Please select the correct role.`,
           });
-          // Force full page reload to ensure auth state is updated
+          setLoginLoading(false);
+          return;
+        }
+
+        // Update the auth context's query cache
+        if (userRole !== 'teacher') {
+          queryClient.setQueryData(["/api/user"], data);
+        }
+
+        toast({
+          title: "Welcome!",
+          description: `Successfully logged in as ${userRole}`,
+        });
+        
+        // Redirect based on role
+        if (userRole === 'teacher') {
           window.location.href = "/teacher/dashboard";
         } else {
-          const error = await response.text();
-          toast({
-            variant: "destructive",
-            title: "Login failed",
-            description: error || "Invalid credentials",
-          });
+          window.location.href = "/";
         }
       } else {
-        // Admin/Trainer login - uses email
-        const response = await fetch("/api/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            username: loginEmail, 
-            password: loginPassword 
-          }),
-          credentials: "include",
+        toast({
+          variant: "destructive",
+          title: "Login failed",
+          description: data.message || "Invalid email or password",
         });
-
-        if (response.ok) {
-          const user = await response.json();
-          
-          // Verify role matches selection
-          if (user.role !== loginRole) {
-            toast({
-              variant: "destructive",
-              title: "Role mismatch",
-              description: `This account is registered as ${user.role}, not ${loginRole}`,
-            });
-            setLoginLoading(false);
-            return;
-          }
-
-          // Update the auth context's query cache
-          queryClient.setQueryData(["/api/user"], user);
-
-          toast({
-            title: "Welcome!",
-            description: `Successfully logged in as ${user.role}`,
-          });
-          
-          // Force full page reload to ensure auth state is updated
-          // All admin and trainer users go to home page (/)
-          window.location.href = "/";
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Login failed",
-            description: "Invalid email or password",
-          });
-        }
       }
     } catch (error) {
       toast({
@@ -237,6 +293,22 @@ export default function UnifiedAuth() {
     }
   ];
 
+  const getRoleIcon = (role: Role) => {
+    switch (role) {
+      case 'admin': return Shield;
+      case 'trainer': return Users;
+      case 'teacher': return GraduationCap;
+    }
+  };
+
+  const getRoleDescription = (role: Role) => {
+    switch (role) {
+      case 'admin': return 'Full system access and user management';
+      case 'trainer': return 'Manage courses, batches and training content';
+      case 'teacher': return 'Take courses and complete quizzes';
+    }
+  };
+
   const motivationalQuotes = [
     "Education is the passport to the future.",
     "Learning never exhausts the mind.",
@@ -249,6 +321,46 @@ export default function UnifiedAuth() {
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-primary/5 via-primary/10 to-primary/15 dark:from-gray-900 dark:via-primary/20 dark:to-primary/30 relative overflow-hidden">
+      {/* Multi-role picker dialog */}
+      <Dialog open={showRolePicker} onOpenChange={setShowRolePicker}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Select Your Role</DialogTitle>
+            <DialogDescription>
+              This email has multiple roles. Choose which one to use for this session.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-4">
+            {availableRoles.map((roleOption) => {
+              const Icon = getRoleIcon(roleOption.role);
+              return (
+                <button
+                  key={`${roleOption.role}-${roleOption.id}`}
+                  onClick={() => handleRoleSelection(roleOption)}
+                  disabled={selectingRole}
+                  data-testid={`select-role-${roleOption.role}`}
+                  className="flex items-center gap-4 p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition-all duration-200 text-left disabled:opacity-50"
+                >
+                  <div className="p-3 rounded-lg bg-primary text-primary-foreground">
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-semibold capitalize">{roleOption.role}</div>
+                    <div className="text-sm text-muted-foreground">{roleOption.name}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {getRoleDescription(roleOption.role)}
+                    </div>
+                  </div>
+                  {selectingRole && (
+                    <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Decorative background shapes */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 w-72 h-72 bg-primary/20 dark:bg-primary/10 rounded-full blur-3xl" />
@@ -518,60 +630,54 @@ export default function UnifiedAuth() {
                           <Label htmlFor="reg-name">Full Name</Label>
                           <Input
                             id="reg-name"
-                            data-testid="input-name"
-                            type="text"
-                            placeholder="Enter your full name"
+                            data-testid="input-reg-name"
                             value={regName}
                             onChange={(e) => setRegName(e.target.value)}
+                            placeholder="Enter your full name"
                             required
                           />
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor="reg-email">{accountType === "trainer" ? "Username" : "Email"}</Label>
+                          <Label htmlFor="reg-email">Email</Label>
                           <Input
                             id="reg-email"
-                            data-testid="input-email"
-                            type={accountType === "trainer" ? "text" : "email"}
-                            placeholder={accountType === "trainer" ? "Choose a username" : "Enter your email"}
+                            data-testid="input-reg-email"
+                            type="email"
                             value={regEmail}
                             onChange={(e) => setRegEmail(e.target.value)}
+                            placeholder="Enter your email"
                             required
                           />
-                          {accountType === "trainer" && (
-                            <p className="text-xs text-muted-foreground">
-                              You'll use this username to login
-                            </p>
-                          )}
                         </div>
 
                         <div className="space-y-2">
                           <Label htmlFor="reg-password">Password</Label>
                           <PasswordInput
                             id="reg-password"
-                            data-testid="input-password"
-                            placeholder="Create a password"
+                            data-testid="input-reg-password"
                             value={regPassword}
                             onChange={(e) => setRegPassword(e.target.value)}
+                            placeholder="Create a password (min. 6 characters)"
                             required
                           />
                         </div>
 
-                        {accountType === "teacher" && (
-                          <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
-                            A unique Teacher ID (starting from 7100) will be automatically generated for you. 
-                            Please save it for future logins.
-                          </div>
-                        )}
-
-                        <Button 
-                          type="submit" 
-                          className="w-full" 
+                        <Button
+                          type="submit"
+                          className="w-full"
                           disabled={regLoading}
                           data-testid="button-register"
                         >
-                          {regLoading ? "Creating Account..." : `Create ${accountType === "teacher" ? "Teacher" : "Trainer"} Account`}
+                          {regLoading ? "Creating account..." : "Create Account"}
                         </Button>
+
+                        <p className="text-xs text-muted-foreground text-center">
+                          {accountType === "teacher" 
+                            ? "Your account will need to be approved by an admin or trainer before you can log in."
+                            : "Your account will need to be approved by an admin before you can log in."
+                          }
+                        </p>
                       </form>
                     )}
                   </TabsContent>

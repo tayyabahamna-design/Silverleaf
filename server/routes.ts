@@ -2861,6 +2861,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: Create a new user (admin, trainer, or teacher) with email and password
+  // Multi-role support: Same email can have different roles (admin, trainer, teacher)
   app.post("/api/admin/users/create", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { email, password, name, role } = req.body;
@@ -2890,10 +2891,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hashedPassword = await hashPassword(password);
       
       if (role === "teacher") {
-        // Check if teacher with this email already exists
-        const existingTeacher = await storage.getTeacherByEmail(email);
-        if (existingTeacher) {
-          return res.status(400).json({ error: "A teacher with this email already exists" });
+        // Check if this email already has a teacher role (prevent duplicate teacher accounts)
+        const existingTeachers = await storage.getAllTeachersByEmail(email);
+        if (existingTeachers.length > 0) {
+          return res.status(400).json({ error: "A teacher account with this email already exists. The same email can have admin, trainer, and teacher roles, but only one account per role." });
         }
         
         // Create teacher with approved status
@@ -2920,21 +2921,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Teacher created successfully" 
         });
       } else {
-        // Check if user (admin/trainer) with this email already exists
-        const existingUser = await storage.getUserByEmail(email);
-        if (existingUser) {
-          return res.status(400).json({ error: "A user with this email already exists" });
+        // Check if this email already has an account with the SAME role (prevent duplicate role accounts)
+        const existingUsers = await storage.getAllUsersByEmail(email);
+        const existingWithSameRole = existingUsers.find(u => u.role === role);
+        if (existingWithSameRole) {
+          return res.status(400).json({ error: `A ${role} account with this email already exists. The same email can have admin, trainer, and teacher roles, but only one account per role.` });
         }
         
-        // Check if username (email) already exists
+        // Generate a unique username for this role (email + role suffix for multi-role accounts)
+        let username = email;
         const existingUsername = await storage.getUserByUsername(email);
         if (existingUsername) {
-          return res.status(400).json({ error: "A user with this username already exists" });
+          // If username (email) already exists, append role to make it unique
+          username = `${email}_${role}`;
         }
         
-        // Create user (admin or trainer) - use email as username
+        // Create user (admin or trainer) - use email as username (or email_role if duplicate)
         const [newUser] = await db.insert(users).values({
-          username: email,
+          username,
           email,
           password: hashedPassword,
           firstName: name.split(' ')[0],
