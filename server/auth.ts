@@ -300,6 +300,8 @@ export function setupAuth(app: Express) {
       // Verify the selected role was part of the verified options
       const selectedRole = pending.roles.find(r => r.id === roleId && r.role === role);
       if (!selectedRole) {
+        // Clear pending verification on invalid selection for security
+        delete req.session.pendingRoleVerification;
         return res.status(403).json({ message: "Invalid role selection" });
       }
 

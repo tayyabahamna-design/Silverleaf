@@ -32,6 +32,7 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
 - **Frontend**: Developed with React, TypeScript, Tailwind CSS for styling, and Shadcn UI for componentry. Uses React Query for data fetching and caching.
 - **Backend**: Implemented using Express.js with TypeScript, providing a RESTful API.
 - **Authentication**: Utilizes Passport.js Local Strategy for secure username/password authentication. Passwords are hashed with scrypt. Features role-based access control (Admin/Trainer/Teacher) with session management stored in PostgreSQL. Admin and Trainer can login with username or email; Teachers can login with Teacher ID or email.
+- **Multi-Role Support**: The same email address can have multiple roles (e.g., user can be both admin and trainer, or admin and teacher). When logging in with an email that has multiple roles, a role picker dialog appears allowing the user to select which role to use for the session. Role verification uses a 5-minute TTL session cache for security.
 - **File Management**: Supports file uploads via Uppy.js, storing files in Replit Object Storage (Google Cloud Storage) with presigned URLs for secure access. Allows for multiple deck files per training week.
 - **Inline Editing**: Provides click-to-edit functionality for key fields for admin users, with optimized cache updates for a smooth user experience.
 
