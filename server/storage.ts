@@ -90,6 +90,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getAllUsersByEmail(email: string): Promise<User[]>; // For multi-role support
   createUser(user: InsertUser): Promise<User>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<User | undefined>;
   getPendingTrainers(): Promise<User[]>;
@@ -132,6 +133,7 @@ export interface IStorage {
   // Teacher operations (new user type separate from trainer/admin)
   getTeacher(id: string): Promise<Teacher | undefined>;
   getTeacherByEmail(email: string): Promise<Teacher | undefined>;
+  getAllTeachersByEmail(email: string): Promise<Teacher[]>; // For multi-role support
   getTeacherByTeacherId(teacherId: number): Promise<Teacher | undefined>;
   getTeacherByName(name: string): Promise<Teacher[]>;
   createTeacher(teacher: InsertTeacher): Promise<Teacher>;
@@ -289,6 +291,11 @@ export class DatabaseStorage implements IStorage {
   async getUserByEmail(email: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.email, email));
     return user;
+  }
+
+  async getAllUsersByEmail(email: string): Promise<User[]> {
+    const allUsers = await db.select().from(users).where(eq(users.email, email));
+    return allUsers;
   }
 
   async createUser(userData: InsertUser): Promise<User> {
@@ -791,6 +798,11 @@ export class DatabaseStorage implements IStorage {
   async getTeacherByEmail(email: string): Promise<Teacher | undefined> {
     const [teacher] = await db.select().from(teachers).where(eq(teachers.email, email));
     return teacher;
+  }
+
+  async getAllTeachersByEmail(email: string): Promise<Teacher[]> {
+    const allTeachers = await db.select().from(teachers).where(eq(teachers.email, email));
+    return allTeachers;
   }
 
   async getTeacherByTeacherId(teacherId: number): Promise<Teacher | undefined> {
