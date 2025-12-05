@@ -251,11 +251,12 @@ export type InsertSecurityViolation = z.infer<typeof insertSecurityViolationSche
 export type SecurityViolation = typeof securityViolations.$inferSelect;
 
 // Teachers table (students who take quizzes assigned by trainers)
+// Note: email is NOT unique - same email can have multiple roles (admin, trainer, teacher)
 export const teachers = pgTable("teachers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   teacherId: integer("teacher_id").notNull().unique(), // Numeric ID starting at 7100
   name: varchar("name").notNull(),
-  email: varchar("email").notNull().unique(),
+  email: varchar("email").notNull(), // Removed unique constraint - same email can have multiple roles
   password: varchar("password").notNull(), // hashed password
   approvalStatus: varchar("approval_status").notNull().default("pending"), // 'pending', 'approved', 'rejected'
   approvedBy: varchar("approved_by"), // ID of admin/trainer who approved (null if pending)
