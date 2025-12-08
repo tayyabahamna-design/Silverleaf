@@ -1259,18 +1259,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/training-weeks/:weekId/files/:fileId/quiz", isAuthenticated, async (req, res) => {
     try {
       const { weekId, fileId } = req.params;
+      const userId = req.user!.id;
 
-      console.log(`[FILE-QUIZ] 🔍 Fetching cached quiz for weekId=${weekId}, fileId=${fileId}`);
-      const cachedQuiz = await storage.getCachedQuiz(weekId, fileId);
+      console.log(`[FILE-QUIZ] 🔍 Fetching quiz for weekId=${weekId}, fileId=${fileId}`);
       
+      // First, check cache
+      const cachedQuiz = await storage.getCachedQuiz(weekId, fileId);
       if (cachedQuiz && cachedQuiz.questions.length > 0) {
         console.log(`[FILE-QUIZ] ✅ Found cached quiz with ${cachedQuiz.questions.length} questions`);
         res.json({ questions: cachedQuiz.questions });
-      } else {
-        // No quiz available
-        console.log(`[FILE-QUIZ] ❌ No cached quiz found for weekId=${weekId}, fileId=${fileId}`);
-        res.status(404).json({ error: "No quiz available for this file" });
+        return;
       }
+      
+      // Fallback: check assigned quizzes for this file/week
+      console.log(`[FILE-QUIZ] 🔄 No cache found, checking assigned quizzes...`);
+      const quizzes = await db
+        .select()
+        .from(assignedQuizzes)
+        .where(
+          and(
+            eq(assignedQuizzes.weekId, weekId),
+            eq(assignedQuizzes.deckFileId, fileId)
+          )
+        )
+        .limit(1);
+
+      if (quizzes.length > 0) {
+        const quiz = quizzes[0];
+        const questions = JSON.parse(quiz.questions as any);
+        console.log(`[FILE-QUIZ] ✅ Found assigned quiz with ${questions.length} questions`);
+        res.json({ questions });
+        return;
+      }
+      
+      // No quiz available
+      console.log(`[FILE-QUIZ] ❌ No quiz found for weekId=${weekId}, fileId=${fileId}`);
+      res.status(404).json({ error: "No quiz available for this file" });
     } catch (error) {
       console.error("[FILE-QUIZ] Get quiz error:", error);
       res.status(500).json({ error: "Internal server error" });
