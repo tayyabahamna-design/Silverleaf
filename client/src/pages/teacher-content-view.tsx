@@ -140,6 +140,12 @@ export default function TeacherContentView() {
   const deckFiles = contentData?.content || [];
   const currentWeek = contentData?.week;
 
+  // Fetch quiz passage data for all files in the week
+  const { data: fileQuizData = {} } = useQuery<Record<string, any>>({
+    queryKey: [`/api/teacher/week/${weekId}/file-quizzes`],
+    enabled: !!weekId,
+  });
+
   // Calculate week progress from deck files
   const weekProgress: WeekProgress = {
     total: deckFiles.length,
@@ -398,12 +404,16 @@ export default function TeacherContentView() {
                         </p>
                       </div>
                     ) : (
-                      deckFiles.map((file) => {
-                        // TODO: Fetch file quiz progress from backend when endpoint is available
-                        const hasPassedQuiz = false;
+                      deckFiles.map((file, fileIndex) => {
+                        const quizStatus = fileQuizData[file.id];
+                        const hasPassedQuiz = quizStatus?.passed === true || quizStatus?.hasPassed === true;
                         const hasToc = file.toc && file.toc.length > 0;
                         const isTocExpanded = expandedTocFileId === file.id;
-                        const isLocked = false; // Access control handled by backend
+                        
+                        // Lock file if it's not the first file AND the previous file's quiz hasn't been passed
+                        const prevFileQuizStatus = fileIndex > 0 ? fileQuizData[deckFiles[fileIndex - 1]?.id] : null;
+                        const prevFileQuizPassed = prevFileQuizStatus?.passed === true || prevFileQuizStatus?.hasPassed === true;
+                        const isLocked = fileIndex > 0 && !prevFileQuizPassed;
                         
                         return (
                           <div key={file.id} className="space-y-2">
