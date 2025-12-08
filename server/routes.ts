@@ -8,7 +8,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers, batches, batchCourses, teacherCourseCompletion } from "@shared/schema";
+import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers, batches, batchCourses, teacherCourseCompletion, assignedQuizzes } from "@shared/schema";
 import { setupAuth, hashPassword } from "./auth";
 import { setupTeacherAuth, isTeacherAuthenticated } from "./teacherAuth";
 import { z } from "zod";
@@ -1126,7 +1126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Check if user has passed the quiz
   app.get("/api/training-weeks/:weekId/quiz-passed", isAuthenticatedAny, async (req, res) => {
     try {
-      const userId = req.user?.id || req.teacherId;
+      const userId = req.user?.id || req.teacherId!;
       const { weekId } = req.params;
 
       const passed = await storage.hasPassedQuiz(weekId, userId);
@@ -1199,7 +1199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Submit quiz for a specific file
   app.post("/api/training-weeks/:weekId/files/:fileId/submit-quiz", isAuthenticatedAny, async (req, res) => {
     try {
-      const userId = req.user?.id || req.teacherId;
+      const userId = req.user?.id || req.teacherId!;
       const { weekId, fileId } = req.params;
       const { questions, answers } = req.body;
 
@@ -1255,7 +1255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get quiz progress for all files in a week
   app.get("/api/training-weeks/:weekId/file-quiz-progress", isAuthenticatedAny, async (req, res) => {
     try {
-      const userId = req.user?.id || req.teacherId;
+      const userId = req.user?.id || req.teacherId!;
       const { weekId } = req.params;
 
       const progress = await storage.getFileQuizProgress(weekId, userId);
@@ -1270,7 +1270,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/training-weeks/:weekId/files/:fileId/quiz", isAuthenticatedAny, async (req, res) => {
     try {
       const { weekId, fileId } = req.params;
-      const userId = req.user!.id;
 
       console.log(`[FILE-QUIZ] 🔍 Fetching quiz for weekId=${weekId}, fileId=${fileId}`);
       
@@ -1315,7 +1314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Check if user has passed quiz for a specific file
   app.get("/api/training-weeks/:weekId/files/:fileId/quiz-passed", isAuthenticatedAny, async (req, res) => {
     try {
-      const userId = req.user?.id || req.teacherId;
+      const userId = req.user?.id || req.teacherId!;
       const { weekId, fileId } = req.params;
 
       const passed = await storage.hasPassedFileQuiz(weekId, fileId, userId);
