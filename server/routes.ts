@@ -42,6 +42,17 @@ function isTrainer(req: Request, res: Response, next: NextFunction) {
   res.status(403).json({ message: "Forbidden: Trainer access required" });
 }
 
+// Middleware to allow both regular auth and teacher auth
+function isAuthenticatedAny(req: Request, res: Response, next: NextFunction) {
+  const isRegularUser = req.isAuthenticated();
+  const isTeacher = !!(req.session as any)?.teacherId;
+  
+  if (isRegularUser || isTeacher) {
+    return next();
+  }
+  res.status(401).json({ message: "Unauthorized" });
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const objectStorageService = new ObjectStorageService();
 
@@ -1113,9 +1124,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check if user has passed the quiz
-  app.get("/api/training-weeks/:weekId/quiz-passed", isAuthenticated, async (req, res) => {
+  app.get("/api/training-weeks/:weekId/quiz-passed", isAuthenticatedAny, async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user?.id || req.teacherId;
       const { weekId } = req.params;
 
       const passed = await storage.hasPassedQuiz(weekId, userId);
@@ -1129,7 +1140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // File-level quiz endpoints (modular approach)
 
   // Generate quiz for a specific file (with pre-caching for instant delivery)
-  app.post("/api/training-weeks/:weekId/files/:fileId/generate-quiz", isAuthenticated, async (req, res) => {
+  app.post("/api/training-weeks/:weekId/files/:fileId/generate-quiz", isAuthenticatedAny, async (req, res) => {
     try {
       const startTime = Date.now();
       console.log("[FILE-QUIZ] Starting quiz generation for file:", req.params.fileId);
@@ -1186,9 +1197,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Submit quiz for a specific file
-  app.post("/api/training-weeks/:weekId/files/:fileId/submit-quiz", isAuthenticated, async (req, res) => {
+  app.post("/api/training-weeks/:weekId/files/:fileId/submit-quiz", isAuthenticatedAny, async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user?.id || req.teacherId;
       const { weekId, fileId } = req.params;
       const { questions, answers } = req.body;
 
@@ -1242,9 +1253,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get quiz progress for all files in a week
-  app.get("/api/training-weeks/:weekId/file-quiz-progress", isAuthenticated, async (req, res) => {
+  app.get("/api/training-weeks/:weekId/file-quiz-progress", isAuthenticatedAny, async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user?.id || req.teacherId;
       const { weekId } = req.params;
 
       const progress = await storage.getFileQuizProgress(weekId, userId);
@@ -1256,7 +1267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get existing quiz for a specific file (for teachers to attempt pre-generated quizzes)
-  app.get("/api/training-weeks/:weekId/files/:fileId/quiz", isAuthenticated, async (req, res) => {
+  app.get("/api/training-weeks/:weekId/files/:fileId/quiz", isAuthenticatedAny, async (req, res) => {
     try {
       const { weekId, fileId } = req.params;
       const userId = req.user!.id;
@@ -1302,9 +1313,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Check if user has passed quiz for a specific file
-  app.get("/api/training-weeks/:weekId/files/:fileId/quiz-passed", isAuthenticated, async (req, res) => {
+  app.get("/api/training-weeks/:weekId/files/:fileId/quiz-passed", isAuthenticatedAny, async (req, res) => {
     try {
-      const userId = req.user!.id;
+      const userId = req.user?.id || req.teacherId;
       const { weekId, fileId } = req.params;
 
       const passed = await storage.hasPassedFileQuiz(weekId, fileId, userId);
