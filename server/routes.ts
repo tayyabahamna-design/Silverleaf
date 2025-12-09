@@ -418,6 +418,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Trainer password reset endpoint for teachers in their batches
+  const trainerResetPasswordSchema = z.object({
+    teacherId: z.string().min(1, "Teacher ID required"),
+    newPassword: z.string().trim().min(6, "Password must be at least 6 characters"),
+  });
+
+  app.post("/api/trainer/reset-teacher-password", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { teacherId, newPassword } = trainerResetPasswordSchema.parse(req.body);
+      
+      // Get the teacher
+      const teacher = await storage.getTeacher(teacherId);
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      // Hash the new password
+      const hashedPassword = await hashPassword(newPassword);
+      
+      // Update teacher's password
+      const updatedTeacher = await storage.updateTeacherPassword(teacherId, hashedPassword);
+      
+      if (!updatedTeacher) {
+        return res.status(500).json({ error: "Failed to update password" });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Password reset successful for teacher: ${updatedTeacher.name} (ID: ${updatedTeacher.teacherId})` 
+      });
+    } catch (error) {
+      console.error("Error resetting teacher password:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get all training weeks (authenticated users only)
   app.get("/api/training-weeks", isAuthenticated, async (req, res) => {
     try {
