@@ -27,6 +27,7 @@ import AdminCertificateApproval from "@/pages/admin-certificate-approval";
 import AdminCertificateView from "@/pages/admin-certificate-view";
 import TeacherCertificates from "@/pages/teacher-certificates";
 import TeacherCertificateView from "@/pages/teacher-certificate-view";
+import EmergencyReset from "@/pages/emergency-reset";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -54,6 +55,7 @@ function Router() {
       <ProtectedRoute path="/admin/certificates/batch/:batchId/view" component={AdminCertificateView} />
       <Route path="/auth" component={UnifiedAuth} />
       <Route path="/login" component={UnifiedAuth} />
+      <Route path="/emergency-reset" component={EmergencyReset} />
       <Route path="/teacher/dashboard" component={TeacherDashboard} />
       <Route path="/teacher/certificates" component={TeacherCertificates} />
       <Route path="/teacher/certificates/:certId" component={TeacherCertificateView} />

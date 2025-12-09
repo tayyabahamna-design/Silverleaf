@@ -567,6 +567,17 @@ export default function UnifiedAuth() {
                         )}
                       </Button>
 
+                      {/* Forgot Password Link */}
+                      <div className="text-center">
+                        <a 
+                          href="/emergency-reset" 
+                          className="text-sm text-muted-foreground hover:text-primary hover:underline transition-colors"
+                          data-testid="link-forgot-password"
+                        >
+                          Forgot password?
+                        </a>
+                      </div>
+
                       {/* Motivational Quote */}
                       <div className="pt-3 sm:pt-4 border-t border-border">
                         <div className="flex items-start gap-2 sm:gap-3 p-3 sm:p-4 bg-primary/5 rounded-lg">
