@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { Users, Award, BarChart3, ArrowRight, FileText } from "lucide-react";
+import { Users, Award, BarChart3, ArrowRight, FileText, Plus, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface DashboardStats {
   totalTrainers: number;
@@ -37,6 +37,14 @@ export default function AdminHome() {
   const [resetUserIdentifier, setResetUserIdentifier] = useState("");
   const [resetNewPassword, setResetNewPassword] = useState("");
 
+  // Add trainer state
+  const [addTrainerOpen, setAddTrainerOpen] = useState(false);
+  const [trainerForm, setTrainerForm] = useState({ name: "", email: "", password: "" });
+
+  // Add teacher state
+  const [addTeacherOpen, setAddTeacherOpen] = useState(false);
+  const [teacherForm, setTeacherForm] = useState({ name: "", email: "", password: "" });
+
   // Fetch dashboard stats
   const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/admin/dashboard-stats"],
@@ -54,6 +62,68 @@ export default function AdminHome() {
       setResetNewPassword("");
     },
   });
+
+  // Add trainer mutation
+  const addTrainerMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; password: string }) => {
+      const res = await apiRequest("POST", "/api/admin/users/create", { ...data, role: "trainer" });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Trainer Created", description: "The trainer has been added successfully." });
+      setAddTrainerOpen(false);
+      setTrainerForm({ name: "", email: "", password: "" });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/trainers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create trainer", variant: "destructive" });
+    },
+  });
+
+  // Add teacher mutation
+  const addTeacherMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; password: string }) => {
+      const res = await apiRequest("POST", "/api/admin/users/create", { ...data, role: "teacher" });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Teacher Created", description: "The teacher has been added successfully." });
+      setAddTeacherOpen(false);
+      setTeacherForm({ name: "", email: "", password: "" });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/teachers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/dashboard-stats"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create teacher", variant: "destructive" });
+    },
+  });
+
+  const handleAddTrainer = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!trainerForm.name || !trainerForm.email || !trainerForm.password) {
+      toast({ title: "Missing Fields", description: "Please fill in all required fields.", variant: "destructive" });
+      return;
+    }
+    if (trainerForm.password.length < 6) {
+      toast({ title: "Password Too Short", description: "Password must be at least 6 characters.", variant: "destructive" });
+      return;
+    }
+    addTrainerMutation.mutate(trainerForm);
+  };
+
+  const handleAddTeacher = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!teacherForm.name || !teacherForm.email || !teacherForm.password) {
+      toast({ title: "Missing Fields", description: "Please fill in all required fields.", variant: "destructive" });
+      return;
+    }
+    if (teacherForm.password.length < 6) {
+      toast({ title: "Password Too Short", description: "Password must be at least 6 characters.", variant: "destructive" });
+      return;
+    }
+    addTeacherMutation.mutate(teacherForm);
+  };
 
   if (user?.role !== "admin") {
     return (
@@ -75,63 +145,202 @@ export default function AdminHome() {
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex items-start justify-between">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
-            <p className="text-muted-foreground">
-              Manage trainers, teachers, and view system statistics
-            </p>
+        <div className="mb-8">
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
+              <p className="text-muted-foreground">
+                Manage trainers, teachers, and view system statistics
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {/* Add Trainer Button */}
+              <Dialog open={addTrainerOpen} onOpenChange={setAddTrainerOpen}>
+                <DialogTrigger asChild>
+                  <Button data-testid="button-add-trainer">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Trainer
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Trainer</DialogTitle>
+                    <DialogDescription>
+                      Create a new trainer account. The trainer will be automatically approved.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleAddTrainer} className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="trainer-name">Full Name</Label>
+                      <Input
+                        id="trainer-name"
+                        placeholder="Enter full name"
+                        value={trainerForm.name}
+                        onChange={(e) => setTrainerForm({ ...trainerForm, name: e.target.value })}
+                        data-testid="input-trainer-name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="trainer-email">Email</Label>
+                      <Input
+                        id="trainer-email"
+                        type="email"
+                        placeholder="Enter email address"
+                        value={trainerForm.email}
+                        onChange={(e) => setTrainerForm({ ...trainerForm, email: e.target.value })}
+                        data-testid="input-trainer-email"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="trainer-password">Password</Label>
+                      <Input
+                        id="trainer-password"
+                        type="password"
+                        placeholder="Enter password (min 6 characters)"
+                        value={trainerForm.password}
+                        onChange={(e) => setTrainerForm({ ...trainerForm, password: e.target.value })}
+                        data-testid="input-trainer-password"
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setAddTrainerOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={addTrainerMutation.isPending} data-testid="button-submit-trainer">
+                        {addTrainerMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          "Create Trainer"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
+              {/* Add Teacher Button */}
+              <Dialog open={addTeacherOpen} onOpenChange={setAddTeacherOpen}>
+                <DialogTrigger asChild>
+                  <Button data-testid="button-add-teacher">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Teacher
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Teacher</DialogTitle>
+                    <DialogDescription>
+                      Create a new teacher account. The teacher will be automatically approved.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleAddTeacher} className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="teacher-name">Full Name</Label>
+                      <Input
+                        id="teacher-name"
+                        placeholder="Enter full name"
+                        value={teacherForm.name}
+                        onChange={(e) => setTeacherForm({ ...teacherForm, name: e.target.value })}
+                        data-testid="input-teacher-name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="teacher-email">Email</Label>
+                      <Input
+                        id="teacher-email"
+                        type="email"
+                        placeholder="Enter email address"
+                        value={teacherForm.email}
+                        onChange={(e) => setTeacherForm({ ...teacherForm, email: e.target.value })}
+                        data-testid="input-teacher-email"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="teacher-password">Password</Label>
+                      <Input
+                        id="teacher-password"
+                        type="password"
+                        placeholder="Enter password (min 6 characters)"
+                        value={teacherForm.password}
+                        onChange={(e) => setTeacherForm({ ...teacherForm, password: e.target.value })}
+                        data-testid="input-teacher-password"
+                      />
+                    </div>
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setAddTeacherOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={addTeacherMutation.isPending} data-testid="button-submit-teacher">
+                        {addTeacherMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          "Create Teacher"
+                        )}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
+
+              {/* Reset Password Button */}
+              <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" data-testid="button-reset-password">
+                    Reset User Password
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Reset User Password</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="userIdentifier">Username or Email</Label>
+                      <Input
+                        id="userIdentifier"
+                        placeholder="admin or admin@example.com"
+                        value={resetUserIdentifier}
+                        onChange={(e) => setResetUserIdentifier(e.target.value)}
+                        data-testid="input-user-identifier"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword">New Password</Label>
+                      <PasswordInput
+                        id="newPassword"
+                        placeholder="Enter new password (min 6 characters)"
+                        value={resetNewPassword}
+                        onChange={(e) => setResetNewPassword(e.target.value)}
+                        data-testid="input-new-password"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setResetPasswordOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        resetPasswordMutation.mutate({
+                          userIdentifier: resetUserIdentifier,
+                          newPassword: resetNewPassword,
+                        });
+                      }}
+                      disabled={resetPasswordMutation.isPending}
+                    >
+                      Reset
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
-          <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" data-testid="button-reset-password">
-                Reset User Password
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Reset User Password</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="userIdentifier">Username or Email</Label>
-                  <Input
-                    id="userIdentifier"
-                    placeholder="admin or admin@example.com"
-                    value={resetUserIdentifier}
-                    onChange={(e) => setResetUserIdentifier(e.target.value)}
-                    data-testid="input-user-identifier"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword">New Password</Label>
-                  <PasswordInput
-                    id="newPassword"
-                    placeholder="Enter new password (min 6 characters)"
-                    value={resetNewPassword}
-                    onChange={(e) => setResetNewPassword(e.target.value)}
-                    data-testid="input-new-password"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setResetPasswordOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => {
-                    resetPasswordMutation.mutate({
-                      userIdentifier: resetUserIdentifier,
-                      newPassword: resetNewPassword,
-                    });
-                  }}
-                  disabled={resetPasswordMutation.isPending}
-                >
-                  Reset
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
 
         {/* Stats Grid */}
