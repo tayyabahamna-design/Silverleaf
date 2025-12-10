@@ -40,6 +40,10 @@ localPort = 39697
 externalPort = 5173
 
 [[ports]]
+localPort = 39731
+externalPort = 5000
+
+[[ports]]
 localPort = 44915
 externalPort = 6000
 
@@ -77,3 +81,9 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_object_storage:1.0.0", "javascript_database:1.0.0", "javascript_log_in_with_replit:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+VITE_PUBLIC_POSTHOG_KEY = "phc_GUUATOmudYyybKsLBrwc21wvdi6m26QMZDXf75wvSWH"
+VITE_PUBLIC_POSTHOG_HOST = "https://us.i.posthog.com"
