@@ -194,7 +194,8 @@ export type QuizQuestion = z.infer<typeof quizQuestionSchema>;
 // Quiz attempts table
 export const quizAttempts = pgTable("quiz_attempts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }), // null for teacher attempts
+  teacherId: varchar("teacher_id"), // teacher ID (separate from users table)
   weekId: varchar("week_id").notNull().references(() => trainingWeeks.id, { onDelete: "cascade" }),
   deckFileId: varchar("deck_file_id"), // ID from the deckFiles JSONB array (null for legacy week-level quizzes)
   questions: jsonb("questions").$type<QuizQuestion[]>().notNull(),

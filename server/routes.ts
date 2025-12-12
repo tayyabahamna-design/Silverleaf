@@ -1291,7 +1291,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Submit quiz for a specific file
   app.post("/api/training-weeks/:weekId/files/:fileId/submit-quiz", isAuthenticatedAny, async (req, res) => {
     try {
-      const userId = req.user?.id || req.teacherId!;
+      const userId = req.user?.id;
+      const teacherId = req.teacherId;
       const { weekId, fileId } = req.params;
       const { questions, answers } = req.body;
 
@@ -1321,7 +1322,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const passed = score >= Math.ceil(totalQuestions * 0.7) ? "yes" : "no";
 
       const attempt = await storage.saveQuizAttempt({
-        userId,
+        userId: userId || null,
+        teacherId: teacherId || null,
         weekId,
         deckFileId: fileId,
         questions,
