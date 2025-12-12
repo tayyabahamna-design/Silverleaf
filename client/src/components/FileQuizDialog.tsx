@@ -149,6 +149,7 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'deck-progress'] });
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'file-quiz-progress'] });
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'files', fileId, 'quiz-passed'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/teacher/report-card'] });
     },
     onError: (error: Error) => {
       toast({

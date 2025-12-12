@@ -1333,6 +1333,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         passed,
       });
 
+      // Update teacher report card if teacher submitted
+      if (teacherId) {
+        const allAttempts = await storage.getAllTeacherQuizAttempts(teacherId);
+        const totalPassed = allAttempts.filter(a => a.passed === "yes").length;
+        const averageScore = allAttempts.length > 0 
+          ? Math.round(allAttempts.reduce((sum, a) => sum + (a.score / a.totalQuestions * 100), 0) / allAttempts.length)
+          : 0;
+
+        await storage.upsertTeacherReportCard({
+          teacherId,
+          level: "Beginner", // TODO: Calculate level based on performance
+          totalQuizzesTaken: allAttempts.length,
+          totalQuizzesPassed: totalPassed,
+          averageScore,
+        });
+      }
+
       res.json({ 
         attempt,
         score,
