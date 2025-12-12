@@ -45,9 +45,14 @@ function isTrainer(req: Request, res: Response, next: NextFunction) {
 // Middleware to allow both regular auth and teacher auth
 function isAuthenticatedAny(req: Request, res: Response, next: NextFunction) {
   const isRegularUser = req.isAuthenticated();
-  const isTeacher = !!(req.session as any)?.teacherId;
+  const teacherId = (req.session as any)?.teacherId;
+  const isTeacher = !!teacherId;
   
   if (isRegularUser || isTeacher) {
+    // Set teacherId on request object for teacher users
+    if (isTeacher) {
+      req.teacherId = teacherId;
+    }
     return next();
   }
   res.status(401).json({ message: "Unauthorized" });
