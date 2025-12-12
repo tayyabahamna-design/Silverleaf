@@ -8,7 +8,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers, batches, batchCourses, teacherCourseCompletion, assignedQuizzes } from "@shared/schema";
+import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers, batches, batchCourses, teacherCourseCompletion, assignedQuizzes, quizAttempts } from "@shared/schema";
 import { setupAuth, hashPassword } from "./auth";
 import { setupTeacherAuth, isTeacherAuthenticated } from "./teacherAuth";
 import { z } from "zod";
@@ -1335,7 +1335,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update teacher report card if teacher submitted
       if (teacherId) {
-        const allAttempts = await storage.getAllTeacherQuizAttempts(teacherId);
+        // Get ALL quiz attempts from both tables
+        const assignedQuizAttempts = await storage.getAllTeacherQuizAttempts(teacherId);
+        
+        // Also get file quiz attempts from quizAttempts table
+        const fileQuizAttempts = await db
+          .select()
+          .from(quizAttempts)
+          .where(eq(quizAttempts.teacherId, teacherId))
+          .orderBy(sql`${quizAttempts.completedAt} DESC`);
+
+        // Combine both types of attempts
+        const allAttempts = [
+          ...assignedQuizAttempts,
+          ...fileQuizAttempts,
+        ];
+
         const totalPassed = allAttempts.filter(a => a.passed === "yes").length;
         const averageScore = allAttempts.length > 0 
           ? Math.round(allAttempts.reduce((sum, a) => sum + (a.score / a.totalQuestions * 100), 0) / allAttempts.length)
