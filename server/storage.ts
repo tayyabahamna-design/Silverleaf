@@ -226,6 +226,10 @@ export interface IStorage {
   getTeacherCertificates(teacherId: string): Promise<TeacherCertificate[]>;
   getCertificatesForBatch(batchId: string): Promise<(TeacherCertificate & { teacher: Teacher })[]>;
   
+  // Auto certificate generation
+  calculateTeacherCourseCompletionPercentage(teacherId: string, courseId: string): Promise<number>;
+  tryAutoGenerateCertificate(teacherId: string, courseId: string): Promise<TeacherCertificate | null>;
+  
   // Analytics operations
   getBatchAnalytics(batchId?: string): Promise<any>;
   getCourseAnalytics(courseId?: string): Promise<any>;
@@ -1463,6 +1467,81 @@ export class DatabaseStorage implements IStorage {
       .where(eq(teacherCertificates.batchId, batchId));
     
     return results.map(r => ({ ...r.certificate, teacher: r.teacher }));
+  }
+
+  async calculateTeacherCourseCompletionPercentage(teacherId: string, courseId: string): Promise<number> {
+    const weeks = await this.getWeeksForCourse(courseId);
+    if (weeks.length === 0) return 0;
+    
+    let totalFiles = 0;
+    let completedFiles = 0;
+    
+    for (const week of weeks) {
+      const files = week.deckFiles || [];
+      totalFiles += files.length;
+      
+      const progressRecords = await this.getAllTeacherContentProgressForWeek(teacherId, week.id);
+      completedFiles += progressRecords.filter(p => p.status === "completed").length;
+    }
+    
+    if (totalFiles === 0) return 0;
+    return Math.round((completedFiles / totalFiles) * 100);
+  }
+
+  async tryAutoGenerateCertificate(teacherId: string, courseId: string): Promise<TeacherCertificate | null> {
+    const completionPercentage = await this.calculateTeacherCourseCompletionPercentage(teacherId, courseId);
+    
+    if (completionPercentage < 90) {
+      return null;
+    }
+    
+    const teacherBatches = await this.getBatchesForTeacher(teacherId);
+    
+    for (const batch of teacherBatches) {
+      const coursesForBatch = await this.getCoursesForBatch(batch.id);
+      const courseAssigned = coursesForBatch.some(c => c.id === courseId);
+      
+      if (!courseAssigned) continue;
+      
+      const existingCert = await this.getTeacherCertificate(teacherId, batch.id, courseId);
+      if (existingCert) {
+        return existingCert;
+      }
+      
+      const template = await this.getBatchCertificateTemplate(batch.id);
+      if (!template || template.status !== "approved") {
+        continue;
+      }
+      
+      const teacher = await this.getTeacher(teacherId);
+      const course = await this.getCourse(courseId);
+      
+      if (!teacher || !course) continue;
+      
+      const certificate = await this.generateTeacherCertificate({
+        teacherId,
+        batchId: batch.id,
+        courseId,
+        templateId: template.id,
+        teacherName: teacher.name,
+        courseName: course.name,
+        appreciationText: template.appreciationText,
+        adminName1: template.adminName1,
+        adminName2: template.adminName2,
+      });
+      
+      await this.upsertTeacherCourseCompletion({
+        teacherId,
+        courseId,
+        batchId: batch.id,
+        status: "completed",
+        completedAt: new Date(),
+      });
+      
+      return certificate;
+    }
+    
+    return null;
   }
 
   // Analytics operations
