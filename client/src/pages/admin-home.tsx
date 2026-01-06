@@ -79,7 +79,7 @@ export default function AdminHome() {
           <div>
             <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
             <p className="text-muted-foreground">
-              Manage trainers, teachers, and view system statistics
+              Manage admins, teachers, and view system statistics
             </p>
           </div>
           <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
@@ -147,7 +147,7 @@ export default function AdminHome() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground mb-1">
-                    Total Trainers
+                    Total Admins
                   </p>
                   <p className="text-3xl font-bold">
                     {stats?.totalTrainers || 0}
@@ -204,12 +204,12 @@ export default function AdminHome() {
         {/* Quick Navigation */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="p-8 hover:shadow-lg transition-shadow cursor-pointer"
-            onClick={() => navigate("/admin/trainers")}>
+            onClick={() => navigate("/admin/users")}>
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-2xl font-bold mb-2">Trainers</h3>
+                <h3 className="text-2xl font-bold mb-2">Admins</h3>
                 <p className="text-muted-foreground">
-                  Manage all trainers and their approvals
+                  Manage all admins and their approvals
                 </p>
               </div>
               <Award className="h-12 w-12 text-primary/20" />
@@ -219,7 +219,7 @@ export default function AdminHome() {
               className="mt-4 w-full"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate("/admin/trainers");
+                navigate("/admin/users");
               }}
               data-testid="button-go-trainers"
             >
