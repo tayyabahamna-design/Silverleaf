@@ -1,5 +1,5 @@
 // Based on blueprint:javascript_auth_all_persistance
-// UPDATED: Added unified authentication page for Admin, Teacher, and Trainer roles
+// UPDATED: Added unified authentication page for Admin and Teacher roles
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/use-auth";
 import { ProtectedRoute } from "@/lib/protected-route";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import CoursesList from "@/pages/courses-list";
 import CourseWeeks from "@/pages/course-weeks";
 import CourseView from "@/pages/course-view";
@@ -14,12 +15,10 @@ import Home from "@/pages/home";
 import UnifiedAuth from "@/pages/unified-auth";
 import TeacherDashboard from "@/pages/teacher-dashboard";
 import TeacherContentView from "@/pages/teacher-content-view";
-import TrainerBatches from "@/pages/trainer-batches";
-import TrainerTeacherContentHistory from "@/pages/trainer-teacher-content-history";
 import Approvals from "@/pages/approvals";
 import AdminHome from "@/pages/admin-home";
-import AdminTrainers from "@/pages/admin-trainers";
-import AdminTrainerDetail from "@/pages/admin-trainer-detail";
+import AdminUsers from "@/pages/admin-trainers";
+import AdminUserDetail from "@/pages/admin-trainer-detail";
 import AdminTeachers from "@/pages/admin-teachers";
 import AdminTeacherDetail from "@/pages/admin-teacher-detail";
 import AdminAnalytics from "@/pages/admin-analytics";
@@ -40,14 +39,12 @@ function Router() {
       
       {/* Legacy routes for backward compatibility */}
       <ProtectedRoute path="/course/:weekId" component={CourseView} />
-      
-      {/* Other routes */}
-      <ProtectedRoute path="/trainer/batches" component={TrainerBatches} />
-      <ProtectedRoute path="/trainer/teachers/:teacherId/weeks/:weekId/content-history" component={TrainerTeacherContentHistory} />
+
+      {/* Admin routes */}
       <ProtectedRoute path="/approvals" component={Approvals} />
       <ProtectedRoute path="/admin" component={AdminHome} />
-      <ProtectedRoute path="/admin/trainers" component={AdminTrainers} />
-      <ProtectedRoute path="/admin/trainers/:id" component={AdminTrainerDetail} />
+      <ProtectedRoute path="/admin/users" component={AdminUsers} />
+      <ProtectedRoute path="/admin/users/:id" component={AdminUserDetail} />
       <ProtectedRoute path="/admin/teachers" component={AdminTeachers} />
       <ProtectedRoute path="/admin/teachers/:id" component={AdminTeacherDetail} />
       <ProtectedRoute path="/admin/analytics" component={AdminAnalytics} />
@@ -67,14 +64,16 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

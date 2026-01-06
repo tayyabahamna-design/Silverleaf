@@ -25,7 +25,7 @@ interface BatchCertificateTemplate {
 export default function AdminCertificateApproval() {
   const [, navigate] = useLocation();
   const [, params] = useRoute("/admin/certificates/:batchId");
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { toast } = useToast();
   const [appreciationText, setAppreciationText] = useState("");
   const [adminName1, setAdminName1] = useState("");

@@ -56,7 +56,7 @@ interface Course {
 export default function Home() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { user, isAdmin, isTrainer, logoutMutation, isLoading: isLoadingUser } = useAuth();
+  const { user, isAdmin, logoutMutation, isLoading: isLoadingUser } = useAuth();
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);

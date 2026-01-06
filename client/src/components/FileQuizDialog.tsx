@@ -46,6 +46,34 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
   } | null>(null);
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
 
+  // Auto-save answers to localStorage
+  useEffect(() => {
+    if (quizState === 'quiz' && Object.keys(answers).length > 0) {
+      const storageKey = `file-quiz-answers-${weekId}-${fileId}`;
+      localStorage.setItem(storageKey, JSON.stringify(answers));
+    }
+  }, [answers, weekId, fileId, quizState]);
+
+  // Restore answers from localStorage when quiz loads
+  useEffect(() => {
+    if (quizState === 'quiz' && questions.length > 0) {
+      const storageKey = `file-quiz-answers-${weekId}-${fileId}`;
+      const savedAnswers = localStorage.getItem(storageKey);
+      if (savedAnswers) {
+        try {
+          const parsed = JSON.parse(savedAnswers);
+          setAnswers(parsed);
+          toast({
+            title: "Progress Restored",
+            description: "Your previous answers have been restored.",
+          });
+        } catch (e) {
+          console.error("Failed to restore file quiz answers:", e);
+        }
+      }
+    }
+  }, [quizState, questions, weekId, fileId]);
+
   // For teachers: fetch existing quiz if available
   const { data: existingQuiz, isLoading: isLoadingExistingQuiz, error: quizError } = useQuery<{ questions: QuizQuestion[] } | null>({
     queryKey: ['/api/training-weeks', weekId, 'files', fileId, 'quiz'],
@@ -146,6 +174,9 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
     onSuccess: (data) => {
       setResults(data);
       setQuizState('results');
+      // Clear saved answers after successful submission
+      const storageKey = `file-quiz-answers-${weekId}-${fileId}`;
+      localStorage.removeItem(storageKey);
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'deck-progress'] });
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'file-quiz-progress'] });
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'files', fileId, 'quiz-passed'] });

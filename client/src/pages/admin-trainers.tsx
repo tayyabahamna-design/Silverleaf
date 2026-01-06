@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-interface Trainer {
+interface AdminUser {
   id: string;
   username: string;
   email?: string;
@@ -44,19 +44,19 @@ export default function AdminTrainers() {
     password: "",
   });
 
-  const { data: trainers, isLoading } = useQuery<Trainer[]>({
+  const { data: admins, isLoading } = useQuery<AdminUser[]>({
     queryKey: ["/api/admin/trainers"],
   });
 
-  const createTrainerMutation = useMutation({
+  const createAdminMutation = useMutation({
     mutationFn: async (data: { name: string; email: string; password: string }) => {
-      const res = await apiRequest("POST", "/api/admin/users/create", { ...data, role: "trainer" });
+      const res = await apiRequest("POST", "/api/admin/users/create", { ...data, role: "admin" });
       return res.json();
     },
     onSuccess: () => {
       toast({
-        title: "Trainer Created",
-        description: "The trainer has been added successfully.",
+        title: "Admin Created",
+        description: "The admin has been added successfully.",
       });
       setIsDialogOpen(false);
       setFormData({ name: "", email: "", password: "" });
@@ -65,7 +65,7 @@ export default function AdminTrainers() {
     onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message || "Failed to create trainer",
+        description: error.message || "Failed to create admin",
         variant: "destructive",
       });
     },
@@ -89,7 +89,7 @@ export default function AdminTrainers() {
       });
       return;
     }
-    createTrainerMutation.mutate(formData);
+    createAdminMutation.mutate(formData);
   };
 
   if (user?.role !== "admin") {
@@ -119,24 +119,24 @@ export default function AdminTrainers() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">Trainers</h1>
+              <h1 className="text-3xl font-bold">Admins</h1>
               <p className="text-muted-foreground">
-                Manage all trainers in the system
+                Manage all administrators in the system
               </p>
             </div>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button data-testid="button-add-trainer">
+              <Button data-testid="button-add-admin">
                 <Plus className="h-4 w-4 mr-2" />
-                Add Trainer
+                Add Admin
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Add New Trainer</DialogTitle>
+                <DialogTitle>Add New Admin</DialogTitle>
                 <DialogDescription>
-                  Create a new trainer account. The trainer will be automatically approved.
+                  Create a new admin account. The admin will be automatically approved.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 mt-4">
@@ -183,16 +183,16 @@ export default function AdminTrainers() {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={createTrainerMutation.isPending}
+                    disabled={createAdminMutation.isPending}
                     data-testid="button-submit-trainer"
                   >
-                    {createTrainerMutation.isPending ? (
+                    {createAdminMutation.isPending ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Creating...
                       </>
                     ) : (
-                      "Create Trainer"
+                      "Create Admin"
                     )}
                   </Button>
                 </div>
@@ -207,34 +207,34 @@ export default function AdminTrainers() {
               <Card key={i} className="p-6 animate-pulse bg-muted h-24" />
             ))}
           </div>
-        ) : trainers && trainers.length > 0 ? (
+        ) : admins && admins.length > 0 ? (
           <div className="space-y-4">
-            {trainers.map((trainer) => (
+            {admins.map((admin) => (
               <Card
-                key={trainer.id}
+                key={admin.id}
                 className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
-                onClick={() => navigate(`/admin/trainers/${trainer.id}`)}
-                data-testid={`card-trainer-${trainer.id}`}
+                onClick={() => navigate(`/admin/users/${admin.id}`)}
+                data-testid={`card-admin-${admin.id}`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-4 mb-4">
                       <div>
-                        <h3 className="text-lg font-bold">{trainer.username}</h3>
+                        <h3 className="text-lg font-bold">{admin.username}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {trainer.email || "No email"}
+                          {admin.email || "No email"}
                         </p>
                       </div>
                       <Badge
                         variant={
-                          trainer.approvalStatus === "approved"
+                          admin.approvalStatus === "approved"
                             ? "default"
-                            : trainer.approvalStatus === "pending"
+                            : admin.approvalStatus === "pending"
                             ? "secondary"
                             : "destructive"
                         }
                       >
-                        {trainer.approvalStatus}
+                        {admin.approvalStatus}
                       </Badge>
                     </div>
 
@@ -244,7 +244,7 @@ export default function AdminTrainers() {
                           Progress
                         </p>
                         <p className="text-sm font-semibold">
-                          {trainer.progress || 0}%
+                          {admin.progress || 0}%
                         </p>
                       </div>
                       <div>
@@ -252,7 +252,7 @@ export default function AdminTrainers() {
                           Files Completed
                         </p>
                         <p className="text-sm font-semibold">
-                          {trainer.filesCompleted || 0}
+                          {admin.filesCompleted || 0}
                         </p>
                       </div>
                       <div>
