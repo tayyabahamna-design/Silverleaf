@@ -1553,6 +1553,7 @@ export class DatabaseStorage implements IStorage {
         appreciationText: template.appreciationText,
         adminName1: template.adminName1,
         adminName2: template.adminName2,
+        completionPercentage,
       });
       
       return certificate;

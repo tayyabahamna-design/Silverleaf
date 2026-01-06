@@ -550,6 +550,7 @@ export const teacherCertificates = pgTable("teacher_certificates", {
   appreciationText: text("appreciation_text").notNull(),
   adminName1: varchar("admin_name_1"),
   adminName2: varchar("admin_name_2"),
+  completionPercentage: integer("completion_percentage").notNull().default(100),
   generatedAt: timestamp("generated_at").defaultNow(),
 }, (table) => [
   uniqueIndex("idx_teacher_certificate_unique").on(table.teacherId, table.batchId, table.courseId),
