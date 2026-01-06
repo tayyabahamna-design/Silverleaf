@@ -2923,6 +2923,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get certificate by ID (admin/trainer can view any, teacher can view their own)
+  app.get("/api/certificates/:certId", isAuthenticated, async (req, res) => {
+    try {
+      const cert = await storage.getTeacherCertificateById(req.params.certId);
+      if (!cert) {
+        return res.status(404).json({ error: "Certificate not found" });
+      }
+      
+      // Check access: admin/trainer can see any, teacher can only see their own
+      const user = req.user as Express.User;
+      if (user.role === "teacher" && cert.teacherId !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      res.json(cert);
+    } catch (error) {
+      console.error("Error getting certificate:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update certificate (admin/trainer only)
+  app.patch("/api/certificates/:certId", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { teacherName, courseName, appreciationText, adminName1, adminName2 } = req.body;
+      
+      const updates: any = {};
+      if (teacherName !== undefined) updates.teacherName = teacherName;
+      if (courseName !== undefined) updates.courseName = courseName;
+      if (appreciationText !== undefined) updates.appreciationText = appreciationText;
+      if (adminName1 !== undefined) updates.adminName1 = adminName1;
+      if (adminName2 !== undefined) updates.adminName2 = adminName2;
+      
+      const updated = await storage.updateTeacherCertificate(req.params.certId, updates);
+      if (!updated) {
+        return res.status(404).json({ error: "Certificate not found" });
+      }
+      
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating certificate:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // ==================== ANALYTICS ====================
   // Admin analytics (all batches/courses)
   app.get("/api/admin/analytics/batches", isAuthenticated, isAdmin, async (req, res) => {

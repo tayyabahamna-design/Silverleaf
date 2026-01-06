@@ -224,8 +224,10 @@ export interface IStorage {
   // Teacher certificate operations
   generateTeacherCertificate(certificate: InsertTeacherCertificate): Promise<TeacherCertificate>;
   getTeacherCertificate(teacherId: string, batchId: string, courseId: string): Promise<TeacherCertificate | undefined>;
+  getTeacherCertificateById(certificateId: string): Promise<TeacherCertificate | undefined>;
   getTeacherCertificates(teacherId: string): Promise<TeacherCertificate[]>;
   getCertificatesForBatch(batchId: string): Promise<(TeacherCertificate & { teacher: Teacher })[]>;
+  updateTeacherCertificate(certificateId: string, updates: Partial<Pick<TeacherCertificate, 'teacherName' | 'courseName' | 'appreciationText' | 'adminName1' | 'adminName2'>>): Promise<TeacherCertificate | undefined>;
   
   // Auto certificate generation
   calculateTeacherCourseCompletionPercentage(teacherId: string, courseId: string): Promise<number>;
@@ -1469,8 +1471,25 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getTeacherCertificateById(certificateId: string): Promise<TeacherCertificate | undefined> {
+    const [result] = await db
+      .select()
+      .from(teacherCertificates)
+      .where(eq(teacherCertificates.id, certificateId));
+    return result;
+  }
+
   async getTeacherCertificates(teacherId: string): Promise<TeacherCertificate[]> {
     return await db.select().from(teacherCertificates).where(eq(teacherCertificates.teacherId, teacherId));
+  }
+
+  async updateTeacherCertificate(certificateId: string, updates: Partial<Pick<TeacherCertificate, 'teacherName' | 'courseName' | 'appreciationText' | 'adminName1' | 'adminName2'>>): Promise<TeacherCertificate | undefined> {
+    const [result] = await db
+      .update(teacherCertificates)
+      .set(updates)
+      .where(eq(teacherCertificates.id, certificateId))
+      .returning();
+    return result;
   }
 
   async getCertificatesForBatch(batchId: string): Promise<(TeacherCertificate & { teacher: Teacher })[]> {
