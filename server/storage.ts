@@ -1513,6 +1513,10 @@ export class DatabaseStorage implements IStorage {
         continue;
       }
       
+      if (template.courseId !== courseId) {
+        continue;
+      }
+      
       const teacher = await this.getTeacher(teacherId);
       const course = await this.getCourse(courseId);
       

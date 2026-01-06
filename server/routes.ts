@@ -2264,6 +2264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // If passed, unlock next content and mark this as completed
+      let generatedCertificate = null;
       if (passed) {
         await storage.upsertTeacherContentProgress({
           teacherId,
@@ -2287,6 +2288,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             });
           }
         }
+        
+        // Try to auto-generate certificate if teacher has >= 90% course completion
+        if (week && week.courseId) {
+          try {
+            generatedCertificate = await storage.tryAutoGenerateCertificate(teacherId, week.courseId);
+            if (generatedCertificate) {
+              console.log(`Auto-generated certificate for teacher ${teacherId} in course ${week.courseId}`);
+            }
+          } catch (certError) {
+            console.error("Error auto-generating certificate:", certError);
+          }
+        }
       }
       
       // Get current attempt count for this quiz generation
@@ -2302,6 +2315,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         attemptsUsed: attempts.length,
         remainingAttempts: Math.max(0, 3 - attempts.length),
         canRegenerate,
+        certificateGenerated: !!generatedCertificate,
+        certificate: generatedCertificate,
       });
     } catch (error) {
       console.error("Error submitting quiz:", error);
