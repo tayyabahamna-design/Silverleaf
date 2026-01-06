@@ -67,6 +67,12 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
   - Progress counter shows only deck files (e.g., "1 of 1 completed" for a week with 1 file)
   - Quizzes are tracked separately and do not count toward the main progress percentage
   - Visual indicators show when the last page is reached, and progress bars update accordingly
+- **Automatic Certificate Generation**:
+  - Certificates are automatically generated when a teacher completes 90% or more of their assigned course
+  - Requires an approved certificate template to be configured for the batch/course
+  - Course completion is tracked per teacher/batch/course combination
+  - Completion status is updated immediately when 90% threshold is reached
+  - Certificate info is returned in the quiz submission response for frontend notification
 - **Enhanced Slide Viewer**:
   - **Persistent Floating Controls**: Navigation controls (Previous/Next, Zoom, page numbers) float at the bottom of the screen and remain visible at all times, even when zoomed in or in fullscreen mode
   - **Direct Page Navigation**: Users can type a page number directly into the input field to jump to any slide instantly, eliminating the need to click "Next" repeatedly

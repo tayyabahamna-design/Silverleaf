@@ -217,6 +217,7 @@ export interface IStorage {
   
   // Certificate template operations
   getBatchCertificateTemplate(batchId: string): Promise<BatchCertificateTemplate | undefined>;
+  getBatchCourseCertificateTemplate(batchId: string, courseId: string): Promise<BatchCertificateTemplate | undefined>;
   upsertBatchCertificateTemplate(template: Partial<InsertBatchCertificateTemplate> & { batchId: string; courseId: string }): Promise<BatchCertificateTemplate>;
   approveBatchCertificateTemplate(batchId: string, approvedBy: string): Promise<BatchCertificateTemplate | undefined>;
   
@@ -1389,6 +1390,19 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getBatchCourseCertificateTemplate(batchId: string, courseId: string): Promise<BatchCertificateTemplate | undefined> {
+    const [result] = await db
+      .select()
+      .from(batchCertificateTemplates)
+      .where(
+        and(
+          eq(batchCertificateTemplates.batchId, batchId),
+          eq(batchCertificateTemplates.courseId, courseId)
+        )
+      );
+    return result;
+  }
+
   async upsertBatchCertificateTemplate(template: Partial<InsertBatchCertificateTemplate> & { batchId: string; courseId: string }): Promise<BatchCertificateTemplate> {
     const [result] = await db
       .insert(batchCertificateTemplates)
@@ -1503,17 +1517,24 @@ export class DatabaseStorage implements IStorage {
       
       if (!courseAssigned) continue;
       
+      // Always update completion status when >= 90% is reached
+      await this.upsertTeacherCourseCompletion({
+        teacherId,
+        courseId,
+        batchId: batch.id,
+        status: "completed",
+        completedAt: new Date(),
+      });
+      
+      // Check if certificate already exists
       const existingCert = await this.getTeacherCertificate(teacherId, batch.id, courseId);
       if (existingCert) {
         return existingCert;
       }
       
-      const template = await this.getBatchCertificateTemplate(batch.id);
+      // Try to generate certificate if approved template exists for this course
+      const template = await this.getBatchCourseCertificateTemplate(batch.id, courseId);
       if (!template || template.status !== "approved") {
-        continue;
-      }
-      
-      if (template.courseId !== courseId) {
         continue;
       }
       
@@ -1532,14 +1553,6 @@ export class DatabaseStorage implements IStorage {
         appreciationText: template.appreciationText,
         adminName1: template.adminName1,
         adminName2: template.adminName2,
-      });
-      
-      await this.upsertTeacherCourseCompletion({
-        teacherId,
-        courseId,
-        batchId: batch.id,
-        status: "completed",
-        completedAt: new Date(),
       });
       
       return certificate;
