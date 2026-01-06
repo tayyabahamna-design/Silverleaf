@@ -114,6 +114,8 @@ export default function AdminAnalytics() {
   const [newBatchDescription, setNewBatchDescription] = useState("");
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
   const [showDeleteBatchConfirm, setShowDeleteBatchConfirm] = useState(false);
+  const [managingBatchTeachers, setManagingBatchTeachers] = useState<string | null>(null);
+  const [teacherIdToAdd, setTeacherIdToAdd] = useState("");
 
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
     queryKey: ["/api/admin/analytics/batches"],
@@ -123,6 +125,11 @@ export default function AdminAnalytics() {
   const { data: expandedBatchDetails = null as any } = useQuery({
     queryKey: ["/api/admin/analytics/batches", expandedBatchId],
     enabled: isAdmin && expandedBatchId !== null,
+  });
+
+  const { data: batchWithTeachers = null as any } = useQuery({
+    queryKey: ["/api/batches", managingBatchTeachers],
+    enabled: isAdmin && managingBatchTeachers !== null,
   });
 
   const { data: coursesAnalytics = [], isLoading: loadingCourses } = useQuery({
@@ -313,6 +320,39 @@ export default function AdminAnalytics() {
     },
   });
 
+  // Mutation for adding teacher to batch
+  const addTeacherToBatchMutation = useMutation({
+    mutationFn: async ({ batchId, teacherId }: { batchId: string; teacherId: string }) => {
+      const response = await apiRequest("POST", `/api/batches/${batchId}/teachers`, { teacherId });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Teacher added to batch successfully." });
+      setTeacherIdToAdd("");
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", managingBatchTeachers] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/batches"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to add teacher to batch.", variant: "destructive" });
+    },
+  });
+
+  // Mutation for removing teacher from batch
+  const removeTeacherFromBatchMutation = useMutation({
+    mutationFn: async ({ batchId, teacherId }: { batchId: string; teacherId: string }) => {
+      const response = await apiRequest("DELETE", `/api/batches/${batchId}/teachers/${teacherId}`);
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Teacher removed from batch successfully." });
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", managingBatchTeachers] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/batches"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to remove teacher from batch.", variant: "destructive" });
+    },
+  });
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-background p-4 sm:p-8">
@@ -459,8 +499,18 @@ export default function AdminAnalytics() {
                                 </div>
                               </div>
                               <div className="flex gap-2">
-                                <Button className="flex-1" variant="outline" size="sm" data-testid={`button-view-batch-${batch.id}`}>
-                                  View Batch Details
+                                <Button 
+                                  className="flex-1" 
+                                  variant="outline" 
+                                  size="sm" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setManagingBatchTeachers(batch.id);
+                                  }}
+                                  data-testid={`button-manage-batch-teachers-${batch.id}`}
+                                >
+                                  <Users className="w-4 h-4 mr-2" />
+                                  Manage Teachers
                                 </Button>
                                 <Button 
                                   variant="destructive" 
@@ -1065,6 +1115,97 @@ export default function AdminAnalytics() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Batch Teachers Modal */}
+      <Dialog open={managingBatchTeachers !== null} onOpenChange={(open) => !open && setManagingBatchTeachers(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Manage Batch Teachers</DialogTitle>
+            <DialogDescription>Add or remove teachers from this batch</DialogDescription>
+          </DialogHeader>
+          
+          {/* Add Teacher Section */}
+          <div className="space-y-4 py-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter Teacher ID"
+                value={teacherIdToAdd}
+                onChange={(e) => setTeacherIdToAdd(e.target.value)}
+                className="flex-1"
+                data-testid="input-add-teacher-id"
+              />
+              <Button
+                onClick={() => {
+                  if (managingBatchTeachers && teacherIdToAdd.trim()) {
+                    addTeacherToBatchMutation.mutate({
+                      batchId: managingBatchTeachers,
+                      teacherId: teacherIdToAdd.trim(),
+                    });
+                  }
+                }}
+                disabled={!teacherIdToAdd.trim() || addTeacherToBatchMutation.isPending}
+                data-testid="button-add-teacher-to-batch"
+              >
+                <UserPlus className="w-4 h-4 mr-2" />
+                {addTeacherToBatchMutation.isPending ? "Adding..." : "Add Teacher"}
+              </Button>
+            </div>
+
+            {/* Current Teachers List */}
+            <div className="border-t pt-4">
+              <p className="text-sm font-semibold mb-3">Current Teachers ({batchWithTeachers?.teachers?.length || 0})</p>
+              <div className="space-y-2">
+                {batchWithTeachers?.teachers && batchWithTeachers.teachers.length > 0 ? (
+                  batchWithTeachers.teachers.map((teacher: any) => (
+                    <div
+                      key={teacher.id}
+                      className="p-3 border rounded-lg flex justify-between items-center"
+                      data-testid={`batch-teacher-${teacher.id}`}
+                    >
+                      <div>
+                        <p className="font-semibold text-sm">{teacher.name || teacher.email}</p>
+                        <p className="text-xs text-muted-foreground">ID: {teacher.teacherId || teacher.id}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          if (managingBatchTeachers) {
+                            removeTeacherFromBatchMutation.mutate({
+                              batchId: managingBatchTeachers,
+                              teacherId: teacher.id,
+                            });
+                          }
+                        }}
+                        disabled={removeTeacherFromBatchMutation.isPending}
+                        data-testid={`button-remove-teacher-${teacher.id}`}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-6">
+                    <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-muted-foreground text-sm">No teachers in this batch</p>
+                    <p className="text-xs text-muted-foreground mt-1">Add teachers using their Teacher ID above</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-end">
+            <Button 
+              variant="outline" 
+              onClick={() => setManagingBatchTeachers(null)}
+              data-testid="button-close-manage-teachers"
+            >
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
