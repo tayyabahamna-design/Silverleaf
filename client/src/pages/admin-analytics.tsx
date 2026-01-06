@@ -109,6 +109,11 @@ export default function AdminAnalytics() {
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserName, setNewUserName] = useState("");
   const [newUserRole, setNewUserRole] = useState<"admin" | "trainer" | "teacher">("teacher");
+  const [showCreateBatch, setShowCreateBatch] = useState(false);
+  const [newBatchName, setNewBatchName] = useState("");
+  const [newBatchDescription, setNewBatchDescription] = useState("");
+  const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
+  const [showDeleteBatchConfirm, setShowDeleteBatchConfirm] = useState(false);
 
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
     queryKey: ["/api/admin/analytics/batches"],
@@ -273,6 +278,41 @@ export default function AdminAnalytics() {
     },
   });
 
+  // Mutation for creating batches
+  const createBatchMutation = useMutation({
+    mutationFn: async (data: { name: string; description: string }) => {
+      const response = await apiRequest("POST", "/api/batches", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Batch created successfully." });
+      setShowCreateBatch(false);
+      setNewBatchName("");
+      setNewBatchDescription("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/batches"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create batch.", variant: "destructive" });
+    },
+  });
+
+  // Mutation for deleting batches
+  const deleteBatchMutation = useMutation({
+    mutationFn: async (batchId: string) => {
+      const response = await apiRequest("DELETE", `/api/batches/${batchId}`);
+      return response;
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Batch deleted successfully." });
+      setShowDeleteBatchConfirm(false);
+      setBatchToDelete(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/batches"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete batch.", variant: "destructive" });
+    },
+  });
+
   if (!isAdmin) {
     return (
       <div className="min-h-screen bg-background p-4 sm:p-8">
@@ -365,7 +405,7 @@ export default function AdminAnalytics() {
                     </CardTitle>
                     <CardDescription className="mt-1">Manage and monitor all active batches</CardDescription>
                   </div>
-                  <Button size="sm" variant="outline" data-testid="button-new-batch">
+                  <Button size="sm" variant="outline" onClick={() => setShowCreateBatch(true)} data-testid="button-new-batch">
                     + New Batch
                   </Button>
                 </div>
@@ -418,9 +458,23 @@ export default function AdminAnalytics() {
                                   <p className="text-2xl font-bold">{(expandedBatchDetails as any)?.courseCount || 0}</p>
                                 </div>
                               </div>
-                              <Button className="w-full" variant="outline" size="sm" data-testid={`button-view-batch-${batch.id}`}>
-                                View Batch Details
-                              </Button>
+                              <div className="flex gap-2">
+                                <Button className="flex-1" variant="outline" size="sm" data-testid={`button-view-batch-${batch.id}`}>
+                                  View Batch Details
+                                </Button>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setBatchToDelete(batch.id);
+                                    setShowDeleteBatchConfirm(true);
+                                  }}
+                                  data-testid={`button-delete-batch-${batch.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -430,7 +484,7 @@ export default function AdminAnalytics() {
                         <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
                         <p className="text-muted-foreground font-medium">No batches yet</p>
                         <p className="text-sm text-muted-foreground mt-1">Create a batch to group teachers and assign courses</p>
-                        <Button size="sm" className="mt-4" data-testid="button-create-first-batch">
+                        <Button size="sm" className="mt-4" onClick={() => setShowCreateBatch(true)} data-testid="button-create-first-batch">
                           Create First Batch
                         </Button>
                       </div>
@@ -1011,6 +1065,111 @@ export default function AdminAnalytics() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Batch Modal */}
+      <Dialog open={showCreateBatch} onOpenChange={setShowCreateBatch}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Batch</DialogTitle>
+            <DialogDescription>Create a batch to group teachers and assign courses</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="batchName">Batch Name</Label>
+              <Input
+                id="batchName"
+                placeholder="Enter batch name"
+                value={newBatchName}
+                onChange={(e) => setNewBatchName(e.target.value)}
+                data-testid="input-new-batch-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="batchDescription">Description (optional)</Label>
+              <Input
+                id="batchDescription"
+                placeholder="Enter batch description"
+                value={newBatchDescription}
+                onChange={(e) => setNewBatchDescription(e.target.value)}
+                data-testid="input-new-batch-description"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              className="flex-1" 
+              onClick={() => {
+                setShowCreateBatch(false);
+                setNewBatchName("");
+                setNewBatchDescription("");
+              }} 
+              data-testid="button-cancel-create-batch"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                if (!newBatchName.trim()) {
+                  toast({ 
+                    title: "Error", 
+                    description: "Please enter a batch name.", 
+                    variant: "destructive" 
+                  });
+                  return;
+                }
+                createBatchMutation.mutate({
+                  name: newBatchName.trim(),
+                  description: newBatchDescription.trim(),
+                });
+              }}
+              disabled={createBatchMutation.isPending}
+              data-testid="button-confirm-create-batch"
+            >
+              {createBatchMutation.isPending ? "Creating..." : "Create Batch"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Batch Confirmation Modal */}
+      <Dialog open={showDeleteBatchConfirm} onOpenChange={setShowDeleteBatchConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Batch</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this batch? This action cannot be undone and will remove all teacher assignments and course assignments for this batch.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 pt-4">
+            <Button 
+              variant="outline" 
+              className="flex-1" 
+              onClick={() => {
+                setShowDeleteBatchConfirm(false);
+                setBatchToDelete(null);
+              }} 
+              data-testid="button-cancel-delete-batch"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={() => {
+                if (batchToDelete) {
+                  deleteBatchMutation.mutate(batchToDelete);
+                }
+              }}
+              disabled={deleteBatchMutation.isPending}
+              data-testid="button-confirm-delete-batch"
+            >
+              {deleteBatchMutation.isPending ? "Deleting..." : "Delete Batch"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
