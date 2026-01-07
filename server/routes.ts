@@ -2861,8 +2861,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update certificate (admin/trainer only)
-  app.patch("/api/certificates/:certId", isAuthenticated, isTrainer, async (req, res) => {
+  // Update certificate (admin only)
+  app.patch("/api/certificates/:certId", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { teacherName, courseName, appreciationText, adminName1, adminName2 } = req.body;
       
