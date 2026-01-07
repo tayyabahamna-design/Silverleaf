@@ -96,6 +96,26 @@ export default function CourseWeeks() {
     }
   }, [editingCell]);
 
+  // Prevent backspace from navigating back when not in an input field
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Backspace") {
+        const target = e.target as HTMLElement;
+        const tagName = target.tagName.toLowerCase();
+        const isEditable = target.isContentEditable;
+        const isInput = tagName === "input" || tagName === "textarea" || tagName === "select";
+        
+        // Only allow backspace in editable elements
+        if (!isInput && !isEditable) {
+          e.preventDefault();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   // Handle file URL conversion and reset viewer state
   useEffect(() => {
     setPageNumber(1);
