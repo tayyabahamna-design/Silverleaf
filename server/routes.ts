@@ -394,10 +394,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Legacy trainer endpoint - redirect to admin endpoint
   app.post("/api/trainer/reset-teacher-password", isAuthenticated, isAdmin, async (req, res) => {
     try {
-      const { teacherId, newPassword } = trainerResetPasswordSchema.parse(req.body);
+      const { userIdentifier, newPassword } = resetPasswordSchema.parse(req.body);
       
       // Get the teacher
-      const teacher = await storage.getTeacher(teacherId);
+      const teacher = await storage.getTeacher(userIdentifier);
       if (!teacher) {
         return res.status(404).json({ error: "Teacher not found" });
       }
