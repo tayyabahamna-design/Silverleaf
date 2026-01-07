@@ -15,7 +15,7 @@ export const sessions = pgTable(
 );
 
 // User storage table with username/password authentication
-// This table is for Admins (who manage batches, teachers, and create quizzes)
+// This table is for Trainers (who create quizzes) and Admins
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: varchar("username").notNull().unique(),
@@ -23,7 +23,7 @@ export const users = pgTable("users", {
   email: varchar("email"),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
-  role: varchar("role").notNull().default("admin"), // 'admin' only
+  role: varchar("role").notNull().default("trainer"), // 'admin' or 'trainer'
   approvalStatus: varchar("approval_status").notNull().default("pending"), // 'pending', 'approved', 'rejected'
   approvedBy: varchar("approved_by"), // ID of admin who approved (null if pending)
   approvedAt: timestamp("approved_at"), // timestamp when approved
@@ -260,8 +260,8 @@ export const teachers = pgTable("teachers", {
   email: varchar("email").notNull(), // Removed unique constraint - same email can have multiple roles
   password: varchar("password").notNull(), // hashed password
   approvalStatus: varchar("approval_status").notNull().default("pending"), // 'pending', 'approved', 'rejected'
-  approvedBy: varchar("approved_by"), // ID of admin who approved (null if pending)
-  approvedByRole: varchar("approved_by_role"), // 'admin' only - who approved them
+  approvedBy: varchar("approved_by"), // ID of admin/trainer who approved (null if pending)
+  approvedByRole: varchar("approved_by_role"), // 'admin' or 'trainer' - who approved them
   approvedAt: timestamp("approved_at"), // timestamp when approved
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -452,14 +452,14 @@ export type TeacherQuizRegeneration = typeof teacherQuizRegenerations.$inferSele
 // Approval history table for tracking approvals and dismissals
 export const approvalHistory = pgTable("approval_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  targetType: varchar("target_type").notNull(), // 'admin' or 'teacher'
+  targetType: varchar("target_type").notNull(), // 'trainer' or 'teacher'
   targetId: varchar("target_id").notNull(), // ID of the user/teacher
   targetName: varchar("target_name").notNull(), // Username/name for display
   targetEmail: varchar("target_email"), // Email for display
   action: varchar("action").notNull(), // 'approved' or 'dismissed'
-  performedBy: varchar("performed_by").notNull(), // ID of admin who took action
+  performedBy: varchar("performed_by").notNull(), // ID of admin/trainer who took action
   performedByName: varchar("performed_by_name").notNull(), // Name of who took action
-  performedByRole: varchar("performed_by_role").notNull(), // 'admin' only
+  performedByRole: varchar("performed_by_role").notNull(), // 'admin' or 'trainer'
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_approval_history_target").on(table.targetType, table.targetId),

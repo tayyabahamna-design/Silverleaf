@@ -53,7 +53,7 @@ export default function CourseWeeks() {
   const { courseId } = useParams<{ courseId: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { user, isAdmin, logoutMutation } = useAuth();
+  const { user, isAdmin, isTrainer, logoutMutation } = useAuth();
   const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState("");
   const [deleteWeekId, setDeleteWeekId] = useState<string | null>(null);

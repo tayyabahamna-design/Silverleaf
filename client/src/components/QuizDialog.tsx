@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { QuizQuestion } from "@shared/schema";
@@ -32,34 +32,6 @@ export function QuizDialog({ weekId, open, onOpenChange }: QuizDialogProps) {
     passed: boolean;
     percentage: number;
   } | null>(null);
-
-  // Auto-save answers to localStorage
-  useEffect(() => {
-    if (quizState === 'quiz' && Object.keys(answers).length > 0) {
-      const storageKey = `quiz-answers-${weekId}`;
-      localStorage.setItem(storageKey, JSON.stringify(answers));
-    }
-  }, [answers, weekId, quizState]);
-
-  // Restore answers from localStorage when quiz loads
-  useEffect(() => {
-    if (quizState === 'quiz' && questions.length > 0) {
-      const storageKey = `quiz-answers-${weekId}`;
-      const savedAnswers = localStorage.getItem(storageKey);
-      if (savedAnswers) {
-        try {
-          const parsed = JSON.parse(savedAnswers);
-          setAnswers(parsed);
-          toast({
-            title: "Progress Restored",
-            description: "Your previous answers have been restored.",
-          });
-        } catch (e) {
-          console.error("Failed to restore quiz answers:", e);
-        }
-      }
-    }
-  }, [quizState, questions, weekId]);
 
   const generateQuizMutation = useMutation({
     mutationFn: async () => {
@@ -100,9 +72,6 @@ export function QuizDialog({ weekId, open, onOpenChange }: QuizDialogProps) {
     onSuccess: (data) => {
       setResults(data);
       setQuizState('results');
-      // Clear saved answers after successful submission
-      const storageKey = `quiz-answers-${weekId}`;
-      localStorage.removeItem(storageKey);
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'deck-progress'] });
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'quiz-passed'] });
     },

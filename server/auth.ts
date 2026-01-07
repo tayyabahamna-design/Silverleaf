@@ -21,7 +21,7 @@ declare module 'express-session' {
       verifiedAt: number;
       roles: Array<{
         id: string;
-        role: 'admin' | 'teacher';
+        role: 'admin' | 'trainer' | 'teacher';
         name: string;
         email: string;
       }>;
@@ -101,14 +101,32 @@ export function setupAuth(app: Express) {
     done(null, user);
   });
 
-  // Register new admin account (public registration disabled - admins must be created by existing admins)
+  // Register new trainer account (public)
   app.post("/api/register", async (req, res, next) => {
-    // Public registration is disabled for security since all users are now admins
-    // Admin accounts can only be created by existing admins through the admin panel
-    return res.status(403).json({
-      message: "Public registration is disabled. Admin accounts must be created by existing administrators. Please contact your system administrator.",
-      code: "REGISTRATION_DISABLED"
-    });
+    try {
+      const existingUser = await storage.getUserByUsername(req.body.username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+
+      // Public registration only allows trainer accounts - admins must be created by existing admins
+      // Force role to trainer and require approval
+      const user = await storage.createUser({
+        ...req.body,
+        role: "trainer", // Force trainer role - admin accounts cannot be created through public registration
+        password: await hashPassword(req.body.password),
+        approvalStatus: "pending",
+      });
+
+      // Don't auto-login - trainers need admin approval first
+      const { password, ...userWithoutPassword } = user;
+      res.status(201).json({
+        ...userWithoutPassword,
+        message: "Account created successfully. Your account is pending admin approval."
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Registration failed" });
+    }
   });
 
   // Multi-role aware login endpoint
@@ -123,14 +141,14 @@ export function setupAuth(app: Express) {
       // Collect all matching accounts across both tables
       const matchingRoles: Array<{
         id: string;
-        role: 'admin' | 'teacher';
+        role: 'admin' | 'trainer' | 'teacher';
         name: string;
         email: string;
         user?: SelectUser;
         teacher?: SelectTeacher;
       }> = [];
 
-      // Check users table (admin) - by username or email
+      // Check users table (admin/trainer) - by username or email
       let usersToCheck: SelectUser[] = [];
       const userByUsername = await storage.getUserByUsername(username);
       if (userByUsername) {
@@ -152,7 +170,7 @@ export function setupAuth(app: Express) {
           if (passwordMatch && user.approvalStatus === "approved") {
             matchingRoles.push({
               id: user.id,
-              role: user.role as 'admin',
+              role: user.role as 'admin' | 'trainer',
               name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username,
               email: user.email || user.username,
               user
@@ -209,7 +227,7 @@ export function setupAuth(app: Express) {
         const match = matchingRoles[0];
         
         if (match.user) {
-          // Admin login
+          // Admin/Trainer login
           req.login(match.user, (err) => {
             if (err) return next(err);
             const { password: _, ...userWithoutPassword } = match.user!;
@@ -309,7 +327,7 @@ export function setupAuth(app: Express) {
         
         res.status(200).json({ ...teacherWithoutPassword, role: 'teacher' });
       } else {
-        // Admin login
+        // Admin/Trainer login
         const user = await storage.getUser(roleId);
         if (!user) {
           return res.status(404).json({ message: "User not found" });

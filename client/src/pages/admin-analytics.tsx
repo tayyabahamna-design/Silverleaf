@@ -179,10 +179,8 @@ export default function AdminAnalytics() {
       toast({ title: "Success", description: "Trainer has been removed." });
       setUserToManage(null);
       setShowManageTrainers(false);
-      // Invalidate queries to refetch data
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users/all"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/batches"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer/analytics"] });
+      // Refetch users list
+      window.location.reload();
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to remove trainer.", variant: "destructive" });
@@ -197,10 +195,8 @@ export default function AdminAnalytics() {
       toast({ title: "Success", description: "Teacher has been removed." });
       setUserToManage(null);
       setShowManageTeachers(false);
-      // Invalidate queries to refetch data
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users/all"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/batches"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/courses"] });
+      // Refetch users list
+      window.location.reload();
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to remove teacher.", variant: "destructive" });
@@ -215,9 +211,7 @@ export default function AdminAnalytics() {
       toast({ title: "Success", description: "Trainer has been restricted." });
       setUserToManage(null);
       setShowManageTrainers(false);
-      // Invalidate queries to refetch data
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users/all"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer/analytics"] });
+      window.location.reload();
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to restrict trainer.", variant: "destructive" });
@@ -232,9 +226,7 @@ export default function AdminAnalytics() {
       toast({ title: "Success", description: "Teacher has been restricted." });
       setUserToManage(null);
       setShowManageTeachers(false);
-      // Invalidate queries to refetch data
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users/all"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/courses"] });
+      window.location.reload();
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to restrict teacher.", variant: "destructive" });
@@ -249,9 +241,7 @@ export default function AdminAnalytics() {
       toast({ title: "Success", description: "Trainer has been unrestricted." });
       setUserToManage(null);
       setShowManageTrainers(false);
-      // Invalidate queries to refetch data
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users/all"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/trainer/analytics"] });
+      window.location.reload();
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to unrestrict trainer.", variant: "destructive" });
@@ -266,9 +256,7 @@ export default function AdminAnalytics() {
       toast({ title: "Success", description: "Teacher has been unrestricted." });
       setUserToManage(null);
       setShowManageTeachers(false);
-      // Invalidate queries to refetch data
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users/all"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/courses"] });
+      window.location.reload();
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to unrestrict teacher.", variant: "destructive" });

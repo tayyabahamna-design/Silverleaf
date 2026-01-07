@@ -26,7 +26,7 @@ interface CourseWithAssignment extends Course {
 export default function CoursesList() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { user, isAdmin, logoutMutation } = useAuth();
+  const { user, isAdmin, isTrainer, logoutMutation } = useAuth();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -47,13 +47,13 @@ export default function CoursesList() {
     refetchOnWindowFocus: false,
   });
 
-  // Fetch batches for admins
+  // Fetch batches for trainers
   const { data: batches = [] } = useQuery<Batch[]>({
     queryKey: ["/api/batches"],
-    enabled: isAdmin,
+    enabled: isTrainer,
   });
 
-  // Fetch assigned batches for each course (admin only)
+  // Fetch assigned batches for each course (trainer/admin only)
   const courseIds = courses.map(c => c.id);
   const { data: courseAssignments = {} } = useQuery<Record<string, Batch[]>>({
     queryKey: ["/api/courses", "assignments", courseIds],
@@ -70,7 +70,7 @@ export default function CoursesList() {
       }
       return assignments;
     },
-    enabled: isAdmin && courseIds.length > 0,
+    enabled: (isTrainer || isAdmin) && courseIds.length > 0,
   });
 
   // Create course mutation
@@ -269,7 +269,7 @@ export default function CoursesList() {
                 </Button>
               </>
             )}
-            {isAdmin && (
+            {(isAdmin || isTrainer) && (
               <>
                 <Link href="/approvals">
                   <Button
@@ -282,7 +282,7 @@ export default function CoursesList() {
                     Approvals
                   </Button>
                 </Link>
-                {isAdmin && (
+                {isTrainer && (
                   <Link href="/trainer/batches">
                     <Button
                       variant="secondary"
@@ -489,7 +489,7 @@ export default function CoursesList() {
                           </>
                         )}
 
-                        {isAdmin && (
+                        {isTrainer && (
                           <Dialog open={assignOpen && assigningCourseId === course.id} onOpenChange={(open) => {
                             if (!open) {
                               setAssignOpen(false);

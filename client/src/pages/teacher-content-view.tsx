@@ -30,19 +30,14 @@ function DocumentViewer({ url }: { url: string }) {
   useEffect(() => {
     const fetchDocument = async () => {
       try {
-        // Add timeout to fetch request (30 seconds)
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000);
-
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
+        const response = await fetch(url);
+        
         // Check if response is JSON
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
           throw new Error('Invalid response format: expected JSON');
         }
-
+        
         const data = await response.json();
         if (data.html) {
           setHtml(data.html);
@@ -52,11 +47,7 @@ function DocumentViewer({ url }: { url: string }) {
         }
       } catch (error) {
         console.error('Error loading document:', error);
-        if (error instanceof Error && error.name === 'AbortError') {
-          setError('Document conversion timed out. The file may be too large or complex. Please try a smaller file or contact support.');
-        } else {
-          setError('Failed to load document. Please try again.');
-        }
+        setError('Failed to load document. Please try again.');
         setHtml('');
       } finally {
         setLoading(false);

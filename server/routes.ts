@@ -34,6 +34,14 @@ function isAdmin(req: Request, res: Response, next: NextFunction) {
   res.status(403).json({ message: "Forbidden: Admin access required" });
 }
 
+// Middleware to check if user is admin or trainer
+function isTrainer(req: Request, res: Response, next: NextFunction) {
+  if (req.user && (req.user.role === "admin" || req.user.role === "trainer")) {
+    return next();
+  }
+  res.status(403).json({ message: "Forbidden: Trainer access required" });
+}
+
 // Middleware to allow both regular auth and teacher auth
 function isAuthenticatedAny(req: Request, res: Response, next: NextFunction) {
   const isRegularUser = req.isAuthenticated();
@@ -368,7 +376,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Approval history route
-  app.get("/api/approval-history", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/approval-history", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const history = await storage.getApprovalHistory(100);
       res.json(history);
@@ -378,8 +386,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Legacy trainer endpoint - now redirects to admin
-  app.get("/api/trainer/pending-teachers", isAuthenticated, isAdmin, async (req, res) => {
+  // Approval routes for trainers
+  app.get("/api/trainer/pending-teachers", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const pendingTeachers = await storage.getPendingTeachers();
       // Remove password from response
@@ -391,13 +399,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Legacy trainer endpoint - redirect to admin endpoint
-  app.post("/api/trainer/reset-teacher-password", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/trainer/approve-teacher/:id", isAuthenticated, isTrainer, async (req, res) => {
     try {
-      const { userIdentifier, newPassword } = resetPasswordSchema.parse(req.body);
+      const { id } = req.params;
+      const approvedBy = req.user!.id;
+      const approvedByRole = "trainer";
+      
+      const approvedTeacher = await storage.approveTeacher(id, approvedBy, approvedByRole);
+      if (!approvedTeacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      // Record approval history
+      await storage.addApprovalHistory({
+        targetType: "teacher",
+        targetId: id,
+        targetName: approvedTeacher.name,
+        targetEmail: approvedTeacher.email,
+        action: "approved",
+        performedBy: approvedBy,
+        performedByName: req.user!.username,
+        performedByRole: "trainer",
+      });
+      
+      const { password, ...sanitized } = approvedTeacher;
+      res.json({ 
+        success: true, 
+        message: `Teacher ${approvedTeacher.name} has been approved by trainer`,
+        teacher: sanitized 
+      });
+    } catch (error) {
+      console.error("Error approving teacher:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/trainer/dismiss-teacher/:id", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Get teacher info before dismissing
+      const teacher = await storage.getTeacher(id);
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      // Record dismissal history before deleting
+      await storage.addApprovalHistory({
+        targetType: "teacher",
+        targetId: id,
+        targetName: teacher.name,
+        targetEmail: teacher.email,
+        action: "dismissed",
+        performedBy: req.user!.id,
+        performedByName: req.user!.username,
+        performedByRole: "trainer",
+      });
+      
+      const dismissed = await storage.dismissTeacher(id);
+      if (!dismissed) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Teacher ${teacher.name} has been dismissed`,
+      });
+    } catch (error) {
+      console.error("Error dismissing teacher:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Trainer password reset endpoint for teachers in their batches
+  const trainerResetPasswordSchema = z.object({
+    teacherId: z.string().min(1, "Teacher ID required"),
+    newPassword: z.string().trim().min(6, "Password must be at least 6 characters"),
+  });
+
+  app.post("/api/trainer/reset-teacher-password", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { teacherId, newPassword } = trainerResetPasswordSchema.parse(req.body);
       
       // Get the teacher
-      const teacher = await storage.getTeacher(userIdentifier);
+      const teacher = await storage.getTeacher(teacherId);
       if (!teacher) {
         return res.status(404).json({ error: "Teacher not found" });
       }
@@ -784,12 +869,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Convert PPTX to PDF for HD viewing (authenticated users - teachers and admins)
+  // Convert PPTX to PDF for HD viewing (authenticated users - teachers and trainers)
   app.get("/api/files/convert-to-pdf", (req, res, next) => {
-    // Allow both admin and teacher authentication
-    const isAdminAuth = req.isAuthenticated?.() || req.user;
+    // Allow both trainer and teacher authentication
+    const isTrainerAuth = req.isAuthenticated?.() || req.user;
     const isTeacherAuth = (req.session as any)?.teacherId;
-    if (isAdminAuth || isTeacherAuth) {
+    if (isTrainerAuth || isTeacherAuth) {
       return next();
     }
     res.status(401).json({ message: "Unauthorized" });
@@ -1371,7 +1456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================================================
 
   // Get all batches (optionally filter by creator)
-  app.get("/api/batches", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/batches", isAuthenticated, isTrainer, async (req, res) => {
     try {
       // Admins can see all batches, trainers only see their own
       const batches = req.user!.role === "admin" 
@@ -1385,7 +1470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new batch
-  app.post("/api/batches", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/batches", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const batch = await storage.createBatch({
         name: req.body.name,
@@ -1400,7 +1485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get a specific batch with teachers
-  app.get("/api/batches/:batchId", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/batches/:batchId", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const batch = await storage.getBatch(req.params.batchId);
       if (!batch) {
@@ -1419,7 +1504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a batch
-  app.delete("/api/batches/:batchId", isAuthenticated, isAdmin, async (req, res) => {
+  app.delete("/api/batches/:batchId", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const batch = await storage.getBatch(req.params.batchId);
       if (!batch) {
@@ -1438,7 +1523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add teacher to batch by teacherId
-  app.post("/api/batches/:batchId/teachers", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/batches/:batchId/teachers", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const batch = await storage.getBatch(req.params.batchId);
       if (!batch) {
@@ -1470,7 +1555,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Remove teacher from batch
-  app.delete("/api/batches/:batchId/teachers/:teacherId", isAuthenticated, isAdmin, async (req, res) => {
+  app.delete("/api/batches/:batchId/teachers/:teacherId", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const batch = await storage.getBatch(req.params.batchId);
       if (!batch) {
@@ -1499,7 +1584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ============================================================================
 
   // Generate and assign quiz to a batch
-  app.post("/api/batches/:batchId/assign-quiz", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/batches/:batchId/assign-quiz", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const batch = await storage.getBatch(req.params.batchId);
       if (!batch) {
@@ -1555,7 +1640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate and assign file quiz to a batch
-  app.post("/api/batches/:batchId/assign-file-quiz", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/batches/:batchId/assign-file-quiz", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const batch = await storage.getBatch(req.params.batchId);
       if (!batch) {
@@ -1620,7 +1705,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get assigned quizzes for a batch
-  app.get("/api/batches/:batchId/quizzes", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/batches/:batchId/quizzes", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const batch = await storage.getBatch(req.params.batchId);
       if (!batch) {
@@ -1639,8 +1724,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get quiz details for trainer (to review before/after assignment)
-  // Legacy trainer endpoint - kept for backward compatibility
-  app.get("/api/trainer/quizzes/:quizId", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/trainer/quizzes/:quizId", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const quiz = await storage.getAssignedQuiz(req.params.quizId);
       if (!quiz) {
@@ -1659,7 +1743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete an assigned quiz
-  app.delete("/api/assigned-quizzes/:quizId", isAuthenticated, isAdmin, async (req, res) => {
+  app.delete("/api/assigned-quizzes/:quizId", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const quiz = await storage.getAssignedQuiz(req.params.quizId);
       if (!quiz) {
@@ -1889,7 +1973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get progress for all teachers in a batch (trainer view)
-  app.get("/api/batches/:batchId/progress", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/batches/:batchId/progress", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const batch = await storage.getBatch(req.params.batchId);
       if (!batch) {
@@ -1927,7 +2011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get teacher quiz attempts for trainer to review
-  app.get("/api/batches/:batchId/teachers/:teacherId/quiz-attempts", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/batches/:batchId/teachers/:teacherId/quiz-attempts", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const batch = await storage.getBatch(req.params.batchId);
       if (!batch) {
@@ -2316,8 +2400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Trainer endpoint: Get teacher's content viewing history for a week
-  // Legacy trainer endpoint - kept for backward compatibility
-  app.get("/api/trainers/teachers/:teacherId/weeks/:weekId/content-history", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/trainers/teachers/:teacherId/weeks/:weekId/content-history", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { teacherId, weekId } = req.params;
       
@@ -2598,7 +2681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Assign course to batch (trainer)
-  app.post("/api/courses/:courseId/assign", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/courses/:courseId/assign", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { targetId, targetType } = req.body;
       const { courseId } = req.params;
@@ -2673,7 +2756,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== BATCH-COURSE ASSIGNMENTS (TRAINER) ====================
   // Assign courses to batch (trainer)
-  app.post("/api/batches/:batchId/courses", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/batches/:batchId/courses", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { courseId } = req.body;
       const batch = await storage.getBatch(req.params.batchId);
@@ -2708,7 +2791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Remove course from batch (trainer)
-  app.delete("/api/batches/:batchId/courses/:courseId", isAuthenticated, isAdmin, async (req, res) => {
+  app.delete("/api/batches/:batchId/courses/:courseId", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const success = await storage.removeCoursesFromBatch(req.params.batchId, req.params.courseId);
       if (!success) return res.status(404).json({ error: "Assignment not found" });
@@ -2732,7 +2815,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== CERTIFICATE MANAGEMENT ====================
   // Get certificate template for batch
-  app.get("/api/batches/:batchId/certificate-template", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/batches/:batchId/certificate-template", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const template = await storage.getBatchCertificateTemplate(req.params.batchId);
       res.json(template || null);
@@ -2743,7 +2826,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Upsert certificate template (admin or trainer)
-  app.post("/api/batches/:batchId/certificate-template", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/batches/:batchId/certificate-template", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { courseId, appreciationText, adminName1, adminName2 } = req.body;
       const template = await storage.upsertBatchCertificateTemplate({
@@ -2830,7 +2913,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get certificates for batch (admin or trainer)
-  app.get("/api/batches/:batchId/certificates", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/batches/:batchId/certificates", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const certs = await storage.getCertificatesForBatch(req.params.batchId);
       res.json(certs);
@@ -2861,8 +2944,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update certificate (admin only)
-  app.patch("/api/certificates/:certId", isAuthenticated, isAdmin, async (req, res) => {
+  // Update certificate (admin/trainer only)
+  app.patch("/api/certificates/:certId", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { teacherName, courseName, appreciationText, adminName1, adminName2 } = req.body;
       
@@ -2930,8 +3013,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Legacy trainer endpoint - kept for backward compatibility
-  app.get("/api/trainer/analytics", isAuthenticated, isAdmin, async (req, res) => {
+  // Trainer analytics (their batches/teachers)
+  app.get("/api/trainer/analytics", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const analytics = await storage.getTrainerAnalytics(req.user!.id);
       res.json(analytics);
@@ -2941,8 +3024,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Legacy trainer endpoint - kept for backward compatibility
-  app.get("/api/trainer/analytics/teachers", isAuthenticated, isAdmin, async (req, res) => {
+  // Trainer teacher analytics
+  app.get("/api/trainer/analytics/teachers", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const analytics = await storage.getTeacherAnalyticsForTrainer(req.user!.id);
       res.json(analytics);
