@@ -1698,9 +1698,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       res.status(201).json(assignedQuiz);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error assigning file quiz:", error);
-      res.status(500).json({ error: "Failed to assign file quiz" });
+      const errorMessage = error?.message || "Failed to assign file quiz";
+      res.status(500).json({ error: errorMessage });
     }
   });
 
