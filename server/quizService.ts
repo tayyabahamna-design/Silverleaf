@@ -2,9 +2,10 @@ import OpenAI from 'openai';
 import { extractTextFromDocument } from './documentParser';
 import type { QuizQuestion } from '@shared/schema';
 
-// the newest OpenAI model is "gpt-4o" for this use case
+// Use Replit AI Integrations for OpenAI access (no API key required)
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
 interface GenerateQuizOptions {
