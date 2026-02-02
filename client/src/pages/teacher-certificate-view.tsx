@@ -1,4 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import posthog from "posthog-js";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -6,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useLocation, useRoute } from "wouter";
 import { Download, ArrowLeft, LogOut, Edit2, Save, X } from "lucide-react";
-import { useState } from "react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import logoImage from "@assets/image_1760460046116.png";
@@ -47,6 +48,13 @@ export default function TeacherCertificateView() {
     queryKey: ["/api/certificates", certId],
     enabled: !!user?.id && !!certId,
   });
+
+  // Track certificate view
+  useEffect(() => {
+    if (certificate && certId) {
+      posthog.capture("certificate_viewed", { certificateId: certId, courseName: certificate.courseName });
+    }
+  }, [certificate, certId]);
 
   const updateMutation = useMutation({
     mutationFn: async (updates: Partial<Certificate>) => {

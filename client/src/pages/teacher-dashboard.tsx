@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import posthog from "posthog-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,11 @@ import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 export default function TeacherDashboard() {
   const [, setLocation] = useLocation();
+
+  // Track dashboard view
+  useEffect(() => {
+    posthog.capture("teacher_dashboard_viewed");
+  }, []);
 
   const { data: teacher } = useQuery<any>({
     queryKey: ["/api/teacher/me"],

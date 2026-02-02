@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import posthog from "posthog-js";
 import { useAuth } from "@/hooks/use-auth";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -182,8 +183,9 @@ export default function TeacherContentView() {
       const firstFile = deckFiles[0];
       setSelectedFileId(firstFile.id);
       setHasMarkedComplete(firstFile.progress?.status === 'completed');
+      posthog.capture("file_opened", { weekId, fileId: firstFile.id, fileName: firstFile.fileName, source: "auto_select" });
     }
-  }, [deckFiles, selectedFileId]);
+  }, [deckFiles, selectedFileId, weekId]);
 
   // Fetch presigned URL when file is selected
   useEffect(() => {
@@ -245,6 +247,7 @@ export default function TeacherContentView() {
   const handleFileClick = (file: DeckFile) => {
     setSelectedFileId(file.id);
     setHasMarkedComplete(file.progress?.status === 'completed');
+    posthog.capture("file_opened", { weekId, fileId: file.id, fileName: file.fileName });
   };
 
   // Track completion when user reaches the last page
@@ -261,6 +264,7 @@ export default function TeacherContentView() {
         completedAt: new Date(),
       });
       setHasMarkedComplete(true);
+      posthog.capture("content_completed", { weekId, fileId: selectedFile.id, fileName: selectedFile.fileName, totalPages: numPages });
     }
   }, [selectedFile, pageNumber, numPages, hasMarkedComplete, saveProgressMutation]);
 

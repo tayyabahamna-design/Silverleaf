@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import posthog from "posthog-js";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { QuizQuestion } from "@shared/schema";
 import {
@@ -121,6 +122,7 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
       setQuestions(generatedQuestions);
       setAnswers({});
       setQuizState('quiz');
+      posthog.capture("quiz_started", { weekId, fileId, type: "file_quiz", questionCount: generatedQuestions.length });
     },
     onError: (error: Error) => {
       console.error('[FILE-QUIZ-DIALOG] ❌ Quiz generation error:', error);
@@ -148,6 +150,7 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
       setQuizState('results');
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'deck-progress'] });
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'file-quiz-progress'] });
+      posthog.capture("quiz_submitted", { weekId, fileId, type: "file_quiz", score: data.score, totalQuestions: data.totalQuestions, passed: data.passed, percentage: data.percentage });
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'files', fileId, 'quiz-passed'] });
       queryClient.invalidateQueries({ queryKey: ['/api/teacher/report-card'] });
     },
@@ -229,6 +232,7 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
         setAnswers({});
         setResults(null);
         setQuizState('quiz');
+        posthog.capture("quiz_started", { weekId, fileId, type: "file_quiz", questionCount: existingQuiz.questions.length, source: "existing_quiz" });
       } else {
         console.log('[FILE-QUIZ-DIALOG] ❌ No quiz available for this file. existingQuiz:', existingQuiz);
         setQuizState('unavailable');

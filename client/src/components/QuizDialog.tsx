@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import posthog from "posthog-js";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { QuizQuestion } from "@shared/schema";
 import {
@@ -49,6 +50,7 @@ export function QuizDialog({ weekId, open, onOpenChange }: QuizDialogProps) {
       setQuestions(generatedQuestions);
       setAnswers({});
       setQuizState('quiz');
+      posthog.capture("quiz_started", { weekId, type: "checkpoint", questionCount: generatedQuestions.length });
     },
     onError: (error: Error) => {
       console.error('[QUIZ-DIALOG] Error:', error);
@@ -74,6 +76,7 @@ export function QuizDialog({ weekId, open, onOpenChange }: QuizDialogProps) {
       setQuizState('results');
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'deck-progress'] });
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'quiz-passed'] });
+      posthog.capture("quiz_submitted", { weekId, type: "checkpoint", score: data.score, totalQuestions: data.totalQuestions, passed: data.passed, percentage: data.percentage });
     },
     onError: (error: Error) => {
       toast({

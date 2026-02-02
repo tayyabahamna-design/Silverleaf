@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import posthog from "posthog-js";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -624,7 +625,10 @@ export default function CourseWeeks() {
                                 key={file.id}
                                 file={file}
                                 weekId={week.id}
-                                onView={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
+                                onView={() => {
+                                  setViewingFile({ url: file.fileUrl, name: file.fileName });
+                                  posthog.capture("admin_file_previewed", { weekId: week.id, fileId: file.id, fileName: file.fileName });
+                                }}
                                 onDelete={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
                               />
                             ))}
@@ -647,7 +651,10 @@ export default function CourseWeeks() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setViewingFile({ url: file.fileUrl, name: file.fileName })}
+                              onClick={() => {
+                                setViewingFile({ url: file.fileUrl, name: file.fileName });
+                                posthog.capture("admin_file_previewed", { weekId: week.id, fileId: file.id, fileName: file.fileName });
+                              }}
                               data-testid={`button-view-${file.id}`}
                             >
                               <ExternalLink className="h-4 w-4" />

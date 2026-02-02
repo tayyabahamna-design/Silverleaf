@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation, Link } from "wouter";
+import posthog from "posthog-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -106,9 +107,10 @@ export default function TrainerBatches() {
       const response = await apiRequest("POST", "/api/batches", data);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
       toast({ title: "Success", description: "Batch created successfully" });
+      posthog.capture("batch_created", { batchName, batchId: data?.id });
       setCreateBatchOpen(false);
       setBatchName("");
       setBatchDescription("");
@@ -133,6 +135,7 @@ export default function TrainerBatches() {
       queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/batches", selectedBatch?.id] });
       toast({ title: "Success", description: "Teacher added to batch" });
+      posthog.capture("teacher_added_to_batch", { batchId: selectedBatch?.id, teacherId });
       setAddTeacherOpen(false);
       setTeacherId("");
     },
@@ -149,10 +152,11 @@ export default function TrainerBatches() {
     mutationFn: async ({ batchId, teacherId }: { batchId: string; teacherId: string }) => {
       await apiRequest("DELETE", `/api/batches/${batchId}/teachers/${teacherId}`);
     },
-    onSuccess: () => {
+    onSuccess: (_, { batchId, teacherId }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/batches", selectedBatch?.id] });
       toast({ title: "Success", description: "Teacher removed from batch" });
+      posthog.capture("teacher_removed_from_batch", { batchId, teacherId });
     },
     onError: (error: Error) => {
       toast({
@@ -182,6 +186,7 @@ export default function TrainerBatches() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/batches", selectedBatch?.id, "quizzes"] });
       toast({ title: "Success", description: "Checkpoint quiz generated and assigned successfully" });
+      posthog.capture("quiz_assigned", { batchId: selectedBatch?.id, quizTitle, weekId: selectedWeek, type: "checkpoint_quiz" });
       setAssignCheckpointQuizOpen(false);
       setQuizTitle("");
       setQuizDescription("");
@@ -218,6 +223,7 @@ export default function TrainerBatches() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/batches", selectedBatch?.id, "quizzes"] });
       toast({ title: "Success", description: "File quiz generated and assigned successfully" });
+      posthog.capture("quiz_assigned", { batchId: selectedBatch?.id, quizTitle, weekId: selectedWeek, type: "file_quiz" });
       setAssignFileQuizOpen(false);
       setQuizTitle("");
       setQuizDescription("");
