@@ -1,5 +1,6 @@
 // Based on blueprint:javascript_auth_all_persistance
-import { createContext, ReactNode, useContext } from "react";
+import { createContext, ReactNode, useContext, useEffect } from "react";
+import posthog from "posthog-js";
 import {
   useQuery,
   useMutation,
@@ -35,6 +36,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
+  // Identify user in PostHog when user data is available
+  useEffect(() => {
+    if (user) {
+      posthog.identify(user.id.toString(), {
+        email: user.email,
+        username: user.username,
+        role: user.role,
+        teacherId: (user as any).teacherId,
+      });
+    } else {
+      posthog.reset();
+    }
+  }, [user]);
+
   const loginMutation = useMutation({
     mutationFn: async (credentials: LoginData) => {
       const res = await apiRequest("POST", "/api/login", credentials);
@@ -46,6 +61,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      posthog.capture("user_login", {
+        role: user.role,
+        email: user.email
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -67,6 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
+      posthog.capture("user_registration", {
+        role: user.role,
+        email: user.email
+      });
       toast({
         title: "Welcome!",
         description: "Your teacher account has been created successfully.",
@@ -87,6 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: () => {
       queryClient.setQueryData(["/api/user"], null);
+      posthog.capture("user_logout");
+      posthog.reset();
       window.location.href = "/auth";
     },
     onError: (error: Error) => {

@@ -13,6 +13,14 @@ if (posthogKey) {
     autocapture: true,
     capture_pageview: true,
     capture_pageleave: true,
+    persistence: 'localStorage',
+    bootstrap: {
+      distinctID: 'anonymous'
+    },
+    loaded: (ph) => {
+      console.log("PostHog loaded successfully");
+      ph.capture("posthog_init_success");
+    }
   });
 }
 
