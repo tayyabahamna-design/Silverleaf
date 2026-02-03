@@ -91,6 +91,7 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
   getAllUsersByEmail(email: string): Promise<User[]>; // For multi-role support
+  getUsersByRole(role: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<User | undefined>;
   getPendingTrainers(): Promise<User[]>;
@@ -155,6 +156,7 @@ export interface IStorage {
   getBatch(id: string): Promise<Batch | undefined>;
   createBatch(batch: InsertBatch): Promise<Batch>;
   deleteBatch(id: string): Promise<boolean>;
+  assignTrainerToBatch(batchId: string, trainerId: string | null): Promise<Batch | undefined>;
   
   // Batch teacher operations
   addTeacherToBatch(batchTeacher: InsertBatchTeacher): Promise<BatchTeacher>;
@@ -303,6 +305,10 @@ export class DatabaseStorage implements IStorage {
   async getAllUsersByEmail(email: string): Promise<User[]> {
     const allUsers = await db.select().from(users).where(eq(users.email, email));
     return allUsers;
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.role, role));
   }
 
   async createUser(userData: InsertUser): Promise<User> {
@@ -936,6 +942,15 @@ export class DatabaseStorage implements IStorage {
   async deleteBatch(id: string): Promise<boolean> {
     const result = await db.delete(batches).where(eq(batches.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async assignTrainerToBatch(batchId: string, trainerId: string | null): Promise<Batch | undefined> {
+    const [updated] = await db
+      .update(batches)
+      .set({ trainerId })
+      .where(eq(batches.id, batchId))
+      .returning();
+    return updated;
   }
 
   // Batch teacher operations

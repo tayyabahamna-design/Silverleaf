@@ -4,7 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { Users, Award, BarChart3, ArrowRight, FileText } from "lucide-react";
+import { Users, Award, BarChart3, ArrowRight, FileText, Layers } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -249,6 +249,31 @@ export default function AdminHome() {
               data-testid="button-go-teachers"
             >
               View Teachers
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Card>
+
+          <Card className="p-8 hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={() => navigate("/admin/batches")}>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-2xl font-bold mb-2">Batches</h3>
+                <p className="text-muted-foreground">
+                  View all batches and assign trainers
+                </p>
+              </div>
+              <Layers className="h-12 w-12 text-primary/20" />
+            </div>
+            <Button 
+              variant="outline" 
+              className="mt-4 w-full"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate("/admin/batches");
+              }}
+              data-testid="button-go-batches"
+            >
+              Manage Batches
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Card>

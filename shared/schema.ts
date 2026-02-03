@@ -285,6 +285,7 @@ export const batches = pgTable("batches", {
   name: varchar("name").notNull(),
   description: text("description"),
   createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  trainerId: varchar("trainer_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

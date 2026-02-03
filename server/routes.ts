@@ -1522,6 +1522,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Assign trainer to batch (Admin only)
+  app.put("/api/batches/:batchId/trainer", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { trainerId } = req.body;
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      
+      // Verify trainer exists and is actually a trainer
+      if (trainerId) {
+        const trainer = await storage.getUser(trainerId);
+        if (!trainer || trainer.role !== "trainer") {
+          return res.status(400).json({ error: "Invalid trainer ID" });
+        }
+      }
+      
+      const updated = await storage.assignTrainerToBatch(req.params.batchId, trainerId || null);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error assigning trainer to batch:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get all trainers (Admin only - for dropdown)
+  app.get("/api/trainers", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const trainers = await storage.getUsersByRole("trainer");
+      // Return only safe fields (no password)
+      const safeTrainers = trainers.map(t => ({
+        id: t.id,
+        username: t.username,
+        email: t.email,
+        role: t.role,
+      }));
+      res.json(safeTrainers);
+    } catch (error) {
+      console.error("Error fetching trainers:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Add teacher to batch by teacherId
   app.post("/api/batches/:batchId/teachers", isAuthenticated, isTrainer, async (req, res) => {
     try {
