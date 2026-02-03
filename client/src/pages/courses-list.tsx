@@ -40,6 +40,9 @@ export default function CoursesList() {
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [resetUserIdentifier, setResetUserIdentifier] = useState("");
   const [resetNewPassword, setResetNewPassword] = useState("");
+  const [updateEmailOpen, setUpdateEmailOpen] = useState(false);
+  const [emailUserIdentifier, setEmailUserIdentifier] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
 
   // Fetch courses - show all for admin/trainer, only assigned for teacher
   const { data: courses = [], isLoading } = useQuery<CourseWithAssignment[]>({
@@ -169,6 +172,19 @@ export default function CoursesList() {
     },
   });
 
+  // Update email mutation
+  const updateEmailMutation = useMutation({
+    mutationFn: async ({ userIdentifier, newEmail }: { userIdentifier: string; newEmail: string }) => {
+      return apiRequest("POST", "/api/admin/update-user-email", { userIdentifier, newEmail });
+    },
+    onSuccess: () => {
+      toast({ title: "Email updated successfully" });
+      setUpdateEmailOpen(false);
+      setEmailUserIdentifier("");
+      setNewUserEmail("");
+    },
+  });
+
   const handleEdit = (course: Course) => {
     setEditingId(course.id);
     setEditName(course.name);
@@ -253,6 +269,63 @@ export default function CoursesList() {
                         disabled={resetPasswordMutation.isPending}
                       >
                         Reset
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+                <Dialog open={updateEmailOpen} onOpenChange={setUpdateEmailOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      data-testid="button-update-email"
+                      className="bg-white/10 hover:bg-white/20 text-white border-white/20 hidden sm:flex"
+                    >
+                      Update Email
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Update User Email</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="emailUserIdentifier">Username, Email, or Teacher ID</Label>
+                        <Input
+                          id="emailUserIdentifier"
+                          placeholder="admin, admin@example.com, or 12345"
+                          value={emailUserIdentifier}
+                          onChange={(e) => setEmailUserIdentifier(e.target.value)}
+                          data-testid="input-email-user-identifier"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="newEmail">New Email Address</Label>
+                        <Input
+                          id="newEmail"
+                          type="email"
+                          placeholder="newemail@example.com"
+                          value={newUserEmail}
+                          onChange={(e) => setNewUserEmail(e.target.value)}
+                          data-testid="input-new-email"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setUpdateEmailOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          updateEmailMutation.mutate({
+                            userIdentifier: emailUserIdentifier,
+                            newEmail: newUserEmail,
+                          });
+                        }}
+                        disabled={updateEmailMutation.isPending || !emailUserIdentifier || !newUserEmail}
+                        data-testid="button-update-email-submit"
+                      >
+                        Update
                       </Button>
                     </DialogFooter>
                   </DialogContent>

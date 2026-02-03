@@ -201,6 +201,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin email update endpoint
+  const updateEmailSchema = z.object({
+    userIdentifier: z.string().trim().min(1, "Username, email, or teacher ID required"),
+    newEmail: z.string().trim().email("Please enter a valid email address"),
+  });
+
+  app.post("/api/admin/update-user-email", isAuthenticated, isAdmin, async (req, res) => {
+    try {
+      const { userIdentifier, newEmail } = updateEmailSchema.parse(req.body);
+      
+      // Check if the new email is already in use
+      const existingUser = await storage.getUserByEmail(newEmail);
+      const existingTeacher = await storage.getTeacherByEmail(newEmail);
+      
+      if (existingUser || existingTeacher) {
+        return res.status(400).json({ error: "This email is already in use by another account" });
+      }
+      
+      // Try to find user by username or email (trainers/admins)
+      let user = await storage.getUserByUsername(userIdentifier);
+      if (!user) {
+        user = await storage.getUserByEmail(userIdentifier);
+      }
+      
+      if (user) {
+        // Update user's email
+        const updatedUser = await db.update(users)
+          .set({ email: newEmail })
+          .where(eq(users.id, user.id))
+          .returning();
+        
+        if (!updatedUser.length) {
+          return res.status(500).json({ error: "Failed to update email" });
+        }
+        
+        return res.json({ 
+          success: true, 
+          message: `Email updated successfully for user: ${updatedUser[0].username}` 
+        });
+      }
+      
+      // If not found as user, try to find as teacher
+      let teacher;
+      
+      // Try parsing as numeric teacher ID
+      const numericId = parseInt(userIdentifier);
+      if (!isNaN(numericId)) {
+        teacher = await storage.getTeacherByTeacherId(numericId);
+      }
+      
+      // If not found by teacher ID, try email
+      if (!teacher) {
+        teacher = await storage.getTeacherByEmail(userIdentifier);
+      }
+      
+      // If still not found, try searching by name
+      if (!teacher) {
+        const teachersByName = await storage.getTeacherByName(userIdentifier);
+        if (teachersByName.length === 1) {
+          teacher = teachersByName[0];
+        } else if (teachersByName.length > 1) {
+          const teacherList = teachersByName
+            .map(t => `${t.name} (ID: ${t.teacherId}, Email: ${t.email})`)
+            .join(", ");
+          return res.status(400).json({ 
+            error: `Multiple teachers found with name "${userIdentifier}". Please use teacher ID or email instead: ${teacherList}` 
+          });
+        }
+      }
+      
+      if (!teacher) {
+        return res.status(404).json({ error: "User or teacher not found" });
+      }
+      
+      // Update teacher's email
+      const updatedTeacher = await db.update(teachers)
+        .set({ email: newEmail })
+        .where(eq(teachers.id, teacher.id))
+        .returning();
+      
+      if (!updatedTeacher.length) {
+        return res.status(500).json({ error: "Failed to update email" });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: `Email updated successfully for teacher: ${updatedTeacher[0].name} (ID: ${updatedTeacher[0].teacherId})` 
+      });
+    } catch (error) {
+      console.error("Error updating email:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Approval routes for admin
   app.get("/api/admin/pending-trainers", isAuthenticated, isAdmin, async (req, res) => {
     try {
