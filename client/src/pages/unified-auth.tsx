@@ -11,8 +11,8 @@ import { queryClient } from "@/lib/queryClient";
 import { Shield, GraduationCap, Users, Mail, Sparkles } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
-type Role = "admin" | "teacher";
-type AccountType = "teacher";
+type Role = "admin" | "trainer" | "teacher";
+type AccountType = "teacher" | "trainer";
 
 interface MultiRoleOption {
   id: string;
@@ -137,7 +137,9 @@ export default function UnifiedAuth() {
         const userRole = data.role;
         
         // For single role login, verify it matches selection if not teacher
-        if (userRole !== 'teacher' && userRole !== loginRole) {
+        // Admin and trainer are both in users table, so allow admin/trainer interchangeability
+        const isAdminOrTrainer = (r: string) => r === 'admin' || r === 'trainer';
+        if (userRole !== loginRole && !(isAdminOrTrainer(userRole) && isAdminOrTrainer(loginRole)) && userRole !== 'teacher') {
           toast({
             variant: "destructive",
             title: "Role mismatch",
@@ -209,7 +211,7 @@ export default function UnifiedAuth() {
             description: `Your Teacher ID is: ${data.teacherId}. ${data.message || "Your account is pending approval from admin or trainer."}`,
             duration: 8000,
           });
-          
+
           // Reset form - don't switch to login since they can't log in yet
           setRegName("");
           setRegEmail("");
@@ -221,6 +223,40 @@ export default function UnifiedAuth() {
             variant: "destructive",
             title: "Registration failed",
             description: error || "Could not create account",
+          });
+        }
+      } else if (accountType === "trainer") {
+        // Create Trainer account
+        const response = await fetch("/api/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: regEmail,
+            email: regEmail,
+            firstName: regName.split(" ")[0] || regName,
+            lastName: regName.split(" ").slice(1).join(" ") || "",
+            password: regPassword,
+          }),
+          credentials: "include",
+        });
+
+        if (response.ok) {
+          toast({
+            title: "Account created!",
+            description: "Your trainer account is pending admin approval.",
+            duration: 8000,
+          });
+
+          setRegName("");
+          setRegEmail("");
+          setRegPassword("");
+          setAccountType(null);
+        } else {
+          const data = await response.json();
+          toast({
+            variant: "destructive",
+            title: "Registration failed",
+            description: data.message || "Could not create account",
           });
         }
       }
@@ -244,6 +280,13 @@ export default function UnifiedAuth() {
       gradient: "from-primary to-primary"
     },
     {
+      value: "trainer",
+      icon: Users,
+      title: "Trainer",
+      description: "Managing batches",
+      gradient: "from-primary to-primary"
+    },
+    {
       value: "teacher",
       icon: GraduationCap,
       title: "Teacher",
@@ -255,6 +298,7 @@ export default function UnifiedAuth() {
   const getRoleIcon = (role: Role) => {
     switch (role) {
       case 'admin': return Shield;
+      case 'trainer': return Users;
       case 'teacher': return GraduationCap;
     }
   };
@@ -262,6 +306,7 @@ export default function UnifiedAuth() {
   const getRoleDescription = (role: Role) => {
     switch (role) {
       case 'admin': return 'Full system access and user management';
+      case 'trainer': return 'Manage batches and teacher progress';
       case 'teacher': return 'Take courses and complete quizzes';
     }
   };
@@ -551,8 +596,19 @@ export default function UnifiedAuth() {
                   <TabsContent value="register" className="space-y-3 sm:space-y-4">
                     {!accountType ? (
                       <div className="space-y-3 sm:space-y-4">
-                        <Label className="text-sm sm:text-base">Create a Teacher Account:</Label>
+                        <Label className="text-sm sm:text-base">Choose Account Type:</Label>
                         <div className="grid grid-cols-1 gap-2 sm:gap-3">
+                          <Button
+                            variant="outline"
+                            className="h-16 sm:h-20 text-sm sm:text-base"
+                            onClick={() => setAccountType("trainer")}
+                            data-testid="button-create-trainer"
+                          >
+                            <div className="text-center">
+                              <div className="font-semibold">Create Trainer Account</div>
+                              <div className="text-xs text-muted-foreground">For trainers managing batches and teachers</div>
+                            </div>
+                          </Button>
                           <Button
                             variant="outline"
                             className="h-16 sm:h-20 text-sm sm:text-base"
@@ -570,7 +626,7 @@ export default function UnifiedAuth() {
                       <form onSubmit={handleRegister} className="space-y-3 sm:space-y-4">
                         <div className="flex items-center justify-between">
                           <Label className="text-base font-semibold">
-                            Create Teacher Account
+                            Create {accountType === "trainer" ? "Trainer" : "Teacher"} Account
                           </Label>
                           <Button
                             type="button"
@@ -630,7 +686,7 @@ export default function UnifiedAuth() {
                         </Button>
 
                         <p className="text-xs text-muted-foreground text-center">
-                          Your account will need to be approved by an admin before you can log in.
+                          Your account will need to be approved by an admin{accountType === "teacher" ? " or trainer" : ""} before you can log in.
                         </p>
                       </form>
                     )}
