@@ -29,7 +29,7 @@ interface FileQuizDialogProps {
   fileName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  canGenerateQuiz: boolean; // Only admins can generate quizzes
+  canGenerateQuiz: boolean; // Only trainers can generate quizzes
 }
 
 export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, canGenerateQuiz }: FileQuizDialogProps) {
