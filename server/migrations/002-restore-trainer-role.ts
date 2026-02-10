@@ -174,21 +174,19 @@ async function rollbackMigration() {
 }
 
 // Run migration or rollback based on command line argument
-if (require.main === module) {
-  const isRollback = process.argv.includes("rollback");
+const isRollback = process.argv.includes("rollback");
 
-  const operation = isRollback ? rollbackMigration() : runMigration();
+const operation = isRollback ? rollbackMigration() : runMigration();
 
-  operation
-    .then(() => {
-      console.log("Migration script completed.");
-      process.exit(0);
-    })
-    .catch((error) => {
-      console.error("Migration script failed:");
-      console.error(error);
-      process.exit(1);
-    });
-}
+operation
+  .then(() => {
+    console.log("Migration script completed.");
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error("Migration script failed:");
+    console.error(error);
+    process.exit(1);
+  });
 
 export { runMigration, rollbackMigration };
