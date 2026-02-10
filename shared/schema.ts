@@ -23,7 +23,7 @@ export const users = pgTable("users", {
   email: varchar("email"),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
-  role: varchar("role").notNull().default("admin"), // 'admin' only
+  role: varchar("role").notNull().default("trainer"), // 'admin' or 'trainer'
   approvalStatus: varchar("approval_status").notNull().default("pending"), // 'pending', 'approved', 'rejected'
   approvedBy: varchar("approved_by"), // ID of admin who approved (null if pending)
   approvedAt: timestamp("approved_at"), // timestamp when approved
@@ -261,7 +261,7 @@ export const teachers = pgTable("teachers", {
   password: varchar("password").notNull(), // hashed password
   approvalStatus: varchar("approval_status").notNull().default("pending"), // 'pending', 'approved', 'rejected'
   approvedBy: varchar("approved_by"), // ID of admin who approved (null if pending)
-  approvedByRole: varchar("approved_by_role"), // 'admin' only - who approved them
+  approvedByRole: varchar("approved_by_role"), // 'admin' or 'trainer' - who approved them
   approvedAt: timestamp("approved_at"), // timestamp when approved
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -459,7 +459,7 @@ export const approvalHistory = pgTable("approval_history", {
   action: varchar("action").notNull(), // 'approved' or 'dismissed'
   performedBy: varchar("performed_by").notNull(), // ID of admin who took action
   performedByName: varchar("performed_by_name").notNull(), // Name of who took action
-  performedByRole: varchar("performed_by_role").notNull(), // 'admin' only
+  performedByRole: varchar("performed_by_role").notNull(), // 'admin' or 'trainer'
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_approval_history_target").on(table.targetType, table.targetId),

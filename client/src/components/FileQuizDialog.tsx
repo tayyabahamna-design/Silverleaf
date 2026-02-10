@@ -28,7 +28,7 @@ interface FileQuizDialogProps {
   fileName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  canGenerateQuiz: boolean; // Only trainers can generate quizzes
+  canGenerateQuiz: boolean; // Only admins can generate quizzes
 }
 
 export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, canGenerateQuiz }: FileQuizDialogProps) {
@@ -292,7 +292,7 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
           {quizState === 'unavailable' && (
             <div className="py-6 text-center space-y-4">
               <p className="text-muted-foreground">
-                Your trainer hasn't created a quiz for this file yet. Please check back later.
+                Your admin hasn't created a quiz for this file yet. Please check back later.
               </p>
               <Button onClick={() => onOpenChange(false)} data-testid="button-close-dialog">
                 Close

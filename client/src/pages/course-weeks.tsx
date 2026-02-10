@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ProfileSettingsDialog } from "@/components/ProfileSettingsDialog";
 import { LogOut } from "lucide-react";
 import logoImage from "@assets/image_1760460046116.png";
 import type { Course, TrainingWeek } from "@shared/schema";
@@ -670,6 +671,10 @@ export default function CourseWeeks() {
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
+            <ProfileSettingsDialog
+              userType="admin"
+              currentEmail={user?.email || undefined}
+            />
             <div className="text-white">
               <ThemeToggle />
             </div>

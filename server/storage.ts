@@ -93,6 +93,10 @@ export interface IStorage {
   getAllUsersByEmail(email: string): Promise<User[]>; // For multi-role support
   createUser(user: InsertUser): Promise<User>;
   updateUserPassword(userId: string, hashedPassword: string): Promise<User | undefined>;
+  updateUserEmail(userId: string, newEmail: string): Promise<User | undefined>;
+  syncPasswordByEmail(email: string, hashedPassword: string, sourceTable: 'users' | 'teachers'): Promise<{ usersUpdated: number; teachersUpdated: number }>;
+  syncEmailByOldEmail(oldEmail: string, newEmail: string): Promise<{ usersUpdated: number; teachersUpdated: number }>;
+  updateTeacherEmail(teacherId: string, newEmail: string): Promise<Teacher | undefined>;
   getPendingTrainers(): Promise<User[]>;
   approveUser(userId: string, approvedBy: string): Promise<User | undefined>;
   
@@ -313,6 +317,66 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return user;
+  }
+
+  async updateUserEmail(userId: string, newEmail: string): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set({ email: newEmail })
+      .where(eq(users.id, userId))
+      .returning();
+    return user;
+  }
+
+  async syncPasswordByEmail(email: string, hashedPassword: string, sourceTable: 'users' | 'teachers'): Promise<{ usersUpdated: number; teachersUpdated: number }> {
+    let usersUpdated = 0;
+    let teachersUpdated = 0;
+
+    // Update all users (admin/trainer) with this email
+    if (sourceTable !== 'users') {
+      const result = await db
+        .update(users)
+        .set({ password: hashedPassword })
+        .where(eq(users.email, email));
+      usersUpdated = result.rowCount ?? 0;
+    }
+
+    // Update all teachers with this email
+    if (sourceTable !== 'teachers') {
+      const result = await db
+        .update(teachers)
+        .set({ password: hashedPassword })
+        .where(eq(teachers.email, email));
+      teachersUpdated = result.rowCount ?? 0;
+    }
+
+    return { usersUpdated, teachersUpdated };
+  }
+
+  async syncEmailByOldEmail(oldEmail: string, newEmail: string): Promise<{ usersUpdated: number; teachersUpdated: number }> {
+    const usersResult = await db
+      .update(users)
+      .set({ email: newEmail })
+      .where(eq(users.email, oldEmail));
+
+    const teachersResult = await db
+      .update(teachers)
+      .set({ email: newEmail })
+      .where(eq(teachers.email, oldEmail));
+
+    return {
+      usersUpdated: usersResult.rowCount ?? 0,
+      teachersUpdated: teachersResult.rowCount ?? 0,
+    };
+  }
+
+  async updateTeacherEmail(teacherId: string, newEmail: string): Promise<Teacher | undefined> {
+    const [teacher] = await db
+      .update(teachers)
+      .set({ email: newEmail })
+      .where(eq(teachers.id, teacherId))
+      .returning();
+    return teacher;
   }
 
   async getPendingTrainers(): Promise<User[]> {

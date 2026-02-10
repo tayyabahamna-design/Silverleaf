@@ -14,6 +14,7 @@ type AuthContextType = {
   isLoading: boolean;
   error: Error | null;
   isAdmin: boolean;
+  isTrainer: boolean;
   loginMutation: UseMutationResult<SelectUser, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
   registerMutation: UseMutationResult<SelectUser, Error, InsertUser>;
@@ -67,8 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     onSuccess: (user: SelectUser) => {
       queryClient.setQueryData(["/api/user"], user);
       toast({
-        title: "Welcome!",
-        description: "Your teacher account has been created successfully.",
+        title: "Registration Submitted",
+        description: "Your trainer account has been created and is pending admin approval.",
       });
     },
     onError: (error: Error) => {
@@ -98,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const isAdmin = user?.role === "admin";
+  const isTrainer = user?.role === "trainer" || user?.role === "admin";
 
   return (
     <AuthContext.Provider
@@ -106,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         error,
         isAdmin,
+        isTrainer,
         loginMutation,
         logoutMutation,
         registerMutation,

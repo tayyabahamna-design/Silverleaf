@@ -21,7 +21,7 @@ declare module 'express-session' {
       verifiedAt: number;
       roles: Array<{
         id: string;
-        role: 'admin' | 'teacher';
+        role: 'admin' | 'trainer' | 'teacher';
         name: string;
         email: string;
       }>;
@@ -101,14 +101,32 @@ export function setupAuth(app: Express) {
     done(null, user);
   });
 
-  // Register new admin account (public registration disabled - admins must be created by existing admins)
+  // Register new trainer account (public registration for trainers)
   app.post("/api/register", async (req, res, next) => {
-    // Public registration is disabled for security since all users are now admins
-    // Admin accounts can only be created by existing admins through the admin panel
-    return res.status(403).json({
-      message: "Public registration is disabled. Admin accounts must be created by existing administrators. Please contact your system administrator.",
-      code: "REGISTRATION_DISABLED"
-    });
+    try {
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(req.body.username);
+      if (existingUser) {
+        return res.status(400).json({ message: "Username already exists" });
+      }
+
+      // Create trainer account (public registration only allows trainers)
+      const user = await storage.createUser({
+        ...req.body,
+        role: "trainer", // Force trainer role for public registration
+        password: await hashPassword(req.body.password),
+        approvalStatus: "pending",
+      });
+
+      const { password, ...userWithoutPassword } = user;
+      res.status(201).json({
+        ...userWithoutPassword,
+        message: "Trainer account created. Your account is pending admin approval."
+      });
+    } catch (error: any) {
+      console.error('[AUTH] Registration error:', error);
+      res.status(500).json({ message: error.message || "Registration failed" });
+    }
   });
 
   // Multi-role aware login endpoint
@@ -152,7 +170,7 @@ export function setupAuth(app: Express) {
           if (passwordMatch && user.approvalStatus === "approved") {
             matchingRoles.push({
               id: user.id,
-              role: user.role as 'admin',
+              role: user.role as 'admin' | 'trainer',
               name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username,
               email: user.email || user.username,
               user

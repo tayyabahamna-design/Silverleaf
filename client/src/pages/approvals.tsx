@@ -53,25 +53,25 @@ export default function ApprovalsPage() {
     queryKey: ["/api/user"],
   });
 
-  const { data: pendingTrainers = [], isLoading: trainersLoading } = useQuery<User[]>({
+  const { data: pendingAdmins = [], isLoading: adminsLoading } = useQuery<User[]>({
     queryKey: ["/api/admin/pending-trainers"],
     enabled: currentUser?.role === "admin",
   });
 
   const { data: pendingTeachers = [], isLoading: teachersLoading } = useQuery<Teacher[]>({
-    queryKey: currentUser?.role === "admin" 
-      ? ["/api/admin/pending-teachers"]
-      : ["/api/trainer/pending-teachers"],
+    queryKey: [currentUser?.role === "admin" ? "/api/admin/pending-teachers" : "/api/trainer/pending-teachers"],
   });
+
+  const isAdmin = currentUser?.role === "admin";
 
   const { data: approvalHistory = [], isLoading: historyLoading } = useQuery<ApprovalHistoryItem[]>({
     queryKey: ["/api/approval-history"],
-    enabled: !!(currentUser?.role === "admin" || currentUser?.role === "trainer"),
+    enabled: currentUser?.role === "admin" || currentUser?.role === "trainer",
   });
 
-  const approveTrainer = useMutation({
-    mutationFn: async (trainerId: string) => {
-      const response = await apiRequest("POST", `/api/admin/approve-trainer/${trainerId}`);
+  const approveAdmin = useMutation({
+    mutationFn: async (adminId: string) => {
+      const response = await apiRequest("POST", `/api/admin/approve-trainer/${adminId}`);
       return response.json();
     },
     onSuccess: (data: any) => {
@@ -93,10 +93,7 @@ export default function ApprovalsPage() {
 
   const approveTeacher = useMutation({
     mutationFn: async (teacherId: string) => {
-      const endpoint = currentUser?.role === "admin"
-        ? `/api/admin/approve-teacher/${teacherId}`
-        : `/api/trainer/approve-teacher/${teacherId}`;
-      
+      const endpoint = isAdmin ? `/api/admin/approve-teacher/${teacherId}` : `/api/trainer/approve-teacher/${teacherId}`;
       const response = await apiRequest("POST", endpoint);
       return response.json();
     },
@@ -105,12 +102,8 @@ export default function ApprovalsPage() {
         title: "Teacher approved",
         description: data.message,
       });
-      
-      if (currentUser?.role === "admin") {
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-teachers"] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/trainer/pending-teachers"] });
-      }
+      const pendingKey = isAdmin ? "/api/admin/pending-teachers" : "/api/trainer/pending-teachers";
+      queryClient.invalidateQueries({ queryKey: [pendingKey] });
       queryClient.invalidateQueries({ queryKey: ["/api/approval-history"] });
     },
     onError: (error: any) => {
@@ -122,9 +115,9 @@ export default function ApprovalsPage() {
     },
   });
 
-  const dismissTrainer = useMutation({
-    mutationFn: async (trainerId: string) => {
-      const response = await apiRequest("POST", `/api/admin/dismiss-trainer/${trainerId}`);
+  const dismissAdmin = useMutation({
+    mutationFn: async (adminId: string) => {
+      const response = await apiRequest("POST", `/api/admin/dismiss-trainer/${adminId}`);
       return response.json();
     },
     onSuccess: (data: any) => {
@@ -146,10 +139,7 @@ export default function ApprovalsPage() {
 
   const dismissTeacher = useMutation({
     mutationFn: async (teacherId: string) => {
-      const endpoint = currentUser?.role === "admin"
-        ? `/api/admin/dismiss-teacher/${teacherId}`
-        : `/api/trainer/dismiss-teacher/${teacherId}`;
-      
+      const endpoint = isAdmin ? `/api/admin/dismiss-teacher/${teacherId}` : `/api/trainer/dismiss-teacher/${teacherId}`;
       const response = await apiRequest("POST", endpoint);
       return response.json();
     },
@@ -158,12 +148,8 @@ export default function ApprovalsPage() {
         title: "Teacher dismissed",
         description: data.message,
       });
-      
-      if (currentUser?.role === "admin") {
-        queryClient.invalidateQueries({ queryKey: ["/api/admin/pending-teachers"] });
-      } else {
-        queryClient.invalidateQueries({ queryKey: ["/api/trainer/pending-teachers"] });
-      }
+      const pendingKey = isAdmin ? "/api/admin/pending-teachers" : "/api/trainer/pending-teachers";
+      queryClient.invalidateQueries({ queryKey: [pendingKey] });
       queryClient.invalidateQueries({ queryKey: ["/api/approval-history"] });
     },
     onError: (error: any) => {
@@ -174,8 +160,6 @@ export default function ApprovalsPage() {
       });
     },
   });
-
-  const isAdmin = currentUser?.role === "admin";
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -201,57 +185,57 @@ export default function ApprovalsPage() {
               Pending Trainers
             </CardTitle>
             <CardDescription>
-              Trainer accounts waiting for admin approval
+              Trainer accounts waiting for approval
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {trainersLoading ? (
+            {adminsLoading ? (
               <div className="text-center py-8 text-muted-foreground">
-                Loading pending trainers...
+                Loading pending admins...
               </div>
-            ) : pendingTrainers.length === 0 ? (
+            ) : pendingAdmins.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No pending trainer approvals
               </div>
             ) : (
               <div className="space-y-4">
-                {pendingTrainers.map((trainer) => (
+                {pendingAdmins.map((admin) => (
                   <div
-                    key={trainer.id}
+                    key={admin.id}
                     className="flex items-center justify-between p-4 border rounded-lg hover-elevate"
-                    data-testid={`trainer-${trainer.id}`}
+                    data-testid={`admin-${admin.id}`}
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-semibold text-lg">{trainer.username}</h3>
+                        <h3 className="font-semibold text-lg">{admin.username}</h3>
                         <Badge variant="secondary" className="gap-1">
                           <Clock className="w-3 h-3" />
                           Pending
                         </Badge>
                       </div>
-                      {trainer.email && (
-                        <p className="text-sm text-muted-foreground">{trainer.email}</p>
+                      {admin.email && (
+                        <p className="text-sm text-muted-foreground">{admin.email}</p>
                       )}
                       <p className="text-xs text-muted-foreground mt-1">
-                        Requested {formatDistanceToNow(new Date(trainer.createdAt))} ago
+                        Requested {formatDistanceToNow(new Date(admin.createdAt))} ago
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button
-                        onClick={() => approveTrainer.mutate(trainer.id)}
-                        disabled={approveTrainer.isPending || dismissTrainer.isPending}
+                        onClick={() => approveAdmin.mutate(admin.id)}
+                        disabled={approveAdmin.isPending || dismissAdmin.isPending}
                         className="gap-2"
-                        data-testid={`button-approve-trainer-${trainer.id}`}
+                        data-testid={`button-approve-admin-${admin.id}`}
                       >
                         <CheckCircle className="w-4 h-4" />
                         Approve
                       </Button>
                       <Button
                         variant="destructive"
-                        onClick={() => dismissTrainer.mutate(trainer.id)}
-                        disabled={approveTrainer.isPending || dismissTrainer.isPending}
+                        onClick={() => dismissAdmin.mutate(admin.id)}
+                        disabled={approveAdmin.isPending || dismissAdmin.isPending}
                         className="gap-2"
-                        data-testid={`button-dismiss-trainer-${trainer.id}`}
+                        data-testid={`button-dismiss-admin-${admin.id}`}
                       >
                         <XCircle className="w-4 h-4" />
                         Dismiss
