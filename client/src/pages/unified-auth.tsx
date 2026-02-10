@@ -223,6 +223,7 @@ export default function UnifiedAuth() {
             description: error || "Could not create account",
           });
         }
+      }
     } catch (error) {
       toast({
         variant: "destructive",
