@@ -11,8 +11,8 @@ import { queryClient } from "@/lib/queryClient";
 import { Shield, GraduationCap, Users, Mail, Sparkles } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
-type Role = "admin" | "teacher" | "trainer";
-type AccountType = "teacher" | "trainer";
+type Role = "admin" | "teacher";
+type AccountType = "teacher";
 
 interface MultiRoleOption {
   id: string;
@@ -223,41 +223,6 @@ export default function UnifiedAuth() {
             description: error || "Could not create account",
           });
         }
-      } else {
-        // Create Trainer account
-        const response = await fetch("/api/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            username: regEmail,
-            password: regPassword,
-            role: "trainer",
-          }),
-          credentials: "include",
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          toast({
-            title: "Account created!",
-            description: data.message || "Your account is pending admin approval.",
-            duration: 8000,
-          });
-          
-          // Reset form - don't switch to login since they can't log in yet
-          setRegName("");
-          setRegEmail("");
-          setRegPassword("");
-          setAccountType(null);
-        } else {
-          const error = await response.text();
-          toast({
-            variant: "destructive",
-            title: "Registration failed",
-            description: error || "Could not create account",
-          });
-        }
-      }
     } catch (error) {
       toast({
         variant: "destructive",
@@ -283,20 +248,12 @@ export default function UnifiedAuth() {
       title: "Teacher",
       description: "Taking courses",
       gradient: "from-primary to-primary"
-    },
-    {
-      value: "trainer",
-      icon: Users,
-      title: "Trainer",
-      description: "Managing courses",
-      gradient: "from-primary to-primary"
     }
   ];
 
   const getRoleIcon = (role: Role) => {
     switch (role) {
       case 'admin': return Shield;
-      case 'trainer': return Users;
       case 'teacher': return GraduationCap;
     }
   };
@@ -304,7 +261,6 @@ export default function UnifiedAuth() {
   const getRoleDescription = (role: Role) => {
     switch (role) {
       case 'admin': return 'Full system access and user management';
-      case 'trainer': return 'Manage courses, batches and training content';
       case 'teacher': return 'Take courses and complete quizzes';
     }
   };
@@ -594,7 +550,7 @@ export default function UnifiedAuth() {
                   <TabsContent value="register" className="space-y-3 sm:space-y-4">
                     {!accountType ? (
                       <div className="space-y-3 sm:space-y-4">
-                        <Label className="text-sm sm:text-base">Select account type to create:</Label>
+                        <Label className="text-sm sm:text-base">Create a Teacher Account:</Label>
                         <div className="grid grid-cols-1 gap-2 sm:gap-3">
                           <Button
                             variant="outline"
@@ -607,24 +563,13 @@ export default function UnifiedAuth() {
                               <div className="text-xs text-muted-foreground">For teachers taking training courses</div>
                             </div>
                           </Button>
-                          <Button
-                            variant="outline"
-                            className="h-16 sm:h-20 text-sm sm:text-base"
-                            onClick={() => setAccountType("trainer")}
-                            data-testid="button-create-trainer"
-                          >
-                            <div className="text-center">
-                              <div className="font-semibold">Create Trainer Account</div>
-                              <div className="text-xs text-muted-foreground">For trainers managing courses</div>
-                            </div>
-                          </Button>
                         </div>
                       </div>
                     ) : (
                       <form onSubmit={handleRegister} className="space-y-3 sm:space-y-4">
                         <div className="flex items-center justify-between">
                           <Label className="text-base font-semibold">
-                            Create {accountType === "teacher" ? "Teacher" : "Trainer"} Account
+                            Create Teacher Account
                           </Label>
                           <Button
                             type="button"
@@ -684,10 +629,7 @@ export default function UnifiedAuth() {
                         </Button>
 
                         <p className="text-xs text-muted-foreground text-center">
-                          {accountType === "teacher" 
-                            ? "Your account will need to be approved by an admin or trainer before you can log in."
-                            : "Your account will need to be approved by an admin before you can log in."
-                          }
+                          Your account will need to be approved by an admin before you can log in.
                         </p>
                       </form>
                     )}

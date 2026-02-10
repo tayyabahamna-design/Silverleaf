@@ -101,30 +101,30 @@ export function setupAuth(app: Express) {
     done(null, user);
   });
 
-  // Register new trainer account (public)
+  // Register new trainer account (public registration for trainers)
   app.post("/api/register", async (req, res, next) => {
     try {
+      // Check if username already exists
       const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
         return res.status(400).json({ message: "Username already exists" });
       }
 
       // Public registration only allows trainer accounts - admins must be created by existing admins
-      // Force role to trainer and require approval
       const user = await storage.createUser({
         ...req.body,
-        role: "trainer", // Force trainer role - admin accounts cannot be created through public registration
+        role: "trainer", // Force trainer role for public registration
         password: await hashPassword(req.body.password),
         approvalStatus: "pending",
       });
 
-      // Don't auto-login - trainers need admin approval first
       const { password, ...userWithoutPassword } = user;
       res.status(201).json({
         ...userWithoutPassword,
-        message: "Account created successfully. Your account is pending admin approval."
+        message: "Trainer account created. Your account is pending admin approval."
       });
     } catch (error: any) {
+      console.error('[AUTH] Registration error:', error);
       res.status(500).json({ message: error.message || "Registration failed" });
     }
   });

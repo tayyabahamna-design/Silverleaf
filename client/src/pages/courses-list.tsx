@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Plus, Trash2, Pencil, ChevronRight, LogOut, BarChart3, FileText, CheckCircle, Users, Layers } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ProfileSettingsDialog } from "@/components/ProfileSettingsDialog";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import logoImage from "@assets/image_1760460046116.png";
@@ -370,6 +371,10 @@ export default function CoursesList() {
                 )}
               </>
             )}
+            <ProfileSettingsDialog
+              userType="admin"
+              currentEmail={user?.email || undefined}
+            />
             <div className="text-white">
               <ThemeToggle />
             </div>

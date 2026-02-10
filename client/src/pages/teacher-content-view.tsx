@@ -497,7 +497,7 @@ export default function TeacherContentView() {
                               </div>
                             )}
                             
-                            {/* Only show quiz buttons to teachers, not trainers */}
+                            {/* Only show quiz buttons to teachers */}
                             {(
                               <Button
                                 size="sm"

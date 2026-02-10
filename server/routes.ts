@@ -9,7 +9,7 @@ import { join } from "path";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers, batches, batchCourses, teacherCourseCompletion, assignedQuizzes, quizAttempts } from "@shared/schema";
-import { setupAuth, hashPassword } from "./auth";
+import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import { setupTeacherAuth, isTeacherAuthenticated } from "./teacherAuth";
 import { z } from "zod";
 import * as mammoth from "mammoth";
@@ -34,12 +34,20 @@ function isAdmin(req: Request, res: Response, next: NextFunction) {
   res.status(403).json({ message: "Forbidden: Admin access required" });
 }
 
-// Middleware to check if user is admin or trainer
+// Middleware to check if user is trainer or admin (content/teacher/batch management)
 function isTrainer(req: Request, res: Response, next: NextFunction) {
   if (req.user && (req.user.role === "admin" || req.user.role === "trainer")) {
     return next();
   }
-  res.status(403).json({ message: "Forbidden: Trainer access required" });
+  res.status(403).json({ message: "Forbidden: Trainer or Admin access required" });
+}
+
+// Middleware to check if user is strictly admin (user management, admin approvals)
+function isStrictAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.user && req.user.role === "admin") {
+    return next();
+  }
+  res.status(403).json({ message: "Forbidden: Admin-only access required" });
 }
 
 // Middleware to allow both regular auth and teacher auth
@@ -97,14 +105,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Hash and update password
       const hashedPassword = await hashPassword(newPassword);
       const updatedUser = await storage.updateUserPassword(user.id, hashedPassword);
-      
+
       if (!updatedUser) {
         return res.status(500).json({ error: "Failed to update password" });
       }
-      
-      res.json({ 
-        success: true, 
-        message: `Password reset successful for: ${updatedUser.username}` 
+
+      // Sync password to linked teacher accounts with the same email
+      if (updatedUser.email) {
+        await storage.syncPasswordByEmail(updatedUser.email, hashedPassword, 'users');
+      }
+
+      res.json({
+        success: true,
+        message: `Password reset successful for: ${updatedUser.username}`
       });
     } catch (error) {
       console.error("Error in emergency password reset:", error);
@@ -121,7 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     newPassword: z.string().trim().min(6, "Password must be at least 6 characters"),
   });
 
-  app.post("/api/admin/reset-user-password", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/reset-user-password", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { userIdentifier, newPassword } = resetPasswordSchema.parse(req.body);
       
@@ -137,31 +150,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user) {
         // Update user's password
         const updatedUser = await storage.updateUserPassword(user.id, hashedPassword);
-        
+
         if (!updatedUser) {
           return res.status(500).json({ error: "Failed to update password" });
         }
-        
-        return res.json({ 
-          success: true, 
-          message: `Password reset successful for user: ${updatedUser.username}` 
+
+        // Sync password to linked teacher accounts with the same email
+        let syncInfo = "";
+        if (updatedUser.email) {
+          const synced = await storage.syncPasswordByEmail(updatedUser.email, hashedPassword, 'users');
+          if (synced.teachersUpdated > 0) {
+            syncInfo = ` (also updated ${synced.teachersUpdated} linked teacher account${synced.teachersUpdated > 1 ? 's' : ''})`;
+          }
+        }
+
+        return res.json({
+          success: true,
+          message: `Password reset successful for user: ${updatedUser.username}${syncInfo}`
         });
       }
-      
+
       // If not found as user, try to find as teacher
       let teacher;
-      
+
       // Try parsing as numeric teacher ID
       const numericId = parseInt(userIdentifier);
       if (!isNaN(numericId)) {
         teacher = await storage.getTeacherByTeacherId(numericId);
       }
-      
+
       // If not found by teacher ID, try email
       if (!teacher) {
         teacher = await storage.getTeacherByEmail(userIdentifier);
       }
-      
+
       // If still not found, try searching by name
       if (!teacher) {
         const teachersByName = await storage.getTeacherByName(userIdentifier);
@@ -171,26 +193,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const teacherList = teachersByName
             .map(t => `${t.name} (ID: ${t.teacherId}, Email: ${t.email})`)
             .join(", ");
-          return res.status(400).json({ 
-            error: `Multiple teachers found with name "${userIdentifier}". Please use teacher ID or email instead: ${teacherList}` 
+          return res.status(400).json({
+            error: `Multiple teachers found with name "${userIdentifier}". Please use teacher ID or email instead: ${teacherList}`
           });
         }
       }
-      
+
       if (!teacher) {
         return res.status(404).json({ error: "User or teacher not found" });
       }
-      
+
       // Update teacher's password
       const updatedTeacher = await storage.updateTeacherPassword(teacher.id, hashedPassword);
-      
+
       if (!updatedTeacher) {
         return res.status(500).json({ error: "Failed to update password" });
       }
-      
-      res.json({ 
-        success: true, 
-        message: `Password reset successful for teacher: ${updatedTeacher.name} (ID: ${updatedTeacher.teacherId})` 
+
+      // Sync password to linked admin/trainer accounts with the same email
+      let teacherSyncInfo = "";
+      const synced = await storage.syncPasswordByEmail(updatedTeacher.email, hashedPassword, 'teachers');
+      if (synced.usersUpdated > 0) {
+        teacherSyncInfo = ` (also updated ${synced.usersUpdated} linked admin/trainer account${synced.usersUpdated > 1 ? 's' : ''})`;
+      }
+
+      res.json({
+        success: true,
+        message: `Password reset successful for teacher: ${updatedTeacher.name} (ID: ${updatedTeacher.teacherId})${teacherSyncInfo}`
       });
     } catch (error) {
       console.error("Error resetting password:", error);
@@ -210,53 +239,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/update-user-email", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { userIdentifier, newEmail } = updateEmailSchema.parse(req.body);
-      
+
       // Check if the new email is already in use
       const existingUser = await storage.getUserByEmail(newEmail);
       const existingTeacher = await storage.getTeacherByEmail(newEmail);
-      
+
       if (existingUser || existingTeacher) {
         return res.status(400).json({ error: "This email is already in use by another account" });
       }
-      
+
       // Try to find user by username or email (trainers/admins)
       let user = await storage.getUserByUsername(userIdentifier);
       if (!user) {
         user = await storage.getUserByEmail(userIdentifier);
       }
-      
+
       if (user) {
-        // Update user's email
         const updatedUser = await db.update(users)
           .set({ email: newEmail })
           .where(eq(users.id, user.id))
           .returning();
-        
+
         if (!updatedUser.length) {
           return res.status(500).json({ error: "Failed to update email" });
         }
-        
-        return res.json({ 
-          success: true, 
-          message: `Email updated successfully for user: ${updatedUser[0].username}` 
+
+        return res.json({
+          success: true,
+          message: `Email updated successfully for user: ${updatedUser[0].username}`
         });
       }
-      
+
       // If not found as user, try to find as teacher
       let teacher;
-      
-      // Try parsing as numeric teacher ID
       const numericId = parseInt(userIdentifier);
       if (!isNaN(numericId)) {
         teacher = await storage.getTeacherByTeacherId(numericId);
       }
-      
-      // If not found by teacher ID, try email
       if (!teacher) {
         teacher = await storage.getTeacherByEmail(userIdentifier);
       }
-      
-      // If still not found, try searching by name
       if (!teacher) {
         const teachersByName = await storage.getTeacherByName(userIdentifier);
         if (teachersByName.length === 1) {
@@ -265,29 +287,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const teacherList = teachersByName
             .map(t => `${t.name} (ID: ${t.teacherId}, Email: ${t.email})`)
             .join(", ");
-          return res.status(400).json({ 
-            error: `Multiple teachers found with name "${userIdentifier}". Please use teacher ID or email instead: ${teacherList}` 
+          return res.status(400).json({
+            error: `Multiple teachers found with name "${userIdentifier}". Please use teacher ID or email instead: ${teacherList}`
           });
         }
       }
-      
+
       if (!teacher) {
         return res.status(404).json({ error: "User or teacher not found" });
       }
-      
-      // Update teacher's email
+
       const updatedTeacher = await db.update(teachers)
         .set({ email: newEmail })
         .where(eq(teachers.id, teacher.id))
         .returning();
-      
+
       if (!updatedTeacher.length) {
         return res.status(500).json({ error: "Failed to update email" });
       }
-      
-      res.json({ 
-        success: true, 
-        message: `Email updated successfully for teacher: ${updatedTeacher[0].name} (ID: ${updatedTeacher[0].teacherId})` 
+
+      res.json({
+        success: true,
+        message: `Email updated successfully for teacher: ${updatedTeacher[0].name} (ID: ${updatedTeacher[0].teacherId})`
       });
     } catch (error) {
       console.error("Error updating email:", error);
@@ -298,8 +319,144 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Self-service profile change endpoints (syncs across admin/trainer + teacher accounts with same email)
+
+  const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z.string().trim().min(6, "New password must be at least 6 characters"),
+  });
+
+  app.post("/api/profile/change-password", isAuthenticated, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+      const user = req.user!;
+      const passwordMatch = await comparePasswords(currentPassword, user.password);
+      if (!passwordMatch) {
+        return res.status(400).json({ error: "Current password is incorrect" });
+      }
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateUserPassword(user.id, hashedPassword);
+      if (user.email) {
+        await storage.syncPasswordByEmail(user.email, hashedPassword, 'users');
+      }
+      res.json({ success: true, message: "Password changed successfully for all linked accounts" });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  const changeEmailSchema = z.object({
+    currentPassword: z.string().min(1, "Password is required to change email"),
+    newEmail: z.string().trim().email("Invalid email address"),
+  });
+
+  app.post("/api/profile/change-email", isAuthenticated, async (req, res) => {
+    try {
+      const { currentPassword, newEmail } = changeEmailSchema.parse(req.body);
+      const user = req.user!;
+      const passwordMatch = await comparePasswords(currentPassword, user.password);
+      if (!passwordMatch) {
+        return res.status(400).json({ error: "Password is incorrect" });
+      }
+      const oldEmail = user.email;
+      const existingUsers = await storage.getAllUsersByEmail(newEmail);
+      const otherUsers = existingUsers.filter(u => u.id !== user.id);
+      if (otherUsers.length > 0) {
+        return res.status(400).json({ error: "Email is already in use by another account" });
+      }
+      const existingTeachers = await storage.getAllTeachersByEmail(newEmail);
+      if (oldEmail) {
+        const linkedTeachers = await storage.getAllTeachersByEmail(oldEmail);
+        const linkedTeacherIds = new Set(linkedTeachers.map(t => t.id));
+        const unlinkedNewTeachers = existingTeachers.filter(t => !linkedTeacherIds.has(t.id));
+        if (unlinkedNewTeachers.length > 0) {
+          return res.status(400).json({ error: "Email is already in use by another account" });
+        }
+      } else if (existingTeachers.length > 0) {
+        return res.status(400).json({ error: "Email is already in use by another account" });
+      }
+      await storage.updateUserEmail(user.id, newEmail);
+      if (oldEmail) {
+        await storage.syncEmailByOldEmail(oldEmail, newEmail);
+      }
+      res.json({ success: true, message: "Email changed successfully for all linked accounts" });
+    } catch (error) {
+      console.error("Error changing email:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/teacher/profile/change-password", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+      const teacherId = req.teacherId!;
+      const teacher = await storage.getTeacher(teacherId);
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      const passwordMatch = await comparePasswords(currentPassword, teacher.password);
+      if (!passwordMatch) {
+        return res.status(400).json({ error: "Current password is incorrect" });
+      }
+      const hashedPassword = await hashPassword(newPassword);
+      await storage.updateTeacherPassword(teacher.id, hashedPassword);
+      await storage.syncPasswordByEmail(teacher.email, hashedPassword, 'teachers');
+      res.json({ success: true, message: "Password changed successfully for all linked accounts" });
+    } catch (error) {
+      console.error("Error changing teacher password:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/teacher/profile/change-email", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const { currentPassword, newEmail } = changeEmailSchema.parse(req.body);
+      const teacherId = req.teacherId!;
+      const teacher = await storage.getTeacher(teacherId);
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      const passwordMatch = await comparePasswords(currentPassword, teacher.password);
+      if (!passwordMatch) {
+        return res.status(400).json({ error: "Password is incorrect" });
+      }
+      const oldEmail = teacher.email;
+      const existingTeachers = await storage.getAllTeachersByEmail(newEmail);
+      const otherTeachers = existingTeachers.filter(t => t.id !== teacher.id);
+      if (otherTeachers.length > 0) {
+        return res.status(400).json({ error: "Email is already in use by another account" });
+      }
+      const existingUsers = await storage.getAllUsersByEmail(newEmail);
+      const linkedUsers = await storage.getAllUsersByEmail(oldEmail);
+      const linkedUserIds = new Set(linkedUsers.map(u => u.id));
+      const unlinkedNewUsers = existingUsers.filter(u => !linkedUserIds.has(u.id));
+      if (unlinkedNewUsers.length > 0) {
+        return res.status(400).json({ error: "Email is already in use by another account" });
+      }
+      await storage.updateTeacherEmail(teacher.id, newEmail);
+      await storage.syncEmailByOldEmail(oldEmail, newEmail);
+      res.json({ success: true, message: "Email changed successfully for all linked accounts" });
+    } catch (error) {
+      console.error("Error changing teacher email:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0].message });
+      }
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Approval routes for admin
-  app.get("/api/admin/pending-trainers", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/pending-trainers", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const pendingTrainers = await storage.getPendingTrainers();
       // Remove password from response
@@ -311,7 +468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/admin/pending-teachers", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/pending-teachers", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const pendingTeachers = await storage.getPendingTeachers();
       // Remove password from response
@@ -323,7 +480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/approve-trainer/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/approve-trainer/:id", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const approvedBy = req.user!.id;
@@ -363,7 +520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/dismiss-trainer/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/dismiss-trainer/:id", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -400,7 +557,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/approve-teacher/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/approve-teacher/:id", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const approvedBy = req.user!.id;
@@ -435,7 +592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/dismiss-teacher/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/dismiss-teacher/:id", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       
@@ -501,12 +658,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const approvedBy = req.user!.id;
       const approvedByRole = "trainer";
-      
+
       const approvedTeacher = await storage.approveTeacher(id, approvedBy, approvedByRole);
       if (!approvedTeacher) {
         return res.status(404).json({ error: "Teacher not found" });
       }
-      
+
       // Record approval history
       await storage.addApprovalHistory({
         targetType: "teacher",
@@ -518,12 +675,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         performedByName: req.user!.username,
         performedByRole: "trainer",
       });
-      
+
       const { password, ...sanitized } = approvedTeacher;
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: `Teacher ${approvedTeacher.name} has been approved by trainer`,
-        teacher: sanitized 
+        teacher: sanitized
       });
     } catch (error) {
       console.error("Error approving teacher:", error);
@@ -534,13 +691,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/trainer/dismiss-teacher/:id", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { id } = req.params;
-      
+
       // Get teacher info before dismissing
       const teacher = await storage.getTeacher(id);
       if (!teacher) {
         return res.status(404).json({ error: "Teacher not found" });
       }
-      
+
       // Record dismissal history before deleting
       await storage.addApprovalHistory({
         targetType: "teacher",
@@ -552,14 +709,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         performedByName: req.user!.username,
         performedByRole: "trainer",
       });
-      
+
       const dismissed = await storage.dismissTeacher(id);
       if (!dismissed) {
         return res.status(404).json({ error: "Teacher not found" });
       }
-      
-      res.json({ 
-        success: true, 
+
+      res.json({
+        success: true,
         message: `Teacher ${teacher.name} has been dismissed`,
       });
     } catch (error) {
@@ -574,35 +731,127 @@ export async function registerRoutes(app: Express): Promise<Server> {
     newPassword: z.string().trim().min(6, "Password must be at least 6 characters"),
   });
 
+
   app.post("/api/trainer/reset-teacher-password", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { teacherId, newPassword } = trainerResetPasswordSchema.parse(req.body);
-      
+
       // Get the teacher
       const teacher = await storage.getTeacher(teacherId);
       if (!teacher) {
         return res.status(404).json({ error: "Teacher not found" });
       }
-      
+
       // Hash the new password
       const hashedPassword = await hashPassword(newPassword);
-      
+
       // Update teacher's password
       const updatedTeacher = await storage.updateTeacherPassword(teacherId, hashedPassword);
-      
+
       if (!updatedTeacher) {
         return res.status(500).json({ error: "Failed to update password" });
       }
-      
-      res.json({ 
-        success: true, 
-        message: `Password reset successful for teacher: ${updatedTeacher.name} (ID: ${updatedTeacher.teacherId})` 
+
+      // Sync password to linked admin/trainer accounts with the same email
+      let syncInfo = "";
+      const synced = await storage.syncPasswordByEmail(updatedTeacher.email, hashedPassword, 'teachers');
+      if (synced.usersUpdated > 0) {
+        syncInfo = ` (also updated ${synced.usersUpdated} linked admin/trainer account${synced.usersUpdated > 1 ? 's' : ''})`;
+      }
+
+      res.json({
+        success: true,
+        message: `Password reset successful for teacher: ${updatedTeacher.name} (ID: ${updatedTeacher.teacherId})${syncInfo}`
       });
     } catch (error) {
       console.error("Error resetting teacher password:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0].message });
       }
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Trainer endpoint - approve teacher
+  app.post("/api/trainer/approve-teacher/:id", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const teacherId = req.params.id;
+      const teacher = await storage.getTeacher(teacherId);
+
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+
+      if (teacher.approvalStatus !== "pending") {
+        return res.status(400).json({ error: "Teacher is not pending approval" });
+      }
+
+      const approvedTeacher = await storage.approveTeacher(
+        teacherId,
+        req.user!.id,
+        req.user!.role
+      );
+
+      // Record approval history
+      await storage.addApprovalHistory({
+        targetType: "teacher",
+        targetId: teacherId,
+        targetName: approvedTeacher!.name,
+        targetEmail: approvedTeacher!.email,
+        action: "approved",
+        performedBy: req.user!.id,
+        performedByName: req.user!.username,
+        performedByRole: req.user!.role,
+      });
+
+      res.json({
+        success: true,
+        message: `Teacher ${approvedTeacher!.name} has been approved`,
+        teacher: { ...approvedTeacher, password: undefined }
+      });
+    } catch (error) {
+      console.error("Error approving teacher:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Trainer endpoint - dismiss teacher
+  app.post("/api/trainer/dismiss-teacher/:id", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const teacherId = req.params.id;
+      const teacher = await storage.getTeacher(teacherId);
+
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+
+      if (teacher.approvalStatus !== "pending") {
+        return res.status(400).json({ error: "Teacher is not pending approval" });
+      }
+
+      // Record dismissal history before deleting
+      await storage.addApprovalHistory({
+        targetType: "teacher",
+        targetId: teacherId,
+        targetName: teacher.name,
+        targetEmail: teacher.email,
+        action: "dismissed",
+        performedBy: req.user!.id,
+        performedByName: req.user!.username,
+        performedByRole: req.user!.role,
+      });
+
+      const dismissed = await storage.dismissTeacher(teacherId);
+      if (!dismissed) {
+        return res.status(500).json({ error: "Failed to dismiss teacher" });
+      }
+
+      res.json({
+        success: true,
+        message: `Teacher ${teacher.name} has been dismissed`,
+      });
+    } catch (error) {
+      console.error("Error dismissing teacher:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -619,7 +868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a new training week (admin only)
-  app.post("/api/training-weeks", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/training-weeks", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const validated = insertTrainingWeekSchema.parse(req.body);
       const week = await storage.createTrainingWeek(validated);
@@ -631,7 +880,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a training week (admin only)
-  app.patch("/api/training-weeks/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.patch("/api/training-weeks/:id", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const validated = updateTrainingWeekSchema.parse({
         ...req.body,
@@ -649,7 +898,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a training week (admin only)
-  app.delete("/api/training-weeks/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.delete("/api/training-weeks/:id", isAuthenticated, isTrainer, async (req, res) => {
     try {
       // 🗑️ CACHE INVALIDATION: Delete all cached quizzes for this week
       await storage.deleteCachedQuizzesForWeek(req.params.id);
@@ -667,7 +916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reorder training weeks (admin only)
-  app.post("/api/training-weeks/reorder", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/training-weeks/reorder", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { weekId, newPosition } = req.body;
       
@@ -715,7 +964,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get upload URL for object storage (admin only)
-  app.post("/api/objects/upload", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/objects/upload", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
       console.log("[UPLOAD DEBUG] Generated presigned URL for file upload");
@@ -727,7 +976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add deck files after upload (admin only) - supports multiple files
-  app.post("/api/training-weeks/:id/deck", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/training-weeks/:id/deck", isAuthenticated, isTrainer, async (req, res) => {
     try {
       console.log("[UPLOAD DEBUG] Request body:", JSON.stringify(req.body, null, 2));
       const { files } = req.body; // Expecting an array of {fileUrl, fileName, fileSize}
@@ -824,7 +1073,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a specific deck file (admin only)
-  app.delete("/api/training-weeks/:id/deck/:fileId", isAuthenticated, isAdmin, async (req, res) => {
+  app.delete("/api/training-weeks/:id/deck/:fileId", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { id, fileId } = req.params;
 
@@ -853,7 +1102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reorder deck files (admin only)
-  app.post("/api/training-weeks/:id/deck/reorder", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/training-weeks/:id/deck/reorder", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { id } = req.params;
       const { fileIds } = req.body;
@@ -1053,7 +1302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create a content item (admin only)
-  app.post("/api/training-weeks/:weekId/content", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/training-weeks/:weekId/content", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const item = await storage.createContentItem({ ...req.body, weekId: req.params.weekId });
       res.json(item);
@@ -1064,7 +1313,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a content item (admin only)
-  app.patch("/api/content-items/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.patch("/api/content-items/:id", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const item = await storage.updateContentItem(req.params.id, req.body);
       if (!item) {
@@ -1078,7 +1327,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a content item (admin only)
-  app.delete("/api/content-items/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.delete("/api/content-items/:id", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const success = await storage.deleteContentItem(req.params.id);
       if (!success) {
@@ -2581,7 +2830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin Dashboard Routes
   
   // Get dashboard statistics
-  app.get("/api/admin/dashboard-stats", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/dashboard-stats", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const approvedTrainers = await db.select().from(users).where(and(eq(users.role, "trainer"), eq(users.approvalStatus, "approved")));
       const approvedTeachers = await db.select().from(teachers).where(eq(teachers.approvalStatus, "approved"));
@@ -2600,7 +2849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all trainers with progress
-  app.get("/api/admin/trainers", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/trainers", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const allTrainers = await db.select().from(users).where(eq(users.role, "trainer")).orderBy(users.createdAt);
       
@@ -2625,7 +2874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get trainer detail
-  app.get("/api/admin/trainers/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/trainers/:id", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const trainer = await storage.getUser(id);
@@ -2660,7 +2909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all teachers with progress
-  app.get("/api/admin/teachers", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/teachers", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const allTeachers = await db.select().from(teachers);
       
@@ -2687,7 +2936,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get teacher detail
-  app.get("/api/admin/teachers/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/teachers/:id", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const teacher = await storage.getTeacher(id);
@@ -2784,7 +3033,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create course (admin only)
-  app.post("/api/courses", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/courses", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { name, description, orderIndex } = req.body;
       const course = await storage.createCourse({ name, description, orderIndex: orderIndex || 0 });
@@ -2796,7 +3045,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update course (admin only)
-  app.patch("/api/courses/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.patch("/api/courses/:id", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const course = await storage.updateCourse(req.params.id, req.body);
       if (!course) return res.status(404).json({ error: "Course not found" });
@@ -2808,7 +3057,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete course (admin only)
-  app.delete("/api/courses/:id", isAuthenticated, isAdmin, async (req, res) => {
+  app.delete("/api/courses/:id", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const success = await storage.deleteCourse(req.params.id);
       if (!success) return res.status(404).json({ error: "Course not found" });
@@ -2845,7 +3094,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Reorder weeks for a course (admin only)
-  app.post("/api/courses/:courseId/weeks/reorder", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/courses/:courseId/weeks/reorder", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const { weekId, newPosition } = req.body;
       const { courseId } = req.params;
@@ -2984,7 +3233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Approve certificate template (admin only)
-  app.post("/api/batches/:batchId/certificate-template/approve", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/batches/:batchId/certificate-template/approve", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const template = await storage.approveBatchCertificateTemplate(req.params.batchId, req.user!.id);
       if (!template) return res.status(404).json({ error: "Template not found" });
@@ -2996,7 +3245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate certificates for completed teachers in batch-course (admin only)
-  app.post("/api/batches/:batchId/courses/:courseId/generate-certificates", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/batches/:batchId/courses/:courseId/generate-certificates", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const completedTeachers = await storage.getCompletedTeachersForBatchCourse(req.params.batchId, req.params.courseId);
       const template = await storage.getBatchCertificateTemplate(req.params.batchId);
@@ -3109,7 +3358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== ANALYTICS ====================
   // Admin analytics (all batches/courses)
-  app.get("/api/admin/analytics/batches", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/analytics/batches", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const analytics = await storage.getBatchAnalytics();
       res.json(analytics);
@@ -3120,7 +3369,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get batch analytics
-  app.get("/api/admin/analytics/batches/:batchId", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/analytics/batches/:batchId", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const analytics = await storage.getBatchAnalytics(req.params.batchId);
       res.json(analytics);
@@ -3131,7 +3380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Course analytics
-  app.get("/api/admin/analytics/courses", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/analytics/courses", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const analytics = await storage.getCourseAnalytics();
       res.json(analytics);
@@ -3142,7 +3391,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get course analytics
-  app.get("/api/admin/analytics/courses/:courseId", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/analytics/courses/:courseId", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const analytics = await storage.getCourseAnalytics(req.params.courseId);
       res.json(analytics);
@@ -3175,7 +3424,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all users for admin people overview
-  app.get("/api/admin/users/all", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/users/all", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       // Get all trainers (users with trainer role)
       const trainers = await db.select().from(users).where(eq(users.role, "trainer"));
@@ -3221,7 +3470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin: Create a new user (admin, trainer, or teacher) with email and password
   // Multi-role support: Same email can have different roles (admin, trainer, teacher)
-  app.post("/api/admin/users/create", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/users/create", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { email, password, name, role } = req.body;
       
@@ -3321,7 +3570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get activity stats for a specific user
-  app.get("/api/admin/users/:userId/activity", isAuthenticated, isAdmin, async (req, res) => {
+  app.get("/api/admin/users/:userId/activity", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const userId = req.params.userId;
       
@@ -3383,7 +3632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dismiss/Delete a trainer (admin only)
-  app.delete("/api/admin/dismiss-user/:userId", isAuthenticated, isAdmin, async (req, res) => {
+  app.delete("/api/admin/dismiss-user/:userId", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { userId } = req.params;
       
@@ -3402,7 +3651,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dismiss/Delete a teacher (admin only)
-  app.delete("/api/admin/dismiss-teacher/:teacherId", isAuthenticated, isAdmin, async (req, res) => {
+  app.delete("/api/admin/dismiss-teacher/:teacherId", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { teacherId } = req.params;
       
@@ -3421,7 +3670,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Restrict a trainer (admin only)
-  app.post("/api/admin/restrict-user/:userId", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/restrict-user/:userId", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { userId } = req.params;
       
@@ -3442,7 +3691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Restrict a teacher (admin only)
-  app.post("/api/admin/restrict-teacher/:teacherId", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/restrict-teacher/:teacherId", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { teacherId } = req.params;
       
@@ -3463,7 +3712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Unrestrict a trainer (admin only)
-  app.post("/api/admin/unrestrict-user/:userId", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/unrestrict-user/:userId", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { userId } = req.params;
       
@@ -3483,7 +3732,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Unrestrict a teacher (admin only)
-  app.post("/api/admin/unrestrict-teacher/:teacherId", isAuthenticated, isAdmin, async (req, res) => {
+  app.post("/api/admin/unrestrict-teacher/:teacherId", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
       const { teacherId } = req.params;
       

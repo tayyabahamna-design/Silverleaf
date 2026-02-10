@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Textarea } from "@/components/ui/textarea";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ProfileSettingsDialog } from "@/components/ProfileSettingsDialog";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
 import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical, CheckCircle, BarChart3, FileText, Pencil } from "lucide-react";
@@ -363,6 +364,10 @@ export default function Home() {
                 )}
               </>
             )}
+            <ProfileSettingsDialog
+              userType="admin"
+              currentEmail={user?.email || undefined}
+            />
             <div className="text-white">
               <ThemeToggle />
             </div>

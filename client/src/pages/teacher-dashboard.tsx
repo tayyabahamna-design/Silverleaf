@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ProfileSettingsDialog } from "@/components/ProfileSettingsDialog";
 import { Award, CheckCircle, LogOut, GraduationCap, ArrowRight } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
@@ -99,6 +100,10 @@ export default function TeacherDashboard() {
             <div className="text-xs sm:text-sm text-white/90 hidden md:block truncate max-w-[200px]" data-testid="text-user-info">
               {teacher?.name} (Teacher ID: {teacher?.teacherId})
             </div>
+            <ProfileSettingsDialog
+              userType="teacher"
+              currentEmail={teacher?.email}
+            />
             <div className="text-white">
               <ThemeToggle />
             </div>

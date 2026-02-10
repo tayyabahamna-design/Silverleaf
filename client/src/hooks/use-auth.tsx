@@ -91,8 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: user.email
       });
       toast({
-        title: "Welcome!",
-        description: "Your teacher account has been created successfully.",
+        title: "Registration Submitted",
+        description: "Your trainer account has been created and is pending admin approval.",
       });
     },
     onError: (error: Error) => {
@@ -124,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const isAdmin = user?.role === "admin";
-  const isTrainer = user?.role === "trainer";
+  const isTrainer = user?.role === "trainer" || user?.role === "admin";
 
   return (
     <AuthContext.Provider
