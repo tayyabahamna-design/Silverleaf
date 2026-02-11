@@ -263,6 +263,12 @@ export const teachers = pgTable("teachers", {
   approvedBy: varchar("approved_by"), // ID of admin/trainer who approved (null if pending)
   approvedByRole: varchar("approved_by_role"), // 'admin' or 'trainer' - who approved them
   approvedAt: timestamp("approved_at"), // timestamp when approved
+  gender: varchar("gender"), // 'male', 'female', 'other', 'prefer_not_to_say'
+  location: varchar("location"), // city or region
+  qualification: varchar("qualification"), // 'certificate', 'diploma', 'degree', 'other'
+  employmentStatus: varchar("employment_status"), // 'employed', 'unemployed', 'self_employed', 'student'
+  yearsOfExperience: integer("years_of_experience"),
+  dateOfBirth: timestamp("date_of_birth"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

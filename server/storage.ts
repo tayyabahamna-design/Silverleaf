@@ -244,6 +244,13 @@ export interface IStorage {
   getCourseAnalytics(courseId?: string): Promise<any>;
   getTrainerAnalytics(trainerId: string): Promise<any>;
   getTeacherAnalyticsForTrainer(trainerId: string): Promise<any>;
+
+  // Enhanced analytics
+  getPipelineOverview(): Promise<any>;
+  getDemographicsAnalytics(): Promise<any>;
+  getCohortAnalytics(): Promise<any>;
+  getPerformanceAnalytics(): Promise<any>;
+  getCompletionTrends(): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1740,6 +1747,311 @@ export class DatabaseStorage implements IStorage {
       teacherCount: teacherResults.length,
       teachers: teacherResults.map((t: any) => ({ ...t.teacher, assignedBatches: t.batchCount })),
     };
+  }
+
+  // ========== Enhanced Analytics Methods ==========
+
+  async getPipelineOverview(): Promise<any> {
+    // Total approved candidates
+    const totalResult = await db
+      .select({ count: sqlOp`COUNT(*)::int` })
+      .from(teachers)
+      .where(eq(teachers.approvalStatus, "approved"));
+    const totalCandidates = Number(totalResult[0]?.count) || 0;
+
+    // Gender distribution
+    const genderResult = await db
+      .select({
+        gender: teachers.gender,
+        count: sqlOp`COUNT(*)::int`,
+      })
+      .from(teachers)
+      .where(eq(teachers.approvalStatus, "approved"))
+      .groupBy(teachers.gender);
+
+    const genderDistribution = { male: 0, female: 0, other: 0, notSpecified: 0 };
+    for (const row of genderResult) {
+      const g = (row.gender || "").toLowerCase();
+      const cnt = Number(row.count) || 0;
+      if (g === "male") genderDistribution.male = cnt;
+      else if (g === "female") genderDistribution.female = cnt;
+      else if (g === "other" || g === "prefer_not_to_say") genderDistribution.other += cnt;
+      else genderDistribution.notSpecified += cnt;
+    }
+
+    // Participation rate: teachers in at least one batch / total approved
+    const participatingResult = await db
+      .select({ count: sqlOp`COUNT(DISTINCT ${batchTeachers.teacherId})::int` })
+      .from(batchTeachers);
+    const participating = Number(participatingResult[0]?.count) || 0;
+    const participationRate = totalCandidates > 0 ? Math.round((participating / totalCandidates) * 1000) / 10 : 0;
+
+    // Graduation rate: distinct teachers with certificates / total approved
+    const graduatedResult = await db
+      .select({ count: sqlOp`COUNT(DISTINCT ${teacherCertificates.teacherId})::int` })
+      .from(teacherCertificates);
+    const graduated = Number(graduatedResult[0]?.count) || 0;
+    const graduationRate = totalCandidates > 0 ? Math.round((graduated / totalCandidates) * 1000) / 10 : 0;
+
+    // At-risk: teachers in batches with <30% completion
+    const completionResults = await db
+      .select({
+        teacherId: teacherCourseCompletion.teacherId,
+        completedWeeks: teacherCourseCompletion.completedWeeks,
+        totalWeeks: teacherCourseCompletion.totalWeeks,
+      })
+      .from(teacherCourseCompletion)
+      .where(eq(teacherCourseCompletion.status, "in_progress"));
+
+    let atRiskCount = 0;
+    for (const r of completionResults) {
+      const pct = r.totalWeeks > 0 ? (r.completedWeeks / r.totalWeeks) * 100 : 0;
+      if (pct < 30) atRiskCount++;
+    }
+
+    return {
+      totalCandidates,
+      genderDistribution,
+      participationRate,
+      graduationRate,
+      atRiskCount,
+      dropoutCount: 0,
+    };
+  }
+
+  async getDemographicsAnalytics(): Promise<any> {
+    const approved = eq(teachers.approvalStatus, "approved");
+
+    // Gender breakdown
+    const genderRows = await db
+      .select({ label: sqlOp`COALESCE(${teachers.gender}, 'Not Specified')`, value: sqlOp`COUNT(*)::int` })
+      .from(teachers)
+      .where(approved)
+      .groupBy(sqlOp`COALESCE(${teachers.gender}, 'Not Specified')`);
+
+    // Geographic distribution
+    const geoRows = await db
+      .select({ location: sqlOp`COALESCE(${teachers.location}, 'Unknown')`, count: sqlOp`COUNT(*)::int` })
+      .from(teachers)
+      .where(approved)
+      .groupBy(sqlOp`COALESCE(${teachers.location}, 'Unknown')`)
+      .orderBy(sqlOp`COUNT(*) DESC`)
+      .limit(20);
+
+    // Qualification breakdown
+    const qualRows = await db
+      .select({ qualification: sqlOp`COALESCE(${teachers.qualification}, 'Not Specified')`, count: sqlOp`COUNT(*)::int` })
+      .from(teachers)
+      .where(approved)
+      .groupBy(sqlOp`COALESCE(${teachers.qualification}, 'Not Specified')`);
+
+    // Employment status
+    const empRows = await db
+      .select({ status: sqlOp`COALESCE(${teachers.employmentStatus}, 'Not Specified')`, count: sqlOp`COUNT(*)::int` })
+      .from(teachers)
+      .where(approved)
+      .groupBy(sqlOp`COALESCE(${teachers.employmentStatus}, 'Not Specified')`);
+
+    // Experience level buckets
+    const expRows = await db
+      .select({
+        range: sqlOp`CASE
+          WHEN ${teachers.yearsOfExperience} IS NULL THEN 'Not Specified'
+          WHEN ${teachers.yearsOfExperience} <= 1 THEN '0-1 years'
+          WHEN ${teachers.yearsOfExperience} <= 5 THEN '2-5 years'
+          WHEN ${teachers.yearsOfExperience} <= 10 THEN '6-10 years'
+          ELSE '11+ years'
+        END`,
+        count: sqlOp`COUNT(*)::int`,
+      })
+      .from(teachers)
+      .where(approved)
+      .groupBy(sqlOp`CASE
+          WHEN ${teachers.yearsOfExperience} IS NULL THEN 'Not Specified'
+          WHEN ${teachers.yearsOfExperience} <= 1 THEN '0-1 years'
+          WHEN ${teachers.yearsOfExperience} <= 5 THEN '2-5 years'
+          WHEN ${teachers.yearsOfExperience} <= 10 THEN '6-10 years'
+          ELSE '11+ years'
+        END`);
+
+    return {
+      genderBreakdown: genderRows,
+      geographicDistribution: geoRows,
+      qualificationBreakdown: qualRows,
+      employmentStatusBreakdown: empRows,
+      experienceLevelBreakdown: expRows,
+    };
+  }
+
+  async getCohortAnalytics(): Promise<any> {
+    const allBatches = await this.getAllBatches();
+    const cohorts = [];
+
+    for (const batch of allBatches) {
+      // Enrollment count
+      const enrollResult = await db
+        .select({ count: sqlOp`COUNT(*)::int` })
+        .from(batchTeachers)
+        .where(eq(batchTeachers.batchId, batch.id));
+      const enrollmentCount = Number(enrollResult[0]?.count) || 0;
+
+      // Average completion percentage
+      const completionResult = await db
+        .select({
+          avgCompletion: sqlOp`COALESCE(AVG(CASE WHEN ${teacherCourseCompletion.totalWeeks} > 0 THEN (${teacherCourseCompletion.completedWeeks}::float / ${teacherCourseCompletion.totalWeeks}) * 100 ELSE 0 END), 0)::float`,
+        })
+        .from(teacherCourseCompletion)
+        .where(eq(teacherCourseCompletion.batchId, batch.id));
+      const completionPercentage = Math.round(Number(completionResult[0]?.avgCompletion || 0) * 10) / 10;
+
+      // Graduation rate (certificates / enrollment)
+      const certResult = await db
+        .select({ count: sqlOp`COUNT(DISTINCT ${teacherCertificates.teacherId})::int` })
+        .from(teacherCertificates)
+        .where(eq(teacherCertificates.batchId, batch.id));
+      const certCount = Number(certResult[0]?.count) || 0;
+      const graduationRate = enrollmentCount > 0 ? Math.round((certCount / enrollmentCount) * 1000) / 10 : 0;
+
+      // Average quiz score
+      const quizResult = await db
+        .select({ avgScore: sqlOp`COALESCE(AVG(${teacherQuizAttempts.score}), 0)::float` })
+        .from(teacherQuizAttempts)
+        .innerJoin(assignedQuizzes, eq(teacherQuizAttempts.assignedQuizId, assignedQuizzes.id))
+        .where(eq(assignedQuizzes.batchId, batch.id));
+      const avgQuizScore = Math.round(Number(quizResult[0]?.avgScore || 0) * 10) / 10;
+
+      // Traffic light status
+      let status: 'green' | 'yellow' | 'red' = 'green';
+      if (completionPercentage < 50) status = 'red';
+      else if (completionPercentage < 80) status = 'yellow';
+
+      cohorts.push({
+        batchId: batch.id,
+        batchName: batch.name,
+        enrollmentCount,
+        completionPercentage,
+        graduationRate,
+        avgQuizScore,
+        status,
+      });
+    }
+
+    return cohorts;
+  }
+
+  async getPerformanceAnalytics(): Promise<any> {
+    // Completion rate trends by month
+    const trendRows = await db
+      .select({
+        period: sqlOp`TO_CHAR(${teacherCourseCompletion.completedAt}, 'Mon YYYY')`,
+        rate: sqlOp`COUNT(*)::int`,
+      })
+      .from(teacherCourseCompletion)
+      .where(sqlOp`${teacherCourseCompletion.completedAt} IS NOT NULL`)
+      .groupBy(sqlOp`TO_CHAR(${teacherCourseCompletion.completedAt}, 'Mon YYYY'), DATE_TRUNC('month', ${teacherCourseCompletion.completedAt})`)
+      .orderBy(sqlOp`DATE_TRUNC('month', ${teacherCourseCompletion.completedAt})`);
+
+    // At-risk fellows: in_progress with <30% completion
+    const atRiskRows = await db
+      .select({
+        teacherId: teacherCourseCompletion.teacherId,
+        completedWeeks: teacherCourseCompletion.completedWeeks,
+        totalWeeks: teacherCourseCompletion.totalWeeks,
+        batchId: teacherCourseCompletion.batchId,
+      })
+      .from(teacherCourseCompletion)
+      .where(eq(teacherCourseCompletion.status, "in_progress"));
+
+    const atRiskFellows = [];
+    for (const row of atRiskRows) {
+      const pct = row.totalWeeks > 0 ? Math.round((row.completedWeeks / row.totalWeeks) * 1000) / 10 : 0;
+      if (pct < 30) {
+        const teacher = await this.getTeacher(row.teacherId);
+        const batch = row.batchId ? await this.getBatch(row.batchId) : null;
+
+        // Get last activity
+        const lastActivity = await db
+          .select({ lastActive: sqlOp`MAX(${teacherContentProgress.completedAt})` })
+          .from(teacherContentProgress)
+          .where(eq(teacherContentProgress.teacherId, row.teacherId));
+
+        const lastActive = lastActivity[0]?.lastActive || null;
+        let status: 'at_risk' | 'critical' | 'inactive' = 'at_risk';
+        if (pct < 10) status = 'critical';
+        if (lastActive) {
+          const daysSince = (Date.now() - new Date(lastActive as string).getTime()) / (1000 * 60 * 60 * 24);
+          if (daysSince > 30) status = 'inactive';
+        }
+
+        atRiskFellows.push({
+          teacherId: row.teacherId,
+          teacherName: teacher?.name || 'Unknown',
+          batchName: batch?.name || 'Unknown',
+          completionPercentage: pct,
+          lastActive,
+          status,
+        });
+      }
+    }
+
+    // Batch comparison
+    const allBatches = await this.getAllBatches();
+    const batchComparison = [];
+    for (const batch of allBatches) {
+      const enrollResult = await db
+        .select({ count: sqlOp`COUNT(*)::int` })
+        .from(batchTeachers)
+        .where(eq(batchTeachers.batchId, batch.id));
+
+      const completionResult = await db
+        .select({
+          avgCompletion: sqlOp`COALESCE(AVG(CASE WHEN ${teacherCourseCompletion.totalWeeks} > 0 THEN (${teacherCourseCompletion.completedWeeks}::float / ${teacherCourseCompletion.totalWeeks}) * 100 ELSE 0 END), 0)::float`,
+        })
+        .from(teacherCourseCompletion)
+        .where(eq(teacherCourseCompletion.batchId, batch.id));
+
+      batchComparison.push({
+        batchName: batch.name,
+        avgCompletion: Math.round(Number(completionResult[0]?.avgCompletion || 0) * 10) / 10,
+        teacherCount: Number(enrollResult[0]?.count) || 0,
+      });
+    }
+
+    return {
+      completionRateTrends: trendRows,
+      atRiskFellows,
+      batchComparison,
+    };
+  }
+
+  async getCompletionTrends(): Promise<any> {
+    // Monthly cumulative completion counts
+    const trends = await db
+      .select({
+        date: sqlOp`DATE_TRUNC('month', ${teacherCourseCompletion.completedAt})`,
+        completedCount: sqlOp`COUNT(*)::int`,
+      })
+      .from(teacherCourseCompletion)
+      .where(sqlOp`${teacherCourseCompletion.completedAt} IS NOT NULL`)
+      .groupBy(sqlOp`DATE_TRUNC('month', ${teacherCourseCompletion.completedAt})`)
+      .orderBy(sqlOp`DATE_TRUNC('month', ${teacherCourseCompletion.completedAt})`);
+
+    // Total enrolled count
+    const totalResult = await db
+      .select({ count: sqlOp`COUNT(DISTINCT ${batchTeachers.teacherId})::int` })
+      .from(batchTeachers);
+    const totalEnrolled = Number(totalResult[0]?.count) || 0;
+
+    let cumulative = 0;
+    return trends.map((t: any) => {
+      cumulative += Number(t.completedCount) || 0;
+      return {
+        date: t.date,
+        completedCount: cumulative,
+        totalEnrolled,
+        rate: totalEnrolled > 0 ? Math.round((cumulative / totalEnrolled) * 1000) / 10 : 0,
+      };
+    });
   }
 }
 

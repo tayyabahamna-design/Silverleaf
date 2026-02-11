@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock, Trash2, Ban, UserPlus } from "lucide-react";
+import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock, Trash2, Ban, UserPlus, GraduationCap, MapPin, Briefcase, Activity } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,8 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 interface BatchAnalytics {
   batch: { id: string; name: string };
@@ -57,8 +60,20 @@ interface UserActivityStats {
   totalCourses?: number;
 }
 
+// Chart color palette
+const CHART_COLORS = [
+  "hsl(221, 83%, 53%)",  // blue
+  "hsl(262, 83%, 58%)",  // purple
+  "hsl(142, 71%, 45%)",  // green
+  "hsl(38, 92%, 50%)",   // amber
+  "hsl(0, 84%, 60%)",    // red
+  "hsl(199, 89%, 48%)",  // cyan
+  "hsl(330, 81%, 60%)",  // pink
+  "hsl(25, 95%, 53%)",   // orange
+];
+
 // KPI Card Component
-function KPICard({ label, value, icon: Icon, trend, color = "primary" }: { label: string; value: number; icon: any; trend?: number; color?: string }) {
+function KPICard({ label, value, icon: Icon, subtitle, color = "primary" }: { label: string; value: string | number; icon: any; subtitle?: string; color?: string }) {
   return (
     <Card className="hover-elevate transition-all">
       <CardContent className="pt-6">
@@ -66,23 +81,29 @@ function KPICard({ label, value, icon: Icon, trend, color = "primary" }: { label
           <div className={`p-3 rounded-lg bg-${color}/10`}>
             <Icon className={`w-5 h-5 text-${color}`} />
           </div>
-          {trend !== undefined && (
-            <div className="flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">
-              <TrendingUp className="w-3 h-3" />
-              {trend}%
-            </div>
-          )}
         </div>
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground font-medium">{label}</p>
           <p className="text-2xl font-bold">{value}</p>
+          {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
         </div>
       </CardContent>
     </Card>
   );
 }
 
-// Batch Status Badge
+// Traffic Light Badge
+function TrafficLightBadge({ status }: { status: string }) {
+  if (status === "green") {
+    return <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> On Track</Badge>;
+  }
+  if (status === "yellow") {
+    return <Badge className="bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Moderate</Badge>;
+  }
+  return <Badge className="bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> At Risk</Badge>;
+}
+
+// Batch Status Badge (existing)
 function BatchStatusBadge({ status }: { status: "on-track" | "at-risk" }) {
   if (status === "on-track") {
     return <Badge className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> On Track</Badge>;
@@ -117,6 +138,7 @@ export default function AdminAnalytics() {
   const [managingBatchTeachers, setManagingBatchTeachers] = useState<string | null>(null);
   const [teacherIdToAdd, setTeacherIdToAdd] = useState("");
 
+  // Existing data queries
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
     queryKey: ["/api/admin/analytics/batches"],
     enabled: isAdmin,
@@ -171,6 +193,57 @@ export default function AdminAnalytics() {
     },
   });
 
+  // New analytics queries
+  const { data: pipelineData, isLoading: loadingPipeline } = useQuery({
+    queryKey: ["/api/admin/analytics/pipeline"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/admin/analytics/pipeline");
+      if (!response.ok) return null;
+      return await response.json();
+    },
+  });
+
+  const { data: demographicsData, isLoading: loadingDemographics } = useQuery({
+    queryKey: ["/api/admin/analytics/demographics"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/admin/analytics/demographics");
+      if (!response.ok) return null;
+      return await response.json();
+    },
+  });
+
+  const { data: cohortsData, isLoading: loadingCohorts } = useQuery({
+    queryKey: ["/api/admin/analytics/cohorts"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/admin/analytics/cohorts");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  const { data: performanceData, isLoading: loadingPerformance } = useQuery({
+    queryKey: ["/api/admin/analytics/performance"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/admin/analytics/performance");
+      if (!response.ok) return null;
+      return await response.json();
+    },
+  });
+
+  const { data: completionTrends, isLoading: loadingTrends } = useQuery({
+    queryKey: ["/api/admin/analytics/completion-trends"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/admin/analytics/completion-trends");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
   // Mutation for deleting/dismissing trainers
   const dismissTrainerMutation = useMutation({
     mutationFn: async (trainerId: string) =>
@@ -179,7 +252,6 @@ export default function AdminAnalytics() {
       toast({ title: "Success", description: "Trainer has been removed." });
       setUserToManage(null);
       setShowManageTrainers(false);
-      // Refetch users list
       window.location.reload();
     },
     onError: () => {
@@ -195,7 +267,6 @@ export default function AdminAnalytics() {
       toast({ title: "Success", description: "Teacher has been removed." });
       setUserToManage(null);
       setShowManageTeachers(false);
-      // Refetch users list
       window.location.reload();
     },
     onError: () => {
@@ -277,10 +348,10 @@ export default function AdminAnalytics() {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users/all"] });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Error", 
-        description: error.message || "Failed to create user.", 
-        variant: "destructive" 
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create user.",
+        variant: "destructive"
       });
     },
   });
@@ -388,10 +459,18 @@ export default function AdminAnalytics() {
 
   const totalTeachers = Array.isArray(allUsers) ? allUsers.filter((u: any) => u.role === "teacher").length : 0;
   const totalTrainers = Array.isArray(allUsers) ? allUsers.filter((u: any) => u.role === "trainer").length : 0;
-  const totalCourses = Array.isArray(coursesAnalytics) ? coursesAnalytics.length : 0;
-  const totalBatches = Array.isArray(batchesAnalytics) ? batchesAnalytics.length : 0;
-  const avgCompletionRate = 65; // Calculate from actual data
-  const atRiskBatches = Array.isArray(batchesAnalytics) ? Math.floor(batchesAnalytics.length * 0.2) : 0;
+
+  // Chart configs
+  const genderChartConfig: ChartConfig = {
+    male: { label: "Male", color: CHART_COLORS[0] },
+    female: { label: "Female", color: CHART_COLORS[2] },
+    other: { label: "Other", color: CHART_COLORS[3] },
+    prefer_not_to_say: { label: "Not Specified", color: CHART_COLORS[4] },
+  };
+
+  const completionChartConfig: ChartConfig = {
+    completionRate: { label: "Completion Rate", color: CHART_COLORS[0] },
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -411,43 +490,294 @@ export default function AdminAnalytics() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
-        {/* Global Summary - KPIs */}
-        <div className="mb-12">
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold flex items-center gap-2" data-testid="text-global-summary">
-              <BarChart3 className="w-5 h-5" />
-              Global Summary
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1">Key metrics at a glance</p>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <KPICard label="Total Teachers" value={totalTeachers} icon={Users} trend={12} color="blue" />
-            <KPICard label="Total Trainers" value={totalTrainers} icon={Users} trend={8} color="purple" />
-            <KPICard label="Active Courses" value={totalCourses} icon={BookOpen} trend={5} color="green" />
-            <KPICard label="Active Batches" value={totalBatches} icon={BarChart3} color="amber" />
-            <KPICard label="Avg Completion Rate" value={avgCompletionRate} icon={TrendingUp} color="teal" />
-            <KPICard label="At-Risk Batches" value={atRiskBatches} icon={AlertCircle} color="red" />
-          </div>
-        </div>
+        {/* Main Tabs */}
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
+            <TabsTrigger value="overview" data-testid="tab-overview">
+              <BarChart3 className="w-4 h-4 mr-2 hidden sm:inline" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="cohorts" data-testid="tab-cohorts">
+              <Users className="w-4 h-4 mr-2 hidden sm:inline" />
+              Cohorts
+            </TabsTrigger>
+            <TabsTrigger value="demographics" data-testid="tab-demographics">
+              <MapPin className="w-4 h-4 mr-2 hidden sm:inline" />
+              Demographics
+            </TabsTrigger>
+            <TabsTrigger value="performance" data-testid="tab-performance">
+              <Activity className="w-4 h-4 mr-2 hidden sm:inline" />
+              Performance
+            </TabsTrigger>
+            <TabsTrigger value="people" data-testid="tab-people">
+              <Users className="w-4 h-4 mr-2 hidden sm:inline" />
+              People
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Main Grid - Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Batches Overview - Takes 2 columns */}
-          <div className="lg:col-span-2">
-            <Card className="h-full">
+          {/* ===== TAB 1: OVERVIEW ===== */}
+          <TabsContent value="overview">
+            {/* Pipeline KPIs */}
+            <div className="mb-8">
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  Pipeline Overview
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">Key metrics at a glance</p>
+              </div>
+
+              {loadingPipeline ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  {[...Array(5)].map((_, i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardContent className="pt-6 h-28" />
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <KPICard
+                    label="Total Candidates"
+                    value={pipelineData?.totalCandidates ?? 0}
+                    icon={Users}
+                    color="blue"
+                    subtitle="Enrolled teachers"
+                  />
+                  <KPICard
+                    label="Gender Split"
+                    value={pipelineData?.genderDistribution
+                      ? `${pipelineData.genderDistribution.find((g: any) => g.gender === "female")?.count || 0}F / ${pipelineData.genderDistribution.find((g: any) => g.gender === "male")?.count || 0}M`
+                      : "N/A"
+                    }
+                    icon={Users}
+                    color="purple"
+                    subtitle="Female / Male"
+                  />
+                  <KPICard
+                    label="Participation Rate"
+                    value={`${pipelineData?.participationRate ?? 0}%`}
+                    icon={TrendingUp}
+                    color="green"
+                    subtitle="Active in last 30 days"
+                  />
+                  <KPICard
+                    label="Graduation Rate"
+                    value={`${pipelineData?.graduationRate ?? 0}%`}
+                    icon={GraduationCap}
+                    color="amber"
+                    subtitle="Completed all courses"
+                  />
+                  <KPICard
+                    label="At Risk"
+                    value={pipelineData?.atRiskCount ?? 0}
+                    icon={AlertCircle}
+                    color="red"
+                    subtitle="Below 30% completion"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Charts Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              {/* Gender Distribution Bar Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Gender Distribution</CardTitle>
+                  <CardDescription>Breakdown of candidates by gender</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingPipeline || !pipelineData?.genderDistribution?.length ? (
+                    <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+                      {loadingPipeline ? "Loading..." : "No demographic data available yet"}
+                    </div>
+                  ) : (
+                    <ChartContainer config={genderChartConfig} className="h-[250px] w-full">
+                      <BarChart data={pipelineData.genderDistribution.map((g: any) => ({
+                        ...g,
+                        gender: g.gender || "Not Specified",
+                        fill: genderChartConfig[g.gender as keyof typeof genderChartConfig]?.color || CHART_COLORS[5],
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="gender" tickFormatter={(val) => {
+                          const labels: Record<string, string> = { male: "Male", female: "Female", other: "Other", prefer_not_to_say: "N/S" };
+                          return labels[val] || val;
+                        }} />
+                        <YAxis allowDecimals={false} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                          {pipelineData.genderDistribution.map((entry: any, index: number) => (
+                            <Cell key={index} fill={genderChartConfig[entry.gender as keyof typeof genderChartConfig]?.color || CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ChartContainer>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Completion Trend Line Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Completion Trends</CardTitle>
+                  <CardDescription>Monthly completion rate over time</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingTrends || !Array.isArray(completionTrends) || !completionTrends.length ? (
+                    <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+                      {loadingTrends ? "Loading..." : "No trend data available yet"}
+                    </div>
+                  ) : (
+                    <ChartContainer config={completionChartConfig} className="h-[250px] w-full">
+                      <LineChart data={completionTrends}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="month" />
+                        <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Line
+                          type="monotone"
+                          dataKey="completionRate"
+                          stroke={CHART_COLORS[0]}
+                          strokeWidth={2}
+                          dot={{ r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ChartContainer>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Courses Overview (from original) */}
+            <Card>
+              <CardHeader className="pb-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <BookOpen className="w-5 h-5" />
+                      Courses Overview
+                    </CardTitle>
+                    <CardDescription className="mt-1">Active courses and completion metrics</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingCourses ? (
+                  <p className="text-muted-foreground">Loading courses...</p>
+                ) : (
+                  <div className="space-y-3">
+                    {Array.isArray(coursesAnalytics) && coursesAnalytics.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {coursesAnalytics.map((course: CourseAnalytics) => (
+                          <div
+                            key={course.id}
+                            className="border rounded-lg p-4 hover-elevate cursor-pointer transition-all"
+                            data-testid={`card-course-${course.id}`}
+                          >
+                            <h3 className="font-semibold text-sm mb-3">{course.name}</h3>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Weeks</p>
+                                <p className="font-bold text-lg">{course.weekCount || 0}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground mb-1">Batches</p>
+                                <p className="font-bold text-lg">{course.batchAssignments || 0}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <BookOpen className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                        <p className="text-muted-foreground font-medium">No courses yet</p>
+                        <p className="text-sm text-muted-foreground mt-1">Courses will appear here once they are created</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ===== TAB 2: COHORTS ===== */}
+          <TabsContent value="cohorts">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Users className="w-5 h-5" />
+                  Cohort Tracking
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">Batch-level enrollment, completion, and graduation metrics</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => setShowCreateBatch(true)} data-testid="button-new-batch">
+                + New Batch
+              </Button>
+            </div>
+
+            {/* Cohort Analytics Table */}
+            <Card className="mb-8">
+              <CardContent className="pt-6">
+                {loadingCohorts ? (
+                  <p className="text-muted-foreground">Loading cohort data...</p>
+                ) : Array.isArray(cohortsData) && cohortsData.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Batch</TableHead>
+                          <TableHead className="text-center">Enrolled</TableHead>
+                          <TableHead className="text-center">Completion %</TableHead>
+                          <TableHead className="text-center">Graduation Rate</TableHead>
+                          <TableHead className="text-center">Avg Quiz Score</TableHead>
+                          <TableHead className="text-center">Status</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {cohortsData.map((cohort: any) => (
+                          <TableRow key={cohort.batchId}>
+                            <TableCell className="font-medium">{cohort.batchName}</TableCell>
+                            <TableCell className="text-center">{cohort.enrollment}</TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex items-center gap-2 justify-center">
+                                <Progress value={cohort.completionPercentage} className="h-2 w-16" />
+                                <span className="text-sm">{cohort.completionPercentage}%</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">{cohort.graduationRate}%</TableCell>
+                            <TableCell className="text-center">{cohort.avgQuizScore}%</TableCell>
+                            <TableCell className="text-center">
+                              <TrafficLightBadge status={cohort.status} />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-muted-foreground font-medium">No cohort data available</p>
+                    <p className="text-sm text-muted-foreground mt-1">Create batches and assign teachers to see cohort analytics</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Batch Management (from original) */}
+            <Card>
               <CardHeader className="pb-4">
                 <div className="flex items-start justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2">
                       <Users className="w-5 h-5" />
-                      Batches Overview
+                      Batch Management
                     </CardTitle>
-                    <CardDescription className="mt-1">Manage and monitor all active batches</CardDescription>
+                    <CardDescription className="mt-1">Create, expand, and manage batches</CardDescription>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => setShowCreateBatch(true)} data-testid="button-new-batch">
-                    + New Batch
-                  </Button>
                 </div>
               </CardHeader>
               <CardContent>
@@ -485,7 +815,6 @@ export default function AdminAnalytics() {
                             </div>
                           </button>
 
-                          {/* Expanded Batch Details */}
                           {expandedBatchId === batch.id && expandedBatchDetails && (
                             <div className="border-t bg-muted/20 p-4 space-y-4" data-testid={`section-batch-activities-${batch.id}`}>
                               <div className="grid grid-cols-2 gap-4">
@@ -499,10 +828,10 @@ export default function AdminAnalytics() {
                                 </div>
                               </div>
                               <div className="flex gap-2">
-                                <Button 
-                                  className="flex-1" 
-                                  variant="outline" 
-                                  size="sm" 
+                                <Button
+                                  className="flex-1"
+                                  variant="outline"
+                                  size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setManagingBatchTeachers(batch.id);
@@ -512,9 +841,9 @@ export default function AdminAnalytics() {
                                   <Users className="w-4 h-4 mr-2" />
                                   Manage Teachers
                                 </Button>
-                                <Button 
-                                  variant="destructive" 
-                                  size="sm" 
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setBatchToDelete(batch.id);
@@ -543,229 +872,466 @@ export default function AdminAnalytics() {
                 )}
               </CardContent>
             </Card>
-          </div>
+          </TabsContent>
 
-          {/* Quick Stats - Right Column */}
-          <div className="space-y-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-sm"
-                  onClick={() => setShowManageTrainers(true)}
-                  data-testid="button-manage-trainers"
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  Manage Trainers
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-sm"
-                  onClick={() => setShowManageTeachers(true)}
-                  data-testid="button-manage-teachers"
-                >
-                  <Users className="w-4 h-4 mr-2" />
-                  Manage Teachers
-                </Button>
-                <Button variant="outline" className="w-full justify-start text-sm" data-testid="button-view-reports">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  View Reports
-                </Button>
-              </CardContent>
-            </Card>
+          {/* ===== TAB 3: DEMOGRAPHICS ===== */}
+          <TabsContent value="demographics">
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <MapPin className="w-5 h-5" />
+                Demographics & Diversity
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">Candidate demographics and diversity breakdown</p>
+            </div>
 
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">System Status</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-muted-foreground">All Systems</p>
-                  <CheckCircle className="w-4 h-4 text-green-600" />
-                </div>
-                <Progress value={100} className="h-2" />
-                <p className="text-xs text-muted-foreground">Operational</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Courses Overview */}
-        <div className="mb-8">
-          <Card>
-            <CardHeader className="pb-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="w-5 h-5" />
-                    Courses Overview
-                  </CardTitle>
-                  <CardDescription className="mt-1">Active courses and completion metrics</CardDescription>
-                </div>
-                <Button size="sm" variant="outline" data-testid="button-new-course">
-                  + New Course
-                </Button>
+            {loadingDemographics ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[...Array(4)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="pt-6 h-72" />
+                  </Card>
+                ))}
               </div>
-            </CardHeader>
-            <CardContent>
-              {loadingCourses ? (
-                <p className="text-muted-foreground">Loading courses...</p>
-              ) : (
-                <div className="space-y-3">
-                  {Array.isArray(coursesAnalytics) && coursesAnalytics.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {coursesAnalytics.map((course: CourseAnalytics) => (
-                        <div
-                          key={course.id}
-                          className="border rounded-lg p-4 hover-elevate cursor-pointer transition-all"
-                          data-testid={`card-course-${course.id}`}
-                        >
-                          <div className="flex justify-between items-start mb-3">
-                            <h3 className="font-semibold text-sm">{course.name}</h3>
-                            <Button size="icon" variant="ghost" className="h-8 w-8" data-testid={`button-course-menu-${course.id}`}>
-                              <BarChart3 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                              <p className="text-xs text-muted-foreground mb-1">Weeks</p>
-                              <p className="font-bold text-lg">{course.weekCount || 0}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground mb-1">Batches</p>
-                              <p className="font-bold text-lg">{course.batchAssignments || 0}</p>
-                            </div>
-                          </div>
-                          <Button className="w-full mt-3" size="sm" variant="outline" data-testid={`button-open-course-${course.id}`}>
-                            Open Course Analytics
+            ) : !demographicsData ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <MapPin className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-muted-foreground font-medium">No demographic data available</p>
+                  <p className="text-sm text-muted-foreground mt-1">Demographics will appear as teachers fill in their profile information</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Gender Pie Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Gender Distribution</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {demographicsData.gender?.length > 0 ? (
+                      <ChartContainer config={genderChartConfig} className="h-[250px] w-full">
+                        <PieChart>
+                          <Pie
+                            data={demographicsData.gender.map((g: any) => ({
+                              ...g,
+                              name: g.gender || "Not Specified",
+                            }))}
+                            dataKey="count"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={80}
+                            label={({ name, count }: any) => `${name}: ${count}`}
+                          >
+                            {demographicsData.gender.map((_: any, index: number) => (
+                              <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                        </PieChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Geographic Bar Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Geographic Distribution</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {demographicsData.geographic?.length > 0 ? (
+                      <ChartContainer config={{ count: { label: "Candidates", color: CHART_COLORS[1] } }} className="h-[250px] w-full">
+                        <BarChart data={demographicsData.geographic} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis type="number" allowDecimals={false} />
+                          <YAxis dataKey="location" type="category" width={100} tick={{ fontSize: 12 }} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="count" fill={CHART_COLORS[1]} radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No location data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Qualification Pie Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Qualification Levels</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {demographicsData.qualification?.length > 0 ? (
+                      <ChartContainer config={{ count: { label: "Candidates", color: CHART_COLORS[2] } }} className="h-[250px] w-full">
+                        <PieChart>
+                          <Pie
+                            data={demographicsData.qualification.map((q: any) => ({
+                              ...q,
+                              name: q.qualification || "Not Specified",
+                            }))}
+                            dataKey="count"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={80}
+                            label={({ name, count }: any) => `${name}: ${count}`}
+                          >
+                            {demographicsData.qualification.map((_: any, index: number) => (
+                              <Cell key={index} fill={CHART_COLORS[(index + 2) % CHART_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                        </PieChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No qualification data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Employment Bar Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Employment Status</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {demographicsData.employment?.length > 0 ? (
+                      <ChartContainer config={{ count: { label: "Candidates", color: CHART_COLORS[3] } }} className="h-[250px] w-full">
+                        <BarChart data={demographicsData.employment.map((e: any) => ({
+                          ...e,
+                          status: e.employmentStatus || "Not Specified",
+                        }))}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="status" tick={{ fontSize: 11 }} />
+                          <YAxis allowDecimals={false} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="count" fill={CHART_COLORS[3]} radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No employment data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Experience Breakdown */}
+                {demographicsData.experience?.length > 0 && (
+                  <Card className="md:col-span-2">
+                    <CardHeader>
+                      <CardTitle className="text-base">Years of Experience</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ChartContainer config={{ count: { label: "Candidates", color: CHART_COLORS[5] } }} className="h-[250px] w-full">
+                        <BarChart data={demographicsData.experience}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="range" />
+                          <YAxis allowDecimals={false} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="count" fill={CHART_COLORS[5]} radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ChartContainer>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ===== TAB 4: PERFORMANCE ===== */}
+          <TabsContent value="performance">
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                Performance Analytics
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">Completion trends, at-risk identification, and batch comparison</p>
+            </div>
+
+            {loadingPerformance ? (
+              <div className="space-y-6">
+                {[...Array(3)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="pt-6 h-48" />
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Completion Rate Trends */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Completion Rate Trends</CardTitle>
+                    <CardDescription>Monthly completion rates across all batches</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {performanceData?.completionTrends?.length > 0 ? (
+                      <ChartContainer config={completionChartConfig} className="h-[300px] w-full">
+                        <LineChart data={performanceData.completionTrends}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" />
+                          <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Line
+                            type="monotone"
+                            dataKey="completionRate"
+                            stroke={CHART_COLORS[0]}
+                            strokeWidth={2}
+                            dot={{ r: 4 }}
+                            activeDot={{ r: 6 }}
+                          />
+                        </LineChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No completion trend data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* At-Risk Fellows */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                      At-Risk Fellows
+                    </CardTitle>
+                    <CardDescription>Candidates with less than 30% completion rate</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {performanceData?.atRiskFellows?.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Batch</TableHead>
+                              <TableHead className="text-center">Completion</TableHead>
+                              <TableHead className="text-center">Last Active</TableHead>
+                              <TableHead className="text-center">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {performanceData.atRiskFellows.map((fellow: any) => (
+                              <TableRow key={fellow.teacherId}>
+                                <TableCell className="font-medium">{fellow.name || fellow.email}</TableCell>
+                                <TableCell>{fellow.batchName || "Unassigned"}</TableCell>
+                                <TableCell className="text-center">
+                                  <div className="flex items-center gap-2 justify-center">
+                                    <Progress value={fellow.completionPercentage} className="h-2 w-16" />
+                                    <span className="text-sm">{fellow.completionPercentage}%</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center text-sm text-muted-foreground">
+                                  {fellow.lastActive ? new Date(fellow.lastActive).toLocaleDateString() : "Never"}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <Badge variant={fellow.status === "inactive" ? "destructive" : "secondary"} className="text-xs">
+                                    {fellow.status}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <CheckCircle className="w-12 h-12 text-green-500/30 mx-auto mb-3" />
+                        <p className="text-muted-foreground font-medium">No at-risk fellows</p>
+                        <p className="text-sm text-muted-foreground mt-1">All candidates are making good progress</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Batch Comparison */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Batch Comparison</CardTitle>
+                    <CardDescription>Average completion rates across batches</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {performanceData?.batchComparison?.length > 0 ? (
+                      <ChartContainer config={{ avgCompletion: { label: "Avg Completion %", color: CHART_COLORS[2] } }} className="h-[300px] w-full">
+                        <BarChart data={performanceData.batchComparison}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="batchName" tick={{ fontSize: 11 }} />
+                          <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="avgCompletion" radius={[4, 4, 0, 0]}>
+                            {performanceData.batchComparison.map((entry: any, index: number) => {
+                              let color = CHART_COLORS[2]; // green
+                              if (entry.avgCompletion < 30) color = CHART_COLORS[4]; // red
+                              else if (entry.avgCompletion < 60) color = CHART_COLORS[3]; // amber
+                              return <Cell key={index} fill={color} />;
+                            })}
+                          </Bar>
+                        </BarChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No batch comparison data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ===== TAB 5: PEOPLE ===== */}
+          <TabsContent value="people">
+            <Card>
+              <CardHeader className="pb-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="w-5 h-5" />
+                      People Overview
+                    </CardTitle>
+                    <CardDescription className="mt-1">Trainers and teachers with activity metrics</CardDescription>
+                  </div>
+                  <Button size="sm" onClick={() => setShowAddUser(true)} data-testid="button-add-user">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Add User
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {loadingUsers ? (
+                  <p className="text-muted-foreground">Loading people...</p>
+                ) : (
+                  <Tabs defaultValue="trainers" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="trainers" data-testid="tab-trainers">
+                        Trainers ({totalTrainers})
+                      </TabsTrigger>
+                      <TabsTrigger value="teachers" data-testid="tab-teachers">
+                        Teachers ({totalTeachers})
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="trainers" className="space-y-3 mt-4">
+                      {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "trainer").length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {allUsers
+                            .filter((u: any) => u.role === "trainer")
+                            .map((trainer: UserWithStats) => (
+                              <button
+                                key={trainer.id}
+                                onClick={() => setSelectedUser(trainer)}
+                                className="p-4 border rounded-lg hover-elevate text-left transition-all"
+                                data-testid={`button-trainer-${trainer.id}`}
+                              >
+                                <div className="flex items-start justify-between mb-2">
+                                  <div>
+                                    <p className="font-semibold text-sm">{trainer.email}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Trainer</p>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs">{trainer.batchCount || 0} batches</Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground">{trainer.courseCount || 0} courses assigned</p>
+                              </button>
+                            ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                          <p className="text-muted-foreground font-medium">No trainers</p>
+                          <p className="text-sm text-muted-foreground mt-1">Invite trainers to create and manage courses</p>
+                          <Button size="sm" className="mt-4" data-testid="button-invite-trainer">
+                            Invite Trainer
                           </Button>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <BookOpen className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                      <p className="text-muted-foreground font-medium">No courses yet</p>
-                      <p className="text-sm text-muted-foreground mt-1">Courses will appear here once they are created</p>
-                      <Button size="sm" className="mt-4" data-testid="button-create-first-course">
-                        Create First Course
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                      )}
+                    </TabsContent>
 
-        {/* People Overview */}
-        <Card>
-          <CardHeader className="pb-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  People Overview
-                </CardTitle>
-                <CardDescription className="mt-1">Trainers and teachers with activity metrics</CardDescription>
-              </div>
-              <Button size="sm" onClick={() => setShowAddUser(true)} data-testid="button-add-user">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add User
-              </Button>
+                    <TabsContent value="teachers" className="space-y-3 mt-4">
+                      {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "teacher").length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {allUsers
+                            .filter((u: any) => u.role === "teacher")
+                            .map((teacher: UserWithStats) => (
+                              <button
+                                key={teacher.id}
+                                onClick={() => setSelectedUser(teacher)}
+                                className="p-4 border rounded-lg hover-elevate text-left transition-all"
+                                data-testid={`button-teacher-${teacher.id}`}
+                              >
+                                <div className="flex items-start justify-between mb-2">
+                                  <div>
+                                    <p className="font-semibold text-sm">{teacher.email}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">Teacher</p>
+                                  </div>
+                                  <Badge variant="outline" className="text-xs">{teacher.courseCount || 0} courses</Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground">ID: {teacher.id.slice(0, 8)}...</p>
+                              </button>
+                            ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                          <p className="text-muted-foreground font-medium">No teachers</p>
+                          <p className="text-sm text-muted-foreground mt-1">Teachers will appear here once they are approved</p>
+                          <Button size="sm" className="mt-4" data-testid="button-invite-teacher">
+                            Invite Teacher
+                          </Button>
+                        </div>
+                      )}
+                    </TabsContent>
+                  </Tabs>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Quick Actions</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-sm"
+                    onClick={() => setShowManageTrainers(true)}
+                    data-testid="button-manage-trainers"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Manage Trainers
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-sm"
+                    onClick={() => setShowManageTeachers(true)}
+                    data-testid="button-manage-teachers"
+                  >
+                    <Users className="w-4 h-4 mr-2" />
+                    Manage Teachers
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">System Status</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">All Systems</p>
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <Progress value={100} className="h-2" />
+                  <p className="text-xs text-muted-foreground">Operational</p>
+                </CardContent>
+              </Card>
             </div>
-          </CardHeader>
-          <CardContent>
-            {loadingUsers ? (
-              <p className="text-muted-foreground">Loading people...</p>
-            ) : (
-              <Tabs defaultValue="trainers" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="trainers" data-testid="tab-trainers">
-                    Trainers ({totalTrainers})
-                  </TabsTrigger>
-                  <TabsTrigger value="teachers" data-testid="tab-teachers">
-                    Teachers ({totalTeachers})
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="trainers" className="space-y-3 mt-4">
-                  {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "trainer").length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {allUsers
-                        .filter((u: any) => u.role === "trainer")
-                        .map((trainer: UserWithStats) => (
-                          <button
-                            key={trainer.id}
-                            onClick={() => setSelectedUser(trainer)}
-                            className="p-4 border rounded-lg hover-elevate text-left transition-all"
-                            data-testid={`button-trainer-${trainer.id}`}
-                          >
-                            <div className="flex items-start justify-between mb-2">
-                              <div>
-                                <p className="font-semibold text-sm">{trainer.email}</p>
-                                <p className="text-xs text-muted-foreground mt-1">Trainer</p>
-                              </div>
-                              <Badge variant="outline" className="text-xs">{trainer.batchCount || 0} batches</Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground">{trainer.courseCount || 0} courses assigned</p>
-                          </button>
-                        ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                      <p className="text-muted-foreground font-medium">No trainers</p>
-                      <p className="text-sm text-muted-foreground mt-1">Invite trainers to create and manage courses</p>
-                      <Button size="sm" className="mt-4" data-testid="button-invite-trainer">
-                        Invite Trainer
-                      </Button>
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="teachers" className="space-y-3 mt-4">
-                  {Array.isArray(allUsers) && allUsers.filter((u: any) => u.role === "teacher").length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {allUsers
-                        .filter((u: any) => u.role === "teacher")
-                        .map((teacher: UserWithStats) => (
-                          <button
-                            key={teacher.id}
-                            onClick={() => setSelectedUser(teacher)}
-                            className="p-4 border rounded-lg hover-elevate text-left transition-all"
-                            data-testid={`button-teacher-${teacher.id}`}
-                          >
-                            <div className="flex items-start justify-between mb-2">
-                              <div>
-                                <p className="font-semibold text-sm">{teacher.email}</p>
-                                <p className="text-xs text-muted-foreground mt-1">Teacher</p>
-                              </div>
-                              <Badge variant="outline" className="text-xs">{teacher.courseCount || 0} courses</Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground">ID: {teacher.id.slice(0, 8)}...</p>
-                          </button>
-                        ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                      <p className="text-muted-foreground font-medium">No teachers</p>
-                      <p className="text-sm text-muted-foreground mt-1">Teachers will appear here once they are approved</p>
-                      <Button size="sm" className="mt-4" data-testid="button-invite-teacher">
-                        Invite Teacher
-                      </Button>
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
-            )}
-          </CardContent>
-        </Card>
+          </TabsContent>
+        </Tabs>
       </div>
+
+      {/* ===== ALL MODALS (preserved exactly) ===== */}
 
       {/* User Profile Modal */}
       <Dialog open={selectedUser !== null} onOpenChange={(open) => !open && setSelectedUser(null)}>
@@ -1125,7 +1691,7 @@ export default function AdminAnalytics() {
             <DialogTitle>Manage Batch Teachers</DialogTitle>
             <DialogDescription>Add or remove teachers from this batch</DialogDescription>
           </DialogHeader>
-          
+
           {/* Add Teacher Section */}
           <div className="space-y-4 py-4">
             <div className="flex gap-2">
@@ -1196,10 +1762,10 @@ export default function AdminAnalytics() {
               </div>
             </div>
           </div>
-          
+
           <div className="flex justify-end">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setManagingBatchTeachers(null)}
               data-testid="button-close-manage-teachers"
             >
@@ -1239,14 +1805,14 @@ export default function AdminAnalytics() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              className="flex-1" 
+            <Button
+              variant="outline"
+              className="flex-1"
               onClick={() => {
                 setShowCreateBatch(false);
                 setNewBatchName("");
                 setNewBatchDescription("");
-              }} 
+              }}
               data-testid="button-cancel-create-batch"
             >
               Cancel
@@ -1255,10 +1821,10 @@ export default function AdminAnalytics() {
               className="flex-1"
               onClick={() => {
                 if (!newBatchName.trim()) {
-                  toast({ 
-                    title: "Error", 
-                    description: "Please enter a batch name.", 
-                    variant: "destructive" 
+                  toast({
+                    title: "Error",
+                    description: "Please enter a batch name.",
+                    variant: "destructive"
                   });
                   return;
                 }
@@ -1286,13 +1852,13 @@ export default function AdminAnalytics() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 pt-4">
-            <Button 
-              variant="outline" 
-              className="flex-1" 
+            <Button
+              variant="outline"
+              className="flex-1"
               onClick={() => {
                 setShowDeleteBatchConfirm(false);
                 setBatchToDelete(null);
-              }} 
+              }}
               data-testid="button-cancel-delete-batch"
             >
               Cancel
@@ -1369,16 +1935,16 @@ export default function AdminAnalytics() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              className="flex-1" 
+            <Button
+              variant="outline"
+              className="flex-1"
               onClick={() => {
                 setShowAddUser(false);
                 setNewUserEmail("");
                 setNewUserPassword("");
                 setNewUserName("");
                 setNewUserRole("teacher");
-              }} 
+              }}
               data-testid="button-cancel-add-user"
             >
               Cancel
@@ -1387,18 +1953,18 @@ export default function AdminAnalytics() {
               className="flex-1"
               onClick={() => {
                 if (!newUserEmail || !newUserPassword || !newUserName) {
-                  toast({ 
-                    title: "Error", 
-                    description: "Please fill in all fields.", 
-                    variant: "destructive" 
+                  toast({
+                    title: "Error",
+                    description: "Please fill in all fields.",
+                    variant: "destructive"
                   });
                   return;
                 }
                 if (newUserPassword.length < 6) {
-                  toast({ 
-                    title: "Error", 
-                    description: "Password must be at least 6 characters.", 
-                    variant: "destructive" 
+                  toast({
+                    title: "Error",
+                    description: "Password must be at least 6 characters.",
+                    variant: "destructive"
                   });
                   return;
                 }

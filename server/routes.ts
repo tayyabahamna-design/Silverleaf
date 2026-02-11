@@ -3423,6 +3423,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== Enhanced Analytics Endpoints ==========
+
+  app.get("/api/admin/analytics/pipeline", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const data = await storage.getPipelineOverview();
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting pipeline overview:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/admin/analytics/demographics", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const data = await storage.getDemographicsAnalytics();
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting demographics analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/admin/analytics/cohorts", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const data = await storage.getCohortAnalytics();
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting cohort analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/admin/analytics/performance", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const data = await storage.getPerformanceAnalytics();
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting performance analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.get("/api/admin/analytics/completion-trends", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const data = await storage.getCompletionTrends();
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting completion trends:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get all users for admin people overview
   app.get("/api/admin/users/all", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {
