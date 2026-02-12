@@ -547,7 +547,7 @@ export default function AdminAnalytics() {
                   <KPICard
                     label="Gender Split"
                     value={pipelineData?.genderDistribution
-                      ? `${pipelineData.genderDistribution.find((g: any) => g.gender === "female")?.count || 0}F / ${pipelineData.genderDistribution.find((g: any) => g.gender === "male")?.count || 0}M`
+                      ? `${pipelineData.genderDistribution.female || 0}F / ${pipelineData.genderDistribution.male || 0}M`
                       : "N/A"
                     }
                     icon={Users}
@@ -588,32 +588,40 @@ export default function AdminAnalytics() {
                   <CardDescription>Breakdown of candidates by gender</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {loadingPipeline || !pipelineData?.genderDistribution?.length ? (
+                  {loadingPipeline || !pipelineData?.genderDistribution ? (
                     <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
                       {loadingPipeline ? "Loading..." : "No demographic data available yet"}
                     </div>
-                  ) : (
-                    <ChartContainer config={genderChartConfig} className="h-[250px] w-full">
-                      <BarChart data={pipelineData.genderDistribution.map((g: any) => ({
-                        ...g,
-                        gender: g.gender || "Not Specified",
-                        fill: genderChartConfig[g.gender as keyof typeof genderChartConfig]?.color || CHART_COLORS[5],
-                      }))}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="gender" tickFormatter={(val) => {
-                          const labels: Record<string, string> = { male: "Male", female: "Female", other: "Other", prefer_not_to_say: "N/S" };
-                          return labels[val] || val;
-                        }} />
-                        <YAxis allowDecimals={false} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                          {pipelineData.genderDistribution.map((entry: any, index: number) => (
-                            <Cell key={index} fill={genderChartConfig[entry.gender as keyof typeof genderChartConfig]?.color || CHART_COLORS[index % CHART_COLORS.length]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ChartContainer>
-                  )}
+                  ) : (() => {
+                    const genderArray = Object.entries(pipelineData.genderDistribution)
+                      .filter(([key]) => key !== "notSpecified")
+                      .map(([gender, count]) => ({ gender, count: Number(count) }));
+                    return genderArray.length === 0 || genderArray.every(g => g.count === 0) ? (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+                        No demographic data available yet
+                      </div>
+                    ) : (
+                      <ChartContainer config={genderChartConfig} className="h-[250px] w-full">
+                        <BarChart data={genderArray.map((g) => ({
+                          ...g,
+                          fill: genderChartConfig[g.gender as keyof typeof genderChartConfig]?.color || CHART_COLORS[5],
+                        }))}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="gender" tickFormatter={(val) => {
+                            const labels: Record<string, string> = { male: "Male", female: "Female", other: "Other" };
+                            return labels[val] || val;
+                          }} />
+                          <YAxis allowDecimals={false} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                            {genderArray.map((entry, index) => (
+                              <Cell key={index} fill={genderChartConfig[entry.gender as keyof typeof genderChartConfig]?.color || CHART_COLORS[index % CHART_COLORS.length]} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ChartContainer>
+                    );
+                  })()}
                 </CardContent>
               </Card>
 
