@@ -25,7 +25,6 @@ export default function TrainerBatches() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user, logoutMutation } = useAuth();
-  const [createBatchOpen, setCreateBatchOpen] = useState(false);
   const [addTeacherOpen, setAddTeacherOpen] = useState(false);
   const [assignCheckpointQuizOpen, setAssignCheckpointQuizOpen] = useState(false);
   const [assignFileQuizOpen, setAssignFileQuizOpen] = useState(false);
@@ -38,8 +37,6 @@ export default function TrainerBatches() {
   const [selectedAttempt, setSelectedAttempt] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("teachers");
 
-  const [batchName, setBatchName] = useState("");
-  const [batchDescription, setBatchDescription] = useState("");
   const [teacherId, setTeacherId] = useState("");
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
@@ -100,28 +97,6 @@ export default function TrainerBatches() {
   const { data: template } = useQuery<any>({
     queryKey: [`/api/batches/${selectedBatch?.id}/certificate-template`],
     enabled: !!selectedBatch?.id && activeTab === "certificates",
-  });
-
-  const createBatchMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string }) => {
-      const response = await apiRequest("POST", "/api/batches", data);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
-      toast({ title: "Success", description: "Batch created successfully" });
-      posthog.capture("batch_created", { batchName, batchId: data?.id });
-      setCreateBatchOpen(false);
-      setBatchName("");
-      setBatchDescription("");
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
   });
 
   const addTeacherMutation = useMutation({
@@ -299,10 +274,6 @@ export default function TrainerBatches() {
     },
   });
 
-  const handleCreateBatch = () => {
-    createBatchMutation.mutate({ name: batchName, description: batchDescription });
-  };
-
   const handleAddTeacher = () => {
     if (selectedBatch && teacherId) {
       addTeacherMutation.mutate({
@@ -420,51 +391,8 @@ export default function TrainerBatches() {
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-3xl font-bold">Training Batches</h2>
-              <p className="text-muted-foreground mt-1">Create and manage training batches, assign quizzes, and track progress</p>
+              <p className="text-muted-foreground mt-1">Manage your assigned batches, quizzes, and track progress</p>
             </div>
-            <Dialog open={createBatchOpen} onOpenChange={setCreateBatchOpen}>
-              <DialogTrigger asChild>
-                <Button data-testid="button-create-batch">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Batch
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Create New Batch</DialogTitle>
-                  <DialogDescription>Create a new training batch to organize teachers</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="batch-name">Batch Name</Label>
-                    <Input
-                      id="batch-name"
-                      data-testid="input-batch-name"
-                      placeholder="e.g., Fall 2024 - Cohort A"
-                      value={batchName}
-                      onChange={(e) => setBatchName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="batch-description">Description (Optional)</Label>
-                    <Textarea
-                      id="batch-description"
-                      data-testid="input-batch-description"
-                      placeholder="Batch description..."
-                      value={batchDescription}
-                      onChange={(e) => setBatchDescription(e.target.value)}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleCreateBatch}
-                    disabled={!batchName || createBatchMutation.isPending}
-                    data-testid="button-submit-batch"
-                  >
-                    {createBatchMutation.isPending ? "Creating..." : "Create Batch"}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
         </div>
 
@@ -481,7 +409,7 @@ export default function TrainerBatches() {
                 {batches.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground text-sm">
                     <Users className="mx-auto h-8 w-8 mb-2 opacity-50" />
-                    No batches yet
+                    No batches assigned to you yet
                   </div>
                 ) : (
                   batches.map((batch: any) => (

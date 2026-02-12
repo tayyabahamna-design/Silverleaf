@@ -49,10 +49,11 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
   - **Admins**: Full CRUD capabilities for training content and user management. After login, directed to home page with editable week management.
   - **Trainers**: Can create batches, assign teachers to batches, assign quizzes, and track teacher progress. After login, directed to home page showing training weeks overview. Can navigate to batch management via "Manage Batches" button in header.
   - **Teachers**: Can view assigned quizzes, take assessments, and track their own progress. After login, directed to teacher dashboard with quiz assignments and progress tracking.
-- **Batch Management (Trainer Feature)**: 
-  - Create and manage teacher batches for organized group training
-  - Add/remove teachers from batches using their numeric Teacher ID
-  - Assign AI-generated quizzes to entire batches
+- **Batch Management**: 
+  - **Admin Workflow**: Admin creates batches, assigns a trainer and a course to each batch from the Cohorts tab in the admin dashboard
+  - **Trainer Scope**: Trainers can only see and manage batches assigned to them (filtered by trainerId)
+  - Trainers can add/remove teachers from their assigned batches using numeric Teacher ID
+  - Trainers can assign AI-generated quizzes to their batches
   - View detailed progress reports for all teachers in a batch
   - Track quiz completion rates, average scores, and skill levels
 - **Teacher Dashboard**:

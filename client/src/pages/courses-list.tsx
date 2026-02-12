@@ -35,9 +35,6 @@ export default function CoursesList() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newCourseName, setNewCourseName] = useState("");
   const [newCourseDescription, setNewCourseDescription] = useState("");
-  const [assignOpen, setAssignOpen] = useState(false);
-  const [assigningCourseId, setAssigningCourseId] = useState<string | null>(null);
-  const [selectedBatchId, setSelectedBatchId] = useState<string>("");
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [resetUserIdentifier, setResetUserIdentifier] = useState("");
   const [resetNewPassword, setResetNewPassword] = useState("");
@@ -49,12 +46,6 @@ export default function CoursesList() {
   const { data: courses = [], isLoading } = useQuery<CourseWithAssignment[]>({
     queryKey: user?.role === 'teacher' ? ["/api/teacher", user?.id, "courses"] : ["/api/courses"],
     refetchOnWindowFocus: false,
-  });
-
-  // Fetch batches for trainers
-  const { data: batches = [] } = useQuery<Batch[]>({
-    queryKey: ["/api/batches"],
-    enabled: isTrainer,
   });
 
   // Fetch assigned batches for each course (trainer/admin only)
@@ -128,35 +119,6 @@ export default function CoursesList() {
       }
       setDeleteId(null);
       toast({ title: "Course deleted" });
-    },
-  });
-
-  // Assign course mutation (trainer)
-  const assignMutation = useMutation({
-    mutationFn: async ({ courseId, targetId, targetType }: { courseId: string; targetId: string; targetType: 'batch' | 'teacher' }) => {
-      return apiRequest("POST", `/api/courses/${courseId}/assign`, { targetId, targetType });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
-      // Invalidate all course assignment queries
-      queryClient.invalidateQueries({ 
-        predicate: (query) => JSON.stringify(query.queryKey).includes("/api/courses") && JSON.stringify(query.queryKey).includes("assignments")
-      });
-      if (user?.role === 'teacher') {
-        queryClient.invalidateQueries({ queryKey: ["/api/teacher", user?.id, "courses"] });
-      }
-      setAssignOpen(false);
-      setAssigningCourseId(null);
-      setSelectedBatchId("");
-      toast({ title: "Course assigned successfully" });
-    },
-    onError: (error: any) => {
-      toast({
-        variant: "destructive",
-        title: "Failed to assign course",
-        description: error.message || "An error occurred",
-      });
     },
   });
 
@@ -554,107 +516,6 @@ export default function CoursesList() {
                           </>
                         )}
 
-                        {isTrainer && (
-                          <Dialog open={assignOpen && assigningCourseId === course.id} onOpenChange={(open) => {
-                            if (!open) {
-                              setAssignOpen(false);
-                              setAssigningCourseId(null);
-                            }
-                          }}>
-                            <DialogTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setAssigningCourseId(course.id);
-                                  setAssignOpen(true);
-                                }}
-                                data-testid={`button-assign-course-${course.id}`}
-                              >
-                                Assign
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Assign Course</DialogTitle>
-                                <DialogDescription>
-                                  Assign "{course.name}" to a batch
-                                </DialogDescription>
-                              </DialogHeader>
-                              <div className="space-y-4 py-4">
-                                {/* Show already assigned batches */}
-                                {courseAssignments[course.id] && courseAssignments[course.id].length > 0 && (
-                                  <div className="p-3 bg-muted/50 rounded-lg border">
-                                    <p className="text-xs font-semibold text-muted-foreground mb-2">Already Assigned To:</p>
-                                    <div className="space-y-1">
-                                      {courseAssignments[course.id].map((batch) => (
-                                        <div key={batch.id} className="text-sm flex items-center gap-2">
-                                          <CheckCircle className="h-3 w-3 text-green-600" />
-                                          {batch.name}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                <div className="space-y-2">
-                                  <Label htmlFor="batch-select">
-                                    {courseAssignments[course.id]?.length > 0 ? "Assign to Another Batch" : "Select Batch"}
-                                  </Label>
-                                  <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
-                                    <SelectTrigger id="batch-select" data-testid="select-batch">
-                                      <SelectValue placeholder="Choose a batch..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {batches.length === 0 ? (
-                                        <div className="p-2 text-sm text-muted-foreground text-center">
-                                          No batches available. Create a batch first.
-                                        </div>
-                                      ) : (
-                                        batches.map((batch) => {
-                                          const isAlreadyAssigned = courseAssignments[course.id]?.some((b) => b.id === batch.id);
-                                          return (
-                                            <SelectItem key={batch.id} value={batch.id} disabled={isAlreadyAssigned}>
-                                              {batch.name}
-                                              {isAlreadyAssigned && " (Already assigned)"}
-                                            </SelectItem>
-                                          );
-                                        })
-                                      )}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </div>
-                              <DialogFooter>
-                                <Button
-                                  variant="outline"
-                                  onClick={() => {
-                                    setAssignOpen(false);
-                                    setAssigningCourseId(null);
-                                    setSelectedBatchId("");
-                                  }}
-                                >
-                                  Cancel
-                                </Button>
-                                <Button
-                                  onClick={() => {
-                                    if (assigningCourseId && selectedBatchId) {
-                                      assignMutation.mutate({
-                                        courseId: assigningCourseId,
-                                        targetId: selectedBatchId,
-                                        targetType: "batch",
-                                      });
-                                    }
-                                  }}
-                                  disabled={!selectedBatchId || assignMutation.isPending}
-                                  data-testid="button-assign-course-submit"
-                                >
-                                  Assign Course
-                                </Button>
-                              </DialogFooter>
-                            </DialogContent>
-                          </Dialog>
-                        )}
                       </>
                     )}
                   </div>

@@ -156,7 +156,7 @@ export interface IStorage {
   getApprovalHistory(limit?: number): Promise<ApprovalHistory[]>;
   
   // Batch operations
-  getAllBatches(createdBy?: string): Promise<Batch[]>;
+  getAllBatches(trainerId?: string): Promise<Batch[]>;
   getBatch(id: string): Promise<Batch | undefined>;
   createBatch(batch: InsertBatch): Promise<Batch>;
   deleteBatch(id: string): Promise<boolean>;
@@ -977,7 +977,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Batch operations
-  async getAllBatches(createdBy?: string): Promise<any[]> {
+  async getAllBatches(trainerId?: string): Promise<any[]> {
     const query = db
       .select({
         id: batches.id,
@@ -992,8 +992,8 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(batchTeachers, eq(batches.id, batchTeachers.batchId))
       .groupBy(batches.id);
     
-    if (createdBy) {
-      return await query.where(eq(batches.createdBy, createdBy));
+    if (trainerId) {
+      return await query.where(eq(batches.trainerId, trainerId));
     }
     return await query;
   }

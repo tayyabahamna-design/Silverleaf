@@ -1815,8 +1815,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Create a new batch
-  app.post("/api/batches", isAuthenticated, isTrainer, async (req, res) => {
+  // Create a new batch (admin only)
+  app.post("/api/batches", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const batch = await storage.createBatch({
         name: req.body.name,
@@ -3144,7 +3144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== BATCH-COURSE ASSIGNMENTS (TRAINER) ====================
   // Assign courses to batch (trainer)
-  app.post("/api/batches/:batchId/courses", isAuthenticated, isTrainer, async (req, res) => {
+  app.post("/api/batches/:batchId/courses", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const { courseId } = req.body;
       const batch = await storage.getBatch(req.params.batchId);
@@ -3179,7 +3179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Remove course from batch (trainer)
-  app.delete("/api/batches/:batchId/courses/:courseId", isAuthenticated, isTrainer, async (req, res) => {
+  app.delete("/api/batches/:batchId/courses/:courseId", isAuthenticated, isAdmin, async (req, res) => {
     try {
       const success = await storage.removeCoursesFromBatch(req.params.batchId, req.params.courseId);
       if (!success) return res.status(404).json({ error: "Assignment not found" });

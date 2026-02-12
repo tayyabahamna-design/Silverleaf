@@ -155,6 +155,7 @@ export default function AdminAnalytics() {
   const [appreciationText, setAppreciationText] = useState("");
   const [adminName1, setAdminName1] = useState("");
   const [adminName2, setAdminName2] = useState("");
+  const [selectedCourseForBatch, setSelectedCourseForBatch] = useState("");
 
   // Existing data queries
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
@@ -253,6 +254,16 @@ export default function AdminAnalytics() {
     enabled: isAdmin,
   });
 
+  const { data: allCourses = [] } = useQuery<any[]>({
+    queryKey: ["/api/courses"],
+    enabled: isAdmin,
+  });
+
+  const { data: batchCourses = [] } = useQuery<any[]>({
+    queryKey: ["/api/batches", expandedBatchId, "courses"],
+    enabled: isAdmin && !!expandedBatchId,
+  });
+
   // Assign trainer to batch mutation
   const assignTrainerMutation = useMutation({
     mutationFn: async ({ batchId, trainerId }: { batchId: string; trainerId: string | null }) => {
@@ -266,6 +277,35 @@ export default function AdminAnalytics() {
     },
     onError: () => {
       toast({ title: "Failed to assign trainer", variant: "destructive" });
+    },
+  });
+
+  const assignCourseToBatchMutation = useMutation({
+    mutationFn: async ({ batchId, courseId }: { batchId: string; courseId: string }) => {
+      return apiRequest("POST", `/api/batches/${batchId}/courses`, { courseId });
+    },
+    onSuccess: () => {
+      toast({ title: "Course assigned successfully" });
+      setSelectedCourseForBatch("");
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", expandedBatchId, "courses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/batches"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to assign course", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const removeCourseFromBatchMutation = useMutation({
+    mutationFn: async ({ batchId, courseId }: { batchId: string; courseId: string }) => {
+      return apiRequest("DELETE", `/api/batches/${batchId}/courses/${courseId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Course removed from batch" });
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", expandedBatchId, "courses"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/batches"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to remove course", description: error.message, variant: "destructive" });
     },
   });
 
@@ -1006,6 +1046,55 @@ export default function AdminAnalytics() {
                             data-testid={`button-assign-trainer-${expandedBatchId}`}
                           >
                             {assignTrainerMutation.isPending ? "Saving..." : "Save"}
+                          </Button>
+                        </div>
+                        {/* Course Assignment */}
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          {batchCourses.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mr-1">
+                              {batchCourses.map((bc: any) => (
+                                <Badge key={bc.id} variant="secondary" className="flex items-center gap-1">
+                                  <BookOpen className="w-3 h-3" />
+                                  {bc.name || bc.courseName || "Course"}
+                                  <button
+                                    onClick={() => removeCourseFromBatchMutation.mutate({ batchId: expandedBatchId!, courseId: bc.id || bc.courseId })}
+                                    className="ml-1 rounded-full"
+                                    data-testid={`button-remove-course-${bc.id || bc.courseId}`}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          <Select
+                            value={selectedCourseForBatch}
+                            onValueChange={setSelectedCourseForBatch}
+                          >
+                            <SelectTrigger className="w-[200px]" data-testid={`trigger-course-batch-${expandedBatchId}`}>
+                              <SelectValue placeholder="Assign course" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {allCourses
+                                .filter((c: any) => !batchCourses.some((bc: any) => (bc.id || bc.courseId) === c.id))
+                                .map((course: any) => (
+                                  <SelectItem key={course.id} value={course.id}>
+                                    {course.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              if (selectedCourseForBatch && expandedBatchId) {
+                                assignCourseToBatchMutation.mutate({ batchId: expandedBatchId, courseId: selectedCourseForBatch });
+                              }
+                            }}
+                            disabled={!selectedCourseForBatch || assignCourseToBatchMutation.isPending}
+                            data-testid={`button-assign-course-${expandedBatchId}`}
+                          >
+                            {assignCourseToBatchMutation.isPending ? "Assigning..." : "Assign"}
                           </Button>
                         </div>
                       </div>
