@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, ExternalLink, GripVertical, FileText, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, ExternalLink, GripVertical, FileText, X, ZoomIn, ZoomOut, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -504,9 +504,21 @@ export default function CourseWeeks() {
             )}
           </div>
 
-          {/* Delete Button - Only for Admin */}
+          {/* Action Buttons - Only for Admin */}
           {isAdmin && (
-            <div className="flex items-center px-3 border-l border-border/50 bg-muted/10">
+            <div className="flex items-center gap-1 px-3 border-l border-border/50 bg-muted/10">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/courses/${courseId}/weeks/${week.id}`);
+                }}
+                data-testid={`button-preview-week-${week.id}`}
+                aria-label="Preview week content"
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -514,7 +526,7 @@ export default function CourseWeeks() {
                   e.stopPropagation();
                   setDeleteWeekId(week.id);
                 }}
-                className="h-9 w-9 hover:bg-destructive/10 hover:text-destructive transition-colors"
+                className="hover:bg-destructive/10 hover:text-destructive transition-colors"
                 data-testid={`button-delete-week-${week.id}`}
                 aria-label="Delete week"
               >
