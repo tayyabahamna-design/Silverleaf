@@ -4,7 +4,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock, Trash2, Ban, UserPlus, GraduationCap, MapPin, Briefcase, Activity } from "lucide-react";
+import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock, Trash2, Ban, UserPlus, GraduationCap, MapPin, Briefcase, Activity, Plus, Award, FileText } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -135,9 +137,24 @@ export default function AdminAnalytics() {
   const [newBatchDescription, setNewBatchDescription] = useState("");
   const [batchToDelete, setBatchToDelete] = useState<string | null>(null);
   const [showDeleteBatchConfirm, setShowDeleteBatchConfirm] = useState(false);
-  const [managingBatchTeachers, setManagingBatchTeachers] = useState<string | null>(null);
-  const [teacherIdToAdd, setTeacherIdToAdd] = useState("");
   const [selectedTrainerForBatch, setSelectedTrainerForBatch] = useState<string>("");
+  const [batchDetailTab, setBatchDetailTab] = useState("teachers");
+  const [addTeacherOpen, setAddTeacherOpen] = useState(false);
+  const [assignCheckpointQuizOpen, setAssignCheckpointQuizOpen] = useState(false);
+  const [assignFileQuizOpen, setAssignFileQuizOpen] = useState(false);
+  const [viewQuizDetailsOpen, setViewQuizDetailsOpen] = useState(false);
+  const [viewTeacherAttemptsOpen, setViewTeacherAttemptsOpen] = useState(false);
+  const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
+  const [selectedTeacherForAttempts, setSelectedTeacherForAttempts] = useState<any>(null);
+  const [teacherIdInput, setTeacherIdInput] = useState("");
+  const [quizTitle, setQuizTitle] = useState("");
+  const [quizDescription, setQuizDescription] = useState("");
+  const [selectedWeek, setSelectedWeek] = useState("");
+  const [selectedFileId, setSelectedFileId] = useState("");
+  const [numQuestions, setNumQuestions] = useState("5");
+  const [appreciationText, setAppreciationText] = useState("");
+  const [adminName1, setAdminName1] = useState("");
+  const [adminName2, setAdminName2] = useState("");
 
   // Existing data queries
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
@@ -151,8 +168,44 @@ export default function AdminAnalytics() {
   });
 
   const { data: batchWithTeachers = null as any } = useQuery({
-    queryKey: ["/api/batches", managingBatchTeachers],
-    enabled: isAdmin && managingBatchTeachers !== null,
+    queryKey: ["/api/batches", expandedBatchId],
+    enabled: isAdmin && expandedBatchId !== null,
+  });
+
+  const { data: assignedQuizzes = [] } = useQuery<any[]>({
+    queryKey: ["/api/batches", expandedBatchId, "quizzes"],
+    enabled: isAdmin && !!expandedBatchId,
+  });
+
+  const { data: batchProgress = [], isLoading: isLoadingProgress } = useQuery<any[]>({
+    queryKey: ["/api/batches", expandedBatchId, "progress"],
+    enabled: isAdmin && !!expandedBatchId,
+    refetchInterval: 30000,
+  });
+
+  const { data: trainingWeeks = [] } = useQuery<any[]>({
+    queryKey: ["/api/training-weeks"],
+    enabled: isAdmin,
+  });
+
+  const { data: weekFiles = [] } = useQuery<any[]>({
+    queryKey: ["/api/training-weeks", selectedWeek, "deck-files"],
+    enabled: !!selectedWeek && assignFileQuizOpen,
+  });
+
+  const { data: quizDetails } = useQuery<any>({
+    queryKey: ["/api/trainer/quizzes", selectedQuizId],
+    enabled: !!selectedQuizId && viewQuizDetailsOpen,
+  });
+
+  const { data: teacherAttempts = [] } = useQuery<any[]>({
+    queryKey: ["/api/batches", expandedBatchId, "teachers", selectedTeacherForAttempts?.teacher?.id, "quiz-attempts"],
+    enabled: !!expandedBatchId && !!selectedTeacherForAttempts?.teacher?.id && viewTeacherAttemptsOpen,
+  });
+
+  const { data: certificateTemplate } = useQuery<any>({
+    queryKey: [`/api/batches/${expandedBatchId}/certificate-template`],
+    enabled: !!expandedBatchId && batchDetailTab === "certificates",
   });
 
   const { data: coursesAnalytics = [], isLoading: loadingCourses } = useQuery({
@@ -414,36 +467,104 @@ export default function AdminAnalytics() {
     },
   });
 
-  // Mutation for adding teacher to batch
   const addTeacherToBatchMutation = useMutation({
-    mutationFn: async ({ batchId, teacherId }: { batchId: string; teacherId: string }) => {
+    mutationFn: async ({ batchId, teacherId }: { batchId: string; teacherId: number }) => {
       const response = await apiRequest("POST", `/api/batches/${batchId}/teachers`, { teacherId });
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Success", description: "Teacher added to batch successfully." });
-      setTeacherIdToAdd("");
-      queryClient.invalidateQueries({ queryKey: ["/api/batches", managingBatchTeachers] });
+      toast({ title: "Success", description: "Teacher added to batch." });
+      setTeacherIdInput("");
+      setAddTeacherOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", expandedBatchId] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/batches"] });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to add teacher to batch.", variant: "destructive" });
+      toast({ title: "Error", description: error.message || "Failed to add teacher.", variant: "destructive" });
     },
   });
 
-  // Mutation for removing teacher from batch
   const removeTeacherFromBatchMutation = useMutation({
     mutationFn: async ({ batchId, teacherId }: { batchId: string; teacherId: string }) => {
-      const response = await apiRequest("DELETE", `/api/batches/${batchId}/teachers/${teacherId}`);
-      return response;
+      await apiRequest("DELETE", `/api/batches/${batchId}/teachers/${teacherId}`);
     },
     onSuccess: () => {
-      toast({ title: "Success", description: "Teacher removed from batch successfully." });
-      queryClient.invalidateQueries({ queryKey: ["/api/batches", managingBatchTeachers] });
+      toast({ title: "Success", description: "Teacher removed from batch." });
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", expandedBatchId] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/batches"] });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to remove teacher from batch.", variant: "destructive" });
+      toast({ title: "Error", description: error.message || "Failed to remove teacher.", variant: "destructive" });
+    },
+  });
+
+  const assignCheckpointQuizMutation = useMutation({
+    mutationFn: async (data: { batchId: string; weekId: string; title: string; description: string; numQuestions: number }) => {
+      const response = await apiRequest("POST", `/api/batches/${data.batchId}/assign-quiz`, {
+        weekId: data.weekId, title: data.title, description: data.description, numQuestions: data.numQuestions,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", expandedBatchId, "quizzes"] });
+      toast({ title: "Success", description: "Checkpoint quiz assigned." });
+      setAssignCheckpointQuizOpen(false);
+      setQuizTitle(""); setQuizDescription(""); setSelectedWeek(""); setNumQuestions("5");
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const assignFileQuizMutation = useMutation({
+    mutationFn: async (data: { batchId: string; weekId: string; fileId: string; title: string; description: string; numQuestions: number }) => {
+      const response = await apiRequest("POST", `/api/batches/${data.batchId}/assign-file-quiz`, {
+        weekId: data.weekId, fileId: data.fileId, title: data.title, description: data.description, numQuestions: data.numQuestions,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", expandedBatchId, "quizzes"] });
+      toast({ title: "Success", description: "File quiz assigned." });
+      setAssignFileQuizOpen(false);
+      setQuizTitle(""); setQuizDescription(""); setSelectedWeek(""); setSelectedFileId(""); setNumQuestions("5");
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const deleteQuizMutation = useMutation({
+    mutationFn: async (quizId: string) => {
+      await apiRequest("DELETE", `/api/assigned-quizzes/${quizId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", expandedBatchId, "quizzes"] });
+      toast({ title: "Success", description: "Quiz deleted." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const saveCertificateTemplateMutation = useMutation({
+    mutationFn: async () => {
+      const coursesRes = await fetch(`/api/batches/${expandedBatchId}/courses`);
+      const courses = await coursesRes.json();
+      const courseId = courses?.[0]?.id || null;
+      return apiRequest("POST", `/api/batches/${expandedBatchId}/certificate-template`, {
+        courseId, appreciationText, adminName1, adminName2,
+      });
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/batches/${expandedBatchId}/certificate-template`] });
+      if (data.appreciationText) setAppreciationText(data.appreciationText);
+      if (data.adminName1) setAdminName1(data.adminName1);
+      if (data.adminName2) setAdminName2(data.adminName2);
+      toast({ title: "Template saved successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -736,25 +857,24 @@ export default function AdminAnalytics() {
 
           {/* ===== TAB 2: COHORTS ===== */}
           <TabsContent value="cohorts">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex items-center justify-between gap-2 flex-wrap">
               <div>
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                   <Users className="w-5 h-5" />
-                  Cohort Tracking
+                  Cohort & Batch Management
                 </h2>
-                <p className="text-sm text-muted-foreground mt-1">Batch-level enrollment, completion, and graduation metrics</p>
+                <p className="text-sm text-muted-foreground mt-1">Manage batches, teachers, quizzes, progress, and certificates</p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => setShowCreateBatch(true)} data-testid="button-new-batch">
-                + New Batch
+              <Button size="sm" onClick={() => setShowCreateBatch(true)} data-testid="button-new-batch">
+                <Plus className="w-4 h-4 mr-2" />
+                New Batch
               </Button>
             </div>
 
             {/* Cohort Analytics Table */}
-            <Card className="mb-8">
-              <CardContent className="pt-6">
-                {loadingCohorts ? (
-                  <p className="text-muted-foreground">Loading cohort data...</p>
-                ) : Array.isArray(cohortsData) && cohortsData.length > 0 ? (
+            {Array.isArray(cohortsData) && cohortsData.length > 0 && (
+              <Card className="mb-6">
+                <CardContent className="pt-6">
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -788,162 +908,458 @@ export default function AdminAnalytics() {
                       </TableBody>
                     </Table>
                   </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                    <p className="text-muted-foreground font-medium">No cohort data available</p>
-                    <p className="text-sm text-muted-foreground mt-1">Create batches and assign teachers to see cohort analytics</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
-            {/* Batch Management (from original) */}
-            <Card>
-              <CardHeader className="pb-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="w-5 h-5" />
-                      Batch Management
-                    </CardTitle>
-                    <CardDescription className="mt-1">Create, expand, and manage batches</CardDescription>
-                  </div>
+            {/* Two-Panel Batch Management */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4" style={{ minHeight: "500px" }}>
+              {/* Left Panel - Batch List */}
+              <div className="lg:col-span-1 border rounded-lg bg-card flex flex-col" style={{ maxHeight: "calc(100vh - 300px)" }}>
+                <div className="p-3 border-b">
+                  <h3 className="font-semibold text-sm">Batches</h3>
+                  <p className="text-xs text-muted-foreground mt-1">{Array.isArray(batchesAnalytics) ? batchesAnalytics.length : 0} total</p>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {loadingBatches ? (
-                  <p className="text-muted-foreground">Loading batches...</p>
-                ) : (
-                  <div className="space-y-3">
-                    {Array.isArray(batchesAnalytics) && batchesAnalytics.length > 0 ? (
+                <ScrollArea className="flex-1">
+                  <div className="p-2 space-y-2">
+                    {loadingBatches ? (
+                      <p className="text-sm text-muted-foreground p-3">Loading...</p>
+                    ) : Array.isArray(batchesAnalytics) && batchesAnalytics.length > 0 ? (
                       batchesAnalytics.map((batch: any) => (
-                        <div key={batch.id} className="border rounded-lg">
-                          <button
-                            onClick={() => setExpandedBatchId(expandedBatchId === batch.id ? null : batch.id)}
-                            className="w-full p-4 text-left hover:bg-muted/50 transition-colors flex justify-between items-center"
-                            data-testid={`button-batch-expand-${batch.id}`}
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <h3 className="font-semibold">{batch.name}</h3>
-                                <BatchStatusBadge status={batch.teacherCount > 5 ? "on-track" : "at-risk"} />
-                              </div>
-                              {batch.description && <p className="text-sm text-muted-foreground">{batch.description}</p>}
-                            </div>
-                            <div className="flex items-center gap-6 ml-4 flex-shrink-0">
-                              <div className="text-right">
-                                <p className="text-xs text-muted-foreground">Teachers</p>
-                                <p className="text-lg font-bold">{batch.teacherCount || 0}</p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-xs text-muted-foreground">Courses</p>
-                                <p className="text-lg font-bold">{batch.courseCount || 0}</p>
-                              </div>
-                              <div className="flex-shrink-0">
-                                {expandedBatchId === batch.id ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
-                              </div>
-                            </div>
-                          </button>
-
-                          {expandedBatchId === batch.id && expandedBatchDetails && (
-                            <div className="border-t bg-muted/20 p-4 space-y-4" data-testid={`section-batch-activities-${batch.id}`}>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <p className="text-xs font-semibold text-muted-foreground mb-2">TEACHERS ENROLLED</p>
-                                  <p className="text-2xl font-bold">{(expandedBatchDetails as any)?.teacherCount || 0}</p>
-                                </div>
-                                <div>
-                                  <p className="text-xs font-semibold text-muted-foreground mb-2">COURSES ASSIGNED</p>
-                                  <p className="text-2xl font-bold">{(expandedBatchDetails as any)?.courseCount || 0}</p>
-                                </div>
-                              </div>
-
-                              <div className="border-t pt-3">
-                                <p className="text-xs font-semibold text-muted-foreground mb-2">ASSIGNED TRAINER</p>
-                                <div className="flex items-center gap-2">
-                                  <Select
-                                    value={selectedTrainerForBatch || batch.trainerId || "none"}
-                                    onValueChange={(val) => setSelectedTrainerForBatch(val)}
-                                    data-testid={`select-trainer-batch-${batch.id}`}
-                                  >
-                                    <SelectTrigger className="flex-1" data-testid={`trigger-trainer-batch-${batch.id}`}>
-                                      <SelectValue placeholder="Select a trainer" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="none">No trainer assigned</SelectItem>
-                                      {availableTrainers.map((trainer: any) => (
-                                        <SelectItem key={trainer.id} value={trainer.id}>
-                                          {trainer.username || trainer.email}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                  <Button
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const trainerId = selectedTrainerForBatch === "none" ? null : (selectedTrainerForBatch || batch.trainerId || null);
-                                      assignTrainerMutation.mutate({ batchId: batch.id, trainerId });
-                                    }}
-                                    disabled={assignTrainerMutation.isPending}
-                                    data-testid={`button-assign-trainer-${batch.id}`}
-                                  >
-                                    {assignTrainerMutation.isPending ? "Saving..." : "Save"}
-                                  </Button>
-                                </div>
-                                {batch.trainerId && !selectedTrainerForBatch && (
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    Current: {availableTrainers.find((t: any) => t.id === batch.trainerId)?.email || batch.trainerId}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div className="flex gap-2">
-                                <Button
-                                  className="flex-1"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setManagingBatchTeachers(batch.id);
-                                  }}
-                                  data-testid={`button-manage-batch-teachers-${batch.id}`}
-                                >
-                                  <Users className="w-4 h-4 mr-2" />
-                                  Manage Teachers
-                                </Button>
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setBatchToDelete(batch.id);
-                                    setShowDeleteBatchConfirm(true);
-                                  }}
-                                  data-testid={`button-delete-batch-${batch.id}`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </div>
+                        <button
+                          key={batch.id}
+                          onClick={() => {
+                            setExpandedBatchId(expandedBatchId === batch.id ? null : batch.id);
+                            setBatchDetailTab("teachers");
+                          }}
+                          className={`w-full text-left p-3 rounded-lg transition-colors border ${
+                            expandedBatchId === batch.id
+                              ? "bg-primary/10 border-primary text-foreground"
+                              : "bg-muted/30 border-transparent hover:bg-muted/50 text-foreground"
+                          }`}
+                          data-testid={`button-batch-${batch.id}`}
+                        >
+                          <div className="flex items-center justify-between gap-1 mb-1">
+                            <p className="font-semibold text-sm truncate">{batch.name}</p>
+                            <BatchStatusBadge status={batch.teacherCount > 5 ? "on-track" : "at-risk"} />
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {batch.teacherCount || 0} teachers
+                          </p>
+                          {batch.trainerId && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              Trainer: {availableTrainers.find((t: any) => t.id === batch.trainerId)?.email || "Assigned"}
+                            </p>
                           )}
-                        </div>
+                        </button>
                       ))
                     ) : (
-                      <div className="text-center py-8">
-                        <Users className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                        <p className="text-muted-foreground font-medium">No batches yet</p>
-                        <p className="text-sm text-muted-foreground mt-1">Create a batch to group teachers and assign courses</p>
-                        <Button size="sm" className="mt-4" onClick={() => setShowCreateBatch(true)} data-testid="button-create-first-batch">
+                      <div className="text-center py-8 text-muted-foreground text-sm">
+                        <Users className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                        No batches yet
+                        <Button size="sm" className="mt-3 w-full" onClick={() => setShowCreateBatch(true)} data-testid="button-create-first-batch">
                           Create First Batch
                         </Button>
                       </div>
                     )}
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </ScrollArea>
+              </div>
+
+              {/* Right Panel - Batch Details */}
+              {expandedBatchId ? (() => {
+                const currentBatch = Array.isArray(batchesAnalytics) ? batchesAnalytics.find((b: any) => b.id === expandedBatchId) : null;
+                return (
+                  <div className="lg:col-span-3 border rounded-lg bg-card flex flex-col" style={{ maxHeight: "calc(100vh - 300px)" }}>
+                    {/* Batch Header */}
+                    <div className="p-4 border-b flex justify-between items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-xl font-bold truncate">{currentBatch?.name || "Batch"}</h2>
+                        {currentBatch?.description && (
+                          <p className="text-sm text-muted-foreground mt-1">{currentBatch.description}</p>
+                        )}
+                        {/* Trainer Assignment */}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Select
+                            value={selectedTrainerForBatch || currentBatch?.trainerId || "none"}
+                            onValueChange={(val) => setSelectedTrainerForBatch(val)}
+                          >
+                            <SelectTrigger className="w-[200px]" data-testid={`trigger-trainer-batch-${expandedBatchId}`}>
+                              <SelectValue placeholder="Assign trainer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No trainer</SelectItem>
+                              {availableTrainers.map((trainer: any) => (
+                                <SelectItem key={trainer.id} value={trainer.id}>
+                                  {trainer.username || trainer.email}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const trainerId = selectedTrainerForBatch === "none" ? null : (selectedTrainerForBatch || currentBatch?.trainerId || null);
+                              assignTrainerMutation.mutate({ batchId: expandedBatchId, trainerId });
+                            }}
+                            disabled={assignTrainerMutation.isPending}
+                            data-testid={`button-assign-trainer-${expandedBatchId}`}
+                          >
+                            {assignTrainerMutation.isPending ? "Saving..." : "Save"}
+                          </Button>
+                        </div>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setBatchToDelete(expandedBatchId);
+                          setShowDeleteBatchConfirm(true);
+                        }}
+                        data-testid={`button-delete-batch-${expandedBatchId}`}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                    </div>
+
+                    {/* Inner Tabs */}
+                    <Tabs value={batchDetailTab} onValueChange={setBatchDetailTab} className="w-full flex flex-col flex-1 overflow-hidden">
+                      <TabsList className="grid w-full grid-cols-4 flex-shrink-0 rounded-none border-b">
+                        <TabsTrigger value="teachers" data-testid="tab-batch-teachers">
+                          <Users className="mr-2 h-4 w-4" />
+                          Teachers
+                        </TabsTrigger>
+                        <TabsTrigger value="quizzes" data-testid="tab-batch-quizzes">
+                          <Award className="mr-2 h-4 w-4" />
+                          Quizzes
+                        </TabsTrigger>
+                        <TabsTrigger value="progress" data-testid="tab-batch-progress">
+                          <TrendingUp className="mr-2 h-4 w-4" />
+                          Progress
+                        </TabsTrigger>
+                        <TabsTrigger value="certificates" data-testid="tab-batch-certificates">
+                          <FileText className="mr-2 h-4 w-4" />
+                          Certificates
+                        </TabsTrigger>
+                      </TabsList>
+
+                      {/* Teachers Tab */}
+                      <TabsContent value="teachers" className="space-y-4 flex-1 overflow-y-auto p-4">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-base font-semibold">Enrolled Teachers</h3>
+                          <Dialog open={addTeacherOpen} onOpenChange={setAddTeacherOpen}>
+                            <Button size="sm" onClick={() => setAddTeacherOpen(true)} data-testid="button-add-teacher">
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add
+                            </Button>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Add Teacher to {currentBatch?.name}</DialogTitle>
+                                <DialogDescription>Enter the teacher ID to add them to this batch</DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <Label htmlFor="admin-teacher-id">Teacher ID</Label>
+                                  <Input
+                                    id="admin-teacher-id"
+                                    data-testid="input-teacher-id"
+                                    type="number"
+                                    placeholder="e.g., 101"
+                                    value={teacherIdInput}
+                                    onChange={(e) => setTeacherIdInput(e.target.value)}
+                                  />
+                                </div>
+                                <Button
+                                  onClick={() => {
+                                    if (expandedBatchId && teacherIdInput) {
+                                      addTeacherToBatchMutation.mutate({
+                                        batchId: expandedBatchId,
+                                        teacherId: parseInt(teacherIdInput),
+                                      });
+                                    }
+                                  }}
+                                  disabled={!teacherIdInput || addTeacherToBatchMutation.isPending}
+                                  data-testid="button-submit-teacher"
+                                >
+                                  {addTeacherToBatchMutation.isPending ? "Adding..." : "Add Teacher"}
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                        {batchWithTeachers?.teachers?.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            No teachers enrolled in this batch yet
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {batchWithTeachers?.teachers?.map((teacher: any) => (
+                              <Card key={teacher.id}>
+                                <CardContent className="flex items-center justify-between py-4">
+                                  <div>
+                                    <p className="font-semibold">{teacher.name || teacher.email}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Teacher ID: {teacher.teacherId || teacher.id} {teacher.email && `\u2022 ${teacher.email}`}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      if (confirm(`Remove ${teacher.name || teacher.email} from this batch?`)) {
+                                        removeTeacherFromBatchMutation.mutate({
+                                          batchId: expandedBatchId,
+                                          teacherId: teacher.id,
+                                        });
+                                      }
+                                    }}
+                                    data-testid={`button-remove-teacher-${teacher.id}`}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        )}
+                      </TabsContent>
+
+                      {/* Quizzes Tab */}
+                      <TabsContent value="quizzes" className="space-y-4 flex-1 overflow-y-auto p-4">
+                        <div className="flex justify-between items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-semibold">Assigned Quizzes</h3>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => setAssignCheckpointQuizOpen(true)} data-testid="button-assign-checkpoint-quiz">
+                              <Plus className="mr-2 h-4 w-4" />
+                              Checkpoint
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => setAssignFileQuizOpen(true)} data-testid="button-assign-file-quiz">
+                              <Plus className="mr-2 h-4 w-4" />
+                              File Quiz
+                            </Button>
+                          </div>
+                        </div>
+                        {assignedQuizzes.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            No quizzes assigned yet
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            {assignedQuizzes.map((quiz: any) => (
+                              <Card
+                                key={quiz.id}
+                                className="cursor-pointer hover:shadow-md transition-shadow"
+                                onClick={() => {
+                                  setSelectedQuizId(quiz.id);
+                                  setViewQuizDetailsOpen(true);
+                                }}
+                                data-testid={`card-quiz-${quiz.id}`}
+                              >
+                                <CardContent className="py-4">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <p className="font-semibold truncate">{quiz.title}</p>
+                                        <Badge variant="outline" className="text-xs flex-shrink-0">
+                                          {quiz.type === "checkpoint" ? "Checkpoint" : "File"}
+                                        </Badge>
+                                      </div>
+                                      <p className="text-sm text-muted-foreground mt-1">
+                                        {quiz.description || "No description"}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteQuizMutation.mutate(quiz.id);
+                                      }}
+                                      data-testid={`button-delete-quiz-${quiz.id}`}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        )}
+                      </TabsContent>
+
+                      {/* Progress Tab */}
+                      <TabsContent value="progress" className="space-y-4 flex-1 overflow-y-auto p-4">
+                        <h3 className="text-base font-semibold">Teacher Progress</h3>
+                        {isLoadingProgress ? (
+                          <div className="text-center py-8 text-muted-foreground">Loading progress...</div>
+                        ) : batchProgress.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">No progress data available</div>
+                        ) : (
+                          <div className="space-y-4">
+                            {batchProgress.map((tp: any) => (
+                              <Card key={tp.teacher?.id || tp.teacherId}>
+                                <CardHeader>
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div>
+                                      <CardTitle className="text-base">{tp.teacher?.name || tp.teacherName || "Unknown"}</CardTitle>
+                                      <CardDescription>{tp.teacher?.email || tp.teacherEmail}</CardDescription>
+                                    </div>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedTeacherForAttempts(tp);
+                                        setViewTeacherAttemptsOpen(true);
+                                      }}
+                                      data-testid={`button-view-attempts-${tp.teacher?.id || tp.teacherId}`}
+                                    >
+                                      View Details
+                                    </Button>
+                                  </div>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                  <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-muted-foreground">Quizzes Taken</span>
+                                      <span className="font-semibold">{tp.reportCard?.totalQuizzesTaken || 0}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-muted-foreground">Quizzes Passed</span>
+                                      <span className="font-semibold">{tp.reportCard?.totalQuizzesPassed || 0}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-muted-foreground">Average Score</span>
+                                      <span className="font-semibold">{tp.reportCard?.averageScore || 0}%</span>
+                                    </div>
+                                  </div>
+                                  <Badge variant={tp.reportCard?.level === "Advanced" ? "default" : tp.reportCard?.level === "Intermediate" ? "secondary" : "outline"}>
+                                    {tp.reportCard?.level || "Beginner"}
+                                  </Badge>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        )}
+                      </TabsContent>
+
+                      {/* Certificates Tab */}
+                      <TabsContent value="certificates" className="overflow-y-auto flex-1 p-4">
+                        <div className="space-y-4 pr-4">
+                          <div className="bg-muted/30 p-4 rounded-lg border">
+                            <p className="text-sm text-muted-foreground mb-3">
+                              Configure the certificate template for this batch.
+                            </p>
+                            <div className="space-y-4">
+                              <div>
+                                <Label>Appreciation Text</Label>
+                                <Textarea
+                                  value={appreciationText || (certificateTemplate?.appreciationText ?? "")}
+                                  onChange={(e) => setAppreciationText(e.target.value)}
+                                  placeholder="In recognition of successfully completing the training program"
+                                  className="mt-2"
+                                  data-testid="input-cert-appreciation-text"
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <Label>Admin Name 1</Label>
+                                  <Input
+                                    value={adminName1 || (certificateTemplate?.adminName1 ?? "")}
+                                    onChange={(e) => setAdminName1(e.target.value)}
+                                    placeholder="First admin name"
+                                    className="mt-2"
+                                    data-testid="input-cert-admin-name-1"
+                                  />
+                                </div>
+                                <div>
+                                  <Label>Admin Name 2</Label>
+                                  <Input
+                                    value={adminName2 || (certificateTemplate?.adminName2 ?? "")}
+                                    onChange={(e) => setAdminName2(e.target.value)}
+                                    placeholder="Second admin name (optional)"
+                                    className="mt-2"
+                                    data-testid="input-cert-admin-name-2"
+                                  />
+                                </div>
+                              </div>
+                              <Button
+                                onClick={() => saveCertificateTemplateMutation.mutate()}
+                                disabled={saveCertificateTemplateMutation.isPending}
+                                data-testid="button-save-cert-template"
+                              >
+                                {saveCertificateTemplateMutation.isPending ? "Saving..." : "Save Template"}
+                              </Button>
+                              {certificateTemplate?.status && (
+                                <div className="text-sm p-3 rounded-lg bg-muted/50">
+                                  <p className="font-medium">
+                                    Status: <span className="capitalize">{certificateTemplate.status}</span>
+                                  </p>
+                                  {certificateTemplate.status === "approved" && (
+                                    <p className="text-green-600 flex items-center gap-1 mt-1">
+                                      <CheckCircle className="w-4 h-4" /> Approved
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Certificate Preview */}
+                          <div className="p-4 bg-white dark:bg-slate-900 rounded-lg border">
+                            <p className="text-sm font-medium mb-4 text-foreground">Certificate Preview</p>
+                            <div className="border-2 border-primary rounded-lg p-8 space-y-6 text-center bg-white dark:bg-slate-900">
+                              <div className="space-y-2">
+                                <h1 className="text-3xl font-bold text-primary">Certificate of Completion</h1>
+                                <p className="text-sm text-muted-foreground">Silverleaf Academy</p>
+                              </div>
+                              <div className="flex justify-center">
+                                <div className="w-16 h-1 bg-primary rounded-full" />
+                              </div>
+                              <div className="space-y-4">
+                                <p className="text-sm text-foreground">This certificate is proudly presented to</p>
+                                <p className="text-2xl font-bold text-primary">Teacher Name</p>
+                              </div>
+                              <div className="bg-primary/5 p-4 rounded-lg">
+                                <p className="text-xs leading-relaxed text-foreground italic">
+                                  {appreciationText || certificateTemplate?.appreciationText || "In recognition of successfully completing the training program"}
+                                </p>
+                              </div>
+                              <div className="grid grid-cols-2 gap-6 pt-6">
+                                <div className="space-y-8 text-center">
+                                  <div className="h-12" />
+                                  <div>
+                                    <p className="text-xs font-semibold text-foreground">{adminName1 || certificateTemplate?.adminName1 || "Administrator"}</p>
+                                    <p className="text-xs text-muted-foreground">Authorized Signatory</p>
+                                  </div>
+                                </div>
+                                <div className="space-y-8 text-center">
+                                  <div className="h-12" />
+                                  <div>
+                                    <p className="text-xs font-semibold text-foreground">{adminName2 || certificateTemplate?.adminName2 || "Director"}</p>
+                                    <p className="text-xs text-muted-foreground">Program Director</p>
+                                  </div>
+                                </div>
+                              </div>
+                              <p className="text-xs text-muted-foreground pt-4">
+                                Issued on {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                );
+              })() : (
+                <div className="lg:col-span-3 border rounded-lg bg-card flex items-center justify-center">
+                  <div className="text-center">
+                    <Users className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
+                    <p className="text-muted-foreground">Select a batch to view details</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* ===== TAB 3: DEMOGRAPHICS ===== */}
@@ -1756,94 +2172,195 @@ export default function AdminAnalytics() {
         </DialogContent>
       </Dialog>
 
-      {/* Manage Batch Teachers Modal */}
-      <Dialog open={managingBatchTeachers !== null} onOpenChange={(open) => !open && setManagingBatchTeachers(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      {/* Assign Checkpoint Quiz Dialog */}
+      <Dialog open={assignCheckpointQuizOpen} onOpenChange={setAssignCheckpointQuizOpen}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Manage Batch Teachers</DialogTitle>
-            <DialogDescription>Add or remove teachers from this batch</DialogDescription>
+            <DialogTitle>Assign Checkpoint Quiz</DialogTitle>
+            <DialogDescription>Create a quiz based on a training week's content</DialogDescription>
           </DialogHeader>
-
-          {/* Add Teacher Section */}
-          <div className="space-y-4 py-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Enter Teacher ID"
-                value={teacherIdToAdd}
-                onChange={(e) => setTeacherIdToAdd(e.target.value)}
-                className="flex-1"
-                data-testid="input-add-teacher-id"
-              />
-              <Button
-                onClick={() => {
-                  if (managingBatchTeachers && teacherIdToAdd.trim()) {
-                    addTeacherToBatchMutation.mutate({
-                      batchId: managingBatchTeachers,
-                      teacherId: teacherIdToAdd.trim(),
-                    });
-                  }
-                }}
-                disabled={!teacherIdToAdd.trim() || addTeacherToBatchMutation.isPending}
-                data-testid="button-add-teacher-to-batch"
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                {addTeacherToBatchMutation.isPending ? "Adding..." : "Add Teacher"}
-              </Button>
+          <div className="space-y-4">
+            <div>
+              <Label>Title</Label>
+              <Input value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} placeholder="Quiz title" data-testid="input-quiz-title" />
             </div>
-
-            {/* Current Teachers List */}
-            <div className="border-t pt-4">
-              <p className="text-sm font-semibold mb-3">Current Teachers ({batchWithTeachers?.teachers?.length || 0})</p>
-              <div className="space-y-2">
-                {batchWithTeachers?.teachers && batchWithTeachers.teachers.length > 0 ? (
-                  batchWithTeachers.teachers.map((teacher: any) => (
-                    <div
-                      key={teacher.id}
-                      className="p-3 border rounded-lg flex justify-between items-center"
-                      data-testid={`batch-teacher-${teacher.id}`}
-                    >
-                      <div>
-                        <p className="font-semibold text-sm">{teacher.name || teacher.email}</p>
-                        <p className="text-xs text-muted-foreground">ID: {teacher.teacherId || teacher.id}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => {
-                          if (managingBatchTeachers) {
-                            removeTeacherFromBatchMutation.mutate({
-                              batchId: managingBatchTeachers,
-                              teacherId: teacher.id,
-                            });
-                          }
-                        }}
-                        disabled={removeTeacherFromBatchMutation.isPending}
-                        data-testid={`button-remove-teacher-${teacher.id}`}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-6">
-                    <Users className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-muted-foreground text-sm">No teachers in this batch</p>
-                    <p className="text-xs text-muted-foreground mt-1">Add teachers using their Teacher ID above</p>
-                  </div>
-                )}
-              </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={quizDescription} onChange={(e) => setQuizDescription(e.target.value)} placeholder="Quiz description" data-testid="input-quiz-description" />
             </div>
-          </div>
-
-          <div className="flex justify-end">
+            <div>
+              <Label>Training Week</Label>
+              <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+                <SelectTrigger data-testid="select-training-week">
+                  <SelectValue placeholder="Select a week" />
+                </SelectTrigger>
+                <SelectContent>
+                  {trainingWeeks.map((w: any) => (
+                    <SelectItem key={w.id} value={String(w.id)}>{w.title || `Week ${w.weekNumber}`}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Number of Questions</Label>
+              <Input type="number" value={numQuestions} onChange={(e) => setNumQuestions(e.target.value)} data-testid="input-num-questions" />
+            </div>
             <Button
-              variant="outline"
-              onClick={() => setManagingBatchTeachers(null)}
-              data-testid="button-close-manage-teachers"
+              disabled={!quizTitle || !selectedWeek || assignCheckpointQuizMutation.isPending}
+              onClick={() => {
+                if (expandedBatchId) {
+                  assignCheckpointQuizMutation.mutate({
+                    batchId: expandedBatchId,
+                    weekId: selectedWeek,
+                    title: quizTitle,
+                    description: quizDescription,
+                    numQuestions: parseInt(numQuestions),
+                  });
+                }
+              }}
+              data-testid="button-submit-checkpoint-quiz"
             >
-              Close
+              {assignCheckpointQuizMutation.isPending ? "Assigning..." : "Assign Quiz"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign File Quiz Dialog */}
+      <Dialog open={assignFileQuizOpen} onOpenChange={setAssignFileQuizOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign File Quiz</DialogTitle>
+            <DialogDescription>Create a quiz from an uploaded presentation file</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Title</Label>
+              <Input value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} placeholder="Quiz title" data-testid="input-file-quiz-title" />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={quizDescription} onChange={(e) => setQuizDescription(e.target.value)} placeholder="Quiz description" data-testid="input-file-quiz-description" />
+            </div>
+            <div>
+              <Label>Training Week</Label>
+              <Select value={selectedWeek} onValueChange={(v) => { setSelectedWeek(v); setSelectedFileId(""); }}>
+                <SelectTrigger data-testid="select-file-quiz-week">
+                  <SelectValue placeholder="Select a week" />
+                </SelectTrigger>
+                <SelectContent>
+                  {trainingWeeks.map((w: any) => (
+                    <SelectItem key={w.id} value={String(w.id)}>{w.title || `Week ${w.weekNumber}`}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedWeek && (
+              <div>
+                <Label>File</Label>
+                <Select value={selectedFileId} onValueChange={setSelectedFileId}>
+                  <SelectTrigger data-testid="select-file-quiz-file">
+                    <SelectValue placeholder="Select a file" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weekFiles.map((f: any) => (
+                      <SelectItem key={f.id} value={String(f.id)}>{f.originalName || f.fileName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label>Number of Questions</Label>
+              <Input type="number" value={numQuestions} onChange={(e) => setNumQuestions(e.target.value)} data-testid="input-file-num-questions" />
+            </div>
+            <Button
+              disabled={!quizTitle || !selectedWeek || !selectedFileId || assignFileQuizMutation.isPending}
+              onClick={() => {
+                if (expandedBatchId) {
+                  assignFileQuizMutation.mutate({
+                    batchId: expandedBatchId,
+                    weekId: selectedWeek,
+                    fileId: selectedFileId,
+                    title: quizTitle,
+                    description: quizDescription,
+                    numQuestions: parseInt(numQuestions),
+                  });
+                }
+              }}
+              data-testid="button-submit-file-quiz"
+            >
+              {assignFileQuizMutation.isPending ? "Assigning..." : "Assign File Quiz"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quiz Details Dialog */}
+      <Dialog open={viewQuizDetailsOpen} onOpenChange={setViewQuizDetailsOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Quiz Details</DialogTitle>
+            <DialogDescription>{quizDetails?.title || "Loading..."}</DialogDescription>
+          </DialogHeader>
+          {quizDetails ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-medium">Description</p>
+                <p className="text-sm text-muted-foreground">{quizDetails.description || "No description"}</p>
+              </div>
+              {quizDetails.questions && (
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Questions ({quizDetails.questions.length})</p>
+                  {quizDetails.questions.map((q: any, i: number) => (
+                    <div key={i} className="border rounded-lg p-3">
+                      <p className="text-sm font-medium mb-2">{i + 1}. {q.question}</p>
+                      {q.options?.map((opt: string, j: number) => (
+                        <p key={j} className={`text-xs pl-4 py-0.5 ${j === q.correctAnswer ? "text-green-600 font-semibold" : "text-muted-foreground"}`}>
+                          {String.fromCharCode(65 + j)}. {opt}
+                        </p>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm">Loading quiz details...</p>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Teacher Attempts Dialog */}
+      <Dialog open={viewTeacherAttemptsOpen} onOpenChange={setViewTeacherAttemptsOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Quiz Attempts</DialogTitle>
+            <DialogDescription>{selectedTeacherForAttempts?.teacher?.name || selectedTeacherForAttempts?.teacherName || "Teacher"}</DialogDescription>
+          </DialogHeader>
+          {teacherAttempts.length === 0 ? (
+            <p className="text-muted-foreground text-sm text-center py-4">No quiz attempts found</p>
+          ) : (
+            <div className="space-y-3">
+              {teacherAttempts.map((attempt: any) => (
+                <Card key={attempt.id}>
+                  <CardContent className="py-3">
+                    <div className="flex justify-between items-start gap-2">
+                      <div>
+                        <p className="font-medium text-sm">{attempt.quizTitle || "Quiz"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {attempt.completedAt ? new Date(attempt.completedAt).toLocaleDateString() : "In progress"}
+                        </p>
+                      </div>
+                      <Badge variant={attempt.score >= 70 ? "default" : "destructive"}>
+                        {attempt.score}%
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
