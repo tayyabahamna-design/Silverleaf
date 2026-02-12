@@ -984,6 +984,7 @@ export class DatabaseStorage implements IStorage {
         name: batches.name,
         description: batches.description,
         createdBy: batches.createdBy,
+        trainerId: batches.trainerId,
         createdAt: batches.createdAt,
         teacherCount: sqlOp`COUNT(DISTINCT ${batchTeachers.teacherId})::int`,
       })

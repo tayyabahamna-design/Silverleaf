@@ -137,6 +137,7 @@ export default function AdminAnalytics() {
   const [showDeleteBatchConfirm, setShowDeleteBatchConfirm] = useState(false);
   const [managingBatchTeachers, setManagingBatchTeachers] = useState<string | null>(null);
   const [teacherIdToAdd, setTeacherIdToAdd] = useState("");
+  const [selectedTrainerForBatch, setSelectedTrainerForBatch] = useState<string>("");
 
   // Existing data queries
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
@@ -190,6 +191,28 @@ export default function AdminAnalytics() {
       } catch {
         return {};
       }
+    },
+  });
+
+  // Fetch trainers for assignment dropdown
+  const { data: availableTrainers = [] } = useQuery<any[]>({
+    queryKey: ["/api/trainers"],
+    enabled: isAdmin,
+  });
+
+  // Assign trainer to batch mutation
+  const assignTrainerMutation = useMutation({
+    mutationFn: async ({ batchId, trainerId }: { batchId: string; trainerId: string | null }) => {
+      return apiRequest("PUT", `/api/batches/${batchId}/trainer`, { trainerId });
+    },
+    onSuccess: () => {
+      toast({ title: "Trainer assigned successfully" });
+      setSelectedTrainerForBatch("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/batches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
+    },
+    onError: () => {
+      toast({ title: "Failed to assign trainer", variant: "destructive" });
     },
   });
 
@@ -835,6 +858,47 @@ export default function AdminAnalytics() {
                                   <p className="text-2xl font-bold">{(expandedBatchDetails as any)?.courseCount || 0}</p>
                                 </div>
                               </div>
+
+                              <div className="border-t pt-3">
+                                <p className="text-xs font-semibold text-muted-foreground mb-2">ASSIGNED TRAINER</p>
+                                <div className="flex items-center gap-2">
+                                  <Select
+                                    value={selectedTrainerForBatch || batch.trainerId || "none"}
+                                    onValueChange={(val) => setSelectedTrainerForBatch(val)}
+                                    data-testid={`select-trainer-batch-${batch.id}`}
+                                  >
+                                    <SelectTrigger className="flex-1" data-testid={`trigger-trainer-batch-${batch.id}`}>
+                                      <SelectValue placeholder="Select a trainer" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">No trainer assigned</SelectItem>
+                                      {availableTrainers.map((trainer: any) => (
+                                        <SelectItem key={trainer.id} value={trainer.id}>
+                                          {trainer.username || trainer.email}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Button
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const trainerId = selectedTrainerForBatch === "none" ? null : (selectedTrainerForBatch || batch.trainerId || null);
+                                      assignTrainerMutation.mutate({ batchId: batch.id, trainerId });
+                                    }}
+                                    disabled={assignTrainerMutation.isPending}
+                                    data-testid={`button-assign-trainer-${batch.id}`}
+                                  >
+                                    {assignTrainerMutation.isPending ? "Saving..." : "Save"}
+                                  </Button>
+                                </div>
+                                {batch.trainerId && !selectedTrainerForBatch && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Current: {availableTrainers.find((t: any) => t.id === batch.trainerId)?.email || batch.trainerId}
+                                  </p>
+                                )}
+                              </div>
+
                               <div className="flex gap-2">
                                 <Button
                                   className="flex-1"
