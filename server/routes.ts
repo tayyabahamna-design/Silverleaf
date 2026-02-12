@@ -3803,6 +3803,316 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ==================== ENGAGEMENT TRACKING ====================
+
+  // Fellow Reflection Endpoints
+
+  // Submit a reflection (teacher auth)
+  app.post("/api/teacher/reflections", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) {
+        return res.status(401).json({ error: "Not authenticated as teacher" });
+      }
+      const { weekId, batchId, content, rating } = req.body;
+      if (!weekId || !batchId || !content) {
+        return res.status(400).json({ error: "weekId, batchId, and content are required" });
+      }
+      const reflection = await storage.createReflection({
+        teacherId: teacherSession.teacherId,
+        weekId,
+        batchId,
+        content,
+        rating: rating || null,
+      });
+      res.json(reflection);
+    } catch (error: any) {
+      if (error.code === '23505') {
+        return res.status(409).json({ error: "Reflection already submitted for this week" });
+      }
+      console.error("Error creating reflection:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get own reflections (teacher auth)
+  app.get("/api/teacher/reflections", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) {
+        return res.status(401).json({ error: "Not authenticated as teacher" });
+      }
+      const reflections = await storage.getReflectionsByTeacher(teacherSession.teacherId);
+      res.json(reflections);
+    } catch (error) {
+      console.error("Error getting reflections:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get reflections for a week (trainer/admin)
+  app.get("/api/reflections/week/:weekId", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const reflections = await storage.getReflectionsByWeek(req.params.weekId);
+      res.json(reflections);
+    } catch (error) {
+      console.error("Error getting week reflections:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get reflections for a fellow (trainer/admin)
+  app.get("/api/reflections/teacher/:teacherId", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const reflections = await storage.getReflectionsByTeacher(req.params.teacherId);
+      res.json(reflections);
+    } catch (error) {
+      console.error("Error getting teacher reflections:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get reflection completion analytics (admin)
+  app.get("/api/analytics/reflection-completion", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const batchId = req.query.batchId as string | undefined;
+      const data = await storage.getReflectionCompletionRate(batchId);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting reflection completion:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Fellow Disqualification Endpoints
+
+  // Disqualify a fellow (trainer/admin)
+  app.post("/api/fellows/:teacherId/disqualify", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { teacherId } = req.params;
+      const { batchId, reason } = req.body;
+      if (!batchId || !reason) {
+        return res.status(400).json({ error: "batchId and reason are required" });
+      }
+      const teacher = await storage.getTeacher(teacherId);
+      if (!teacher) {
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+      const disqualification = await storage.disqualifyFellow({
+        teacherId,
+        batchId,
+        reason,
+        disqualifiedBy: req.user!.id,
+        disqualifiedByRole: req.user!.role,
+      });
+      res.json(disqualification);
+    } catch (error) {
+      console.error("Error disqualifying fellow:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get disqualified fellows list
+  app.get("/api/fellows/disqualified", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batchId = req.query.batchId as string | undefined;
+      const data = await storage.getDisqualifiedFellows(batchId);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting disqualified fellows:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get disqualification rate analytics (admin)
+  app.get("/api/analytics/disqualification-rate", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const data = await storage.getDisqualificationRate();
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting disqualification rate:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Satisfaction Score Endpoints
+
+  // Submit a satisfaction score (any authenticated role)
+  app.post("/api/satisfaction-scores", async (req, res) => {
+    try {
+      const { type, raterId, raterRole, targetId, targetType, batchId, weekId, score, comment } = req.body;
+      if (!type || !raterId || !raterRole || !targetId || !targetType || !score) {
+        return res.status(400).json({ error: "type, raterId, raterRole, targetId, targetType, and score are required" });
+      }
+      if (score < 1 || score > 5) {
+        return res.status(400).json({ error: "Score must be between 1 and 5" });
+      }
+      const result = await storage.createSatisfactionScore({
+        type, raterId, raterRole, targetId, targetType,
+        batchId: batchId || null, weekId: weekId || null,
+        score, comment: comment || null,
+      });
+      res.json(result);
+    } catch (error) {
+      console.error("Error creating satisfaction score:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get satisfaction trends (admin)
+  app.get("/api/analytics/satisfaction-trends", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const type = req.query.type as string | undefined;
+      const batchId = req.query.batchId as string | undefined;
+      const data = await storage.getSatisfactionTrends(type, batchId);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting satisfaction trends:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Trainer Comment Endpoints
+
+  // Add a comment for a fellow (trainer)
+  app.post("/api/trainer/comments", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { teacherId, batchId, weekId, comment, category } = req.body;
+      if (!teacherId || !comment) {
+        return res.status(400).json({ error: "teacherId and comment are required" });
+      }
+      const result = await storage.createTrainerComment({
+        trainerId: req.user!.id,
+        teacherId,
+        batchId: batchId || null,
+        weekId: weekId || null,
+        comment,
+        category: category || "general",
+      });
+      res.json(result);
+    } catch (error) {
+      console.error("Error creating trainer comment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get comments for a fellow (trainer/admin)
+  app.get("/api/trainer/comments/teacher/:teacherId", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const comments = await storage.getTrainerCommentsByTeacher(req.params.teacherId);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error getting trainer comments:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get all comments by current trainer
+  app.get("/api/trainer/comments", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const comments = await storage.getTrainerCommentsByTrainer(req.user!.id);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error getting trainer comments:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Course Repetition Endpoints
+
+  // Record a course repetition (trainer/admin)
+  app.post("/api/course-repetitions", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { teacherId, courseId, batchId, repetitionNumber, reason } = req.body;
+      if (!teacherId || !courseId || !batchId) {
+        return res.status(400).json({ error: "teacherId, courseId, and batchId are required" });
+      }
+      const result = await storage.createCourseRepetition({
+        teacherId,
+        courseId,
+        batchId,
+        repetitionNumber: repetitionNumber || 1,
+        reason: reason || null,
+      });
+      res.json(result);
+    } catch (error) {
+      console.error("Error creating course repetition:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get repetition rate analytics (admin)
+  app.get("/api/analytics/repetition-rate", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const batchId = req.query.batchId as string | undefined;
+      const data = await storage.getRepetitionRate(batchId);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting repetition rate:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Engagement & Advanced Analytics Endpoints
+
+  // Engagement analytics (admin)
+  app.get("/api/analytics/engagement", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const batchId = req.query.batchId as string | undefined;
+      const data = await storage.getEngagementAnalytics(batchId);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting engagement analytics:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Week coverage analytics (admin)
+  app.get("/api/analytics/week-coverage", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const batchId = req.query.batchId as string | undefined;
+      const data = await storage.getWeekCoverageAnalytics(batchId);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting week coverage:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Best formed week analytics (admin)
+  app.get("/api/analytics/best-formed-week", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const data = await storage.getBestFormedWeekAnalytics();
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting best formed week:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Quiz performance analytics (admin)
+  app.get("/api/analytics/quiz-performance", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const batchId = req.query.batchId as string | undefined;
+      const data = await storage.getQuizPerformanceAnalytics(batchId);
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting quiz performance:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Course assignment tracking (admin)
+  app.get("/api/analytics/course-assignments", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const data = await storage.getCourseAssignmentTracking();
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting course assignments:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -47,6 +47,16 @@ import {
   type InsertBatchCertificateTemplate,
   type TeacherCertificate,
   type InsertTeacherCertificate,
+  type FellowReflection,
+  type InsertFellowReflection,
+  type FellowDisqualification,
+  type InsertFellowDisqualification,
+  type SatisfactionScore,
+  type InsertSatisfactionScore,
+  type TrainerComment,
+  type InsertTrainerComment,
+  type CourseRepetition,
+  type InsertCourseRepetition,
   trainingWeeks,
   approvalHistory,
   users,
@@ -69,7 +79,12 @@ import {
   batchCourses,
   teacherCourseCompletion,
   batchCertificateTemplates,
-  teacherCertificates
+  teacherCertificates,
+  fellowReflections,
+  fellowDisqualifications,
+  satisfactionScores,
+  trainerComments,
+  courseRepetitions
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql as sqlOp, desc, max } from "drizzle-orm";
@@ -251,6 +266,39 @@ export interface IStorage {
   getCohortAnalytics(): Promise<any>;
   getPerformanceAnalytics(): Promise<any>;
   getCompletionTrends(): Promise<any>;
+
+  // Fellow reflection operations
+  createReflection(reflection: InsertFellowReflection): Promise<FellowReflection>;
+  getReflectionsByTeacher(teacherId: string): Promise<FellowReflection[]>;
+  getReflectionsByWeek(weekId: string): Promise<FellowReflection[]>;
+  getReflectionCompletionRate(batchId?: string): Promise<any>;
+
+  // Fellow disqualification operations
+  disqualifyFellow(disqualification: InsertFellowDisqualification): Promise<FellowDisqualification>;
+  getDisqualifiedFellows(batchId?: string): Promise<FellowDisqualification[]>;
+  getDisqualificationRate(): Promise<any>;
+
+  // Satisfaction score operations
+  createSatisfactionScore(score: InsertSatisfactionScore): Promise<SatisfactionScore>;
+  getSatisfactionScores(type?: string, targetId?: string): Promise<SatisfactionScore[]>;
+  getSatisfactionTrends(type?: string, batchId?: string): Promise<any>;
+
+  // Trainer comment operations
+  createTrainerComment(comment: InsertTrainerComment): Promise<TrainerComment>;
+  getTrainerCommentsByTeacher(teacherId: string): Promise<TrainerComment[]>;
+  getTrainerCommentsByTrainer(trainerId: string): Promise<TrainerComment[]>;
+
+  // Course repetition operations
+  createCourseRepetition(repetition: InsertCourseRepetition): Promise<CourseRepetition>;
+  getCourseRepetitions(teacherId?: string, courseId?: string): Promise<CourseRepetition[]>;
+  getRepetitionRate(batchId?: string): Promise<any>;
+
+  // Engagement analytics
+  getEngagementAnalytics(batchId?: string): Promise<any>;
+  getWeekCoverageAnalytics(batchId?: string): Promise<any>;
+  getBestFormedWeekAnalytics(): Promise<any>;
+  getQuizPerformanceAnalytics(batchId?: string): Promise<any>;
+  getCourseAssignmentTracking(): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2053,6 +2101,380 @@ export class DatabaseStorage implements IStorage {
         rate: totalEnrolled > 0 ? Math.round((cumulative / totalEnrolled) * 1000) / 10 : 0,
       };
     });
+  }
+
+  // ============ Fellow Reflection Operations ============
+
+  async createReflection(reflection: InsertFellowReflection): Promise<FellowReflection> {
+    const [result] = await db.insert(fellowReflections).values(reflection).returning();
+    return result;
+  }
+
+  async getReflectionsByTeacher(teacherId: string): Promise<FellowReflection[]> {
+    return db.select().from(fellowReflections).where(eq(fellowReflections.teacherId, teacherId)).orderBy(desc(fellowReflections.submittedAt));
+  }
+
+  async getReflectionsByWeek(weekId: string): Promise<FellowReflection[]> {
+    return db.select().from(fellowReflections).where(eq(fellowReflections.weekId, weekId)).orderBy(desc(fellowReflections.submittedAt));
+  }
+
+  async getReflectionCompletionRate(batchId?: string): Promise<any> {
+    // Get total fellows and fellows who submitted reflections
+    const baseQuery = batchId
+      ? sqlOp`WHERE bt.batch_id = ${batchId}`
+      : sqlOp``;
+
+    const result = await db.execute(sqlOp`
+      SELECT
+        tw.id as week_id,
+        tw.week_number,
+        tw.competency_focus,
+        c.name as course_name,
+        COUNT(DISTINCT bt.teacher_id)::int as total_fellows,
+        COUNT(DISTINCT fr.teacher_id)::int as reflections_submitted,
+        CASE WHEN COUNT(DISTINCT bt.teacher_id) > 0
+          THEN ROUND(COUNT(DISTINCT fr.teacher_id)::numeric / COUNT(DISTINCT bt.teacher_id) * 100, 1)
+          ELSE 0
+        END as completion_percentage
+      FROM training_weeks tw
+      LEFT JOIN courses c ON tw.course_id = c.id
+      LEFT JOIN batch_courses bc ON bc.course_id = c.id
+      LEFT JOIN batch_teachers bt ON bt.batch_id = bc.batch_id ${batchId ? sqlOp`AND bt.batch_id = ${batchId}` : sqlOp``}
+      LEFT JOIN fellow_reflections fr ON fr.week_id = tw.id AND fr.teacher_id = bt.teacher_id
+      GROUP BY tw.id, tw.week_number, tw.competency_focus, c.name
+      ORDER BY c.name, tw.week_number
+    `);
+
+    return result.rows;
+  }
+
+  // ============ Fellow Disqualification Operations ============
+
+  async disqualifyFellow(disqualification: InsertFellowDisqualification): Promise<FellowDisqualification> {
+    const [result] = await db.insert(fellowDisqualifications).values(disqualification).returning();
+    return result;
+  }
+
+  async getDisqualifiedFellows(batchId?: string): Promise<FellowDisqualification[]> {
+    if (batchId) {
+      return db.select().from(fellowDisqualifications).where(eq(fellowDisqualifications.batchId, batchId)).orderBy(desc(fellowDisqualifications.disqualifiedAt));
+    }
+    return db.select().from(fellowDisqualifications).orderBy(desc(fellowDisqualifications.disqualifiedAt));
+  }
+
+  async getDisqualificationRate(): Promise<any> {
+    const result = await db.execute(sqlOp`
+      SELECT
+        b.id as batch_id,
+        b.name as batch_name,
+        COUNT(DISTINCT bt.teacher_id)::int as total_fellows,
+        COUNT(DISTINCT fd.teacher_id)::int as disqualified_count,
+        CASE WHEN COUNT(DISTINCT bt.teacher_id) > 0
+          THEN ROUND(COUNT(DISTINCT fd.teacher_id)::numeric / COUNT(DISTINCT bt.teacher_id) * 100, 1)
+          ELSE 0
+        END as disqualification_rate
+      FROM batches b
+      LEFT JOIN batch_teachers bt ON bt.batch_id = b.id
+      LEFT JOIN fellow_disqualifications fd ON fd.batch_id = b.id
+      GROUP BY b.id, b.name
+      ORDER BY b.name
+    `);
+
+    // Monthly trend
+    const monthlyTrend = await db.execute(sqlOp`
+      SELECT
+        TO_CHAR(DATE_TRUNC('month', disqualified_at), 'YYYY-MM') as month,
+        COUNT(*)::int as count
+      FROM fellow_disqualifications
+      GROUP BY DATE_TRUNC('month', disqualified_at)
+      ORDER BY DATE_TRUNC('month', disqualified_at)
+    `);
+
+    return {
+      byBatch: result.rows,
+      monthlyTrend: monthlyTrend.rows,
+    };
+  }
+
+  // ============ Satisfaction Score Operations ============
+
+  async createSatisfactionScore(score: InsertSatisfactionScore): Promise<SatisfactionScore> {
+    const [result] = await db.insert(satisfactionScores).values(score).returning();
+    return result;
+  }
+
+  async getSatisfactionScores(type?: string, targetId?: string): Promise<SatisfactionScore[]> {
+    if (type && targetId) {
+      return db.select().from(satisfactionScores).where(and(eq(satisfactionScores.type, type), eq(satisfactionScores.targetId, targetId))).orderBy(desc(satisfactionScores.createdAt));
+    }
+    if (type) {
+      return db.select().from(satisfactionScores).where(eq(satisfactionScores.type, type)).orderBy(desc(satisfactionScores.createdAt));
+    }
+    return db.select().from(satisfactionScores).orderBy(desc(satisfactionScores.createdAt));
+  }
+
+  async getSatisfactionTrends(type?: string, batchId?: string): Promise<any> {
+    const typeFilter = type ? sqlOp`AND ss.type = ${type}` : sqlOp``;
+    const batchFilter = batchId ? sqlOp`AND ss.batch_id = ${batchId}` : sqlOp``;
+
+    const trends = await db.execute(sqlOp`
+      SELECT
+        TO_CHAR(DATE_TRUNC('month', ss.created_at), 'YYYY-MM') as month,
+        ss.type,
+        ROUND(AVG(ss.score)::numeric, 2) as avg_score,
+        COUNT(*)::int as total_ratings,
+        COUNT(CASE WHEN ss.score >= 4 THEN 1 END)::int as positive_count,
+        COUNT(CASE WHEN ss.score <= 2 THEN 1 END)::int as negative_count
+      FROM satisfaction_scores ss
+      WHERE 1=1 ${typeFilter} ${batchFilter}
+      GROUP BY DATE_TRUNC('month', ss.created_at), ss.type
+      ORDER BY DATE_TRUNC('month', ss.created_at)
+    `);
+
+    // Overall averages by type
+    const overallAvg = await db.execute(sqlOp`
+      SELECT
+        type,
+        ROUND(AVG(score)::numeric, 2) as avg_score,
+        COUNT(*)::int as total_ratings
+      FROM satisfaction_scores
+      WHERE 1=1 ${type ? sqlOp`AND type = ${type}` : sqlOp``} ${batchId ? sqlOp`AND batch_id = ${batchId}` : sqlOp``}
+      GROUP BY type
+    `);
+
+    return {
+      trends: trends.rows,
+      overallAverages: overallAvg.rows,
+    };
+  }
+
+  // ============ Trainer Comment Operations ============
+
+  async createTrainerComment(comment: InsertTrainerComment): Promise<TrainerComment> {
+    const [result] = await db.insert(trainerComments).values(comment).returning();
+    return result;
+  }
+
+  async getTrainerCommentsByTeacher(teacherId: string): Promise<TrainerComment[]> {
+    return db.select().from(trainerComments).where(eq(trainerComments.teacherId, teacherId)).orderBy(desc(trainerComments.createdAt));
+  }
+
+  async getTrainerCommentsByTrainer(trainerId: string): Promise<TrainerComment[]> {
+    return db.select().from(trainerComments).where(eq(trainerComments.trainerId, trainerId)).orderBy(desc(trainerComments.createdAt));
+  }
+
+  // ============ Course Repetition Operations ============
+
+  async createCourseRepetition(repetition: InsertCourseRepetition): Promise<CourseRepetition> {
+    const [result] = await db.insert(courseRepetitions).values(repetition).returning();
+    return result;
+  }
+
+  async getCourseRepetitions(teacherId?: string, courseId?: string): Promise<CourseRepetition[]> {
+    if (teacherId && courseId) {
+      return db.select().from(courseRepetitions).where(and(eq(courseRepetitions.teacherId, teacherId), eq(courseRepetitions.courseId, courseId))).orderBy(desc(courseRepetitions.startedAt));
+    }
+    if (teacherId) {
+      return db.select().from(courseRepetitions).where(eq(courseRepetitions.teacherId, teacherId)).orderBy(desc(courseRepetitions.startedAt));
+    }
+    return db.select().from(courseRepetitions).orderBy(desc(courseRepetitions.startedAt));
+  }
+
+  async getRepetitionRate(batchId?: string): Promise<any> {
+    const batchFilter = batchId ? sqlOp`WHERE cr.batch_id = ${batchId}` : sqlOp``;
+
+    const result = await db.execute(sqlOp`
+      SELECT
+        c.id as course_id,
+        c.name as course_name,
+        COUNT(DISTINCT cr.teacher_id)::int as fellows_repeating,
+        COUNT(cr.id)::int as total_repetitions,
+        ROUND(AVG(cr.repetition_number)::numeric, 1) as avg_repetitions
+      FROM course_repetitions cr
+      JOIN courses c ON cr.course_id = c.id
+      ${batchFilter}
+      GROUP BY c.id, c.name
+      ORDER BY total_repetitions DESC
+    `);
+
+    return result.rows;
+  }
+
+  // ============ Engagement Analytics ============
+
+  async getEngagementAnalytics(batchId?: string): Promise<any> {
+    const batchFilter = batchId ? sqlOp`AND bt.batch_id = ${batchId}` : sqlOp``;
+
+    // Content viewing rate (attendance proxy)
+    const contentViewing = await db.execute(sqlOp`
+      SELECT
+        COUNT(DISTINCT tcp.teacher_id)::int as active_fellows,
+        COUNT(DISTINCT bt.teacher_id)::int as total_fellows,
+        COUNT(CASE WHEN tcp.status = 'completed' THEN 1 END)::int as completed_items,
+        COUNT(tcp.id)::int as total_tracked_items
+      FROM batch_teachers bt
+      LEFT JOIN teacher_content_progress tcp ON tcp.teacher_id = bt.teacher_id
+      WHERE 1=1 ${batchFilter}
+    `);
+
+    // Reflection submission rate
+    const reflectionRate = await db.execute(sqlOp`
+      SELECT
+        COUNT(DISTINCT bt.teacher_id)::int as total_fellows,
+        COUNT(DISTINCT fr.teacher_id)::int as fellows_with_reflections,
+        COUNT(fr.id)::int as total_reflections
+      FROM batch_teachers bt
+      LEFT JOIN fellow_reflections fr ON fr.teacher_id = bt.teacher_id
+      WHERE 1=1 ${batchFilter}
+    `);
+
+    // Quiz completion rate
+    const quizRate = await db.execute(sqlOp`
+      SELECT
+        COUNT(DISTINCT bt.teacher_id)::int as total_fellows,
+        COUNT(DISTINCT tqa.teacher_id)::int as fellows_with_attempts,
+        COUNT(tqa.id)::int as total_attempts,
+        COUNT(CASE WHEN tqa.passed = 'yes' THEN 1 END)::int as passed_count
+      FROM batch_teachers bt
+      LEFT JOIN teacher_quiz_attempts tqa ON tqa.teacher_id = bt.teacher_id
+      WHERE 1=1 ${batchFilter}
+    `);
+
+    return {
+      contentViewing: contentViewing.rows[0],
+      reflectionRate: reflectionRate.rows[0],
+      quizCompletion: quizRate.rows[0],
+    };
+  }
+
+  async getWeekCoverageAnalytics(batchId?: string): Promise<any> {
+    const batchFilter = batchId ? sqlOp`WHERE bt.batch_id = ${batchId}` : sqlOp``;
+
+    const result = await db.execute(sqlOp`
+      SELECT
+        t.id as teacher_id,
+        t.name as teacher_name,
+        t.teacher_id as teacher_numeric_id,
+        COUNT(DISTINCT tcc.id) FILTER (WHERE tcc.status = 'completed')::int as completed_weeks,
+        COUNT(DISTINCT tw.id)::int as total_weeks,
+        CASE WHEN COUNT(DISTINCT tw.id) > 0
+          THEN ROUND(COUNT(DISTINCT tcc.id) FILTER (WHERE tcc.status = 'completed')::numeric / COUNT(DISTINCT tw.id) * 100, 1)
+          ELSE 0
+        END as coverage_percentage
+      FROM batch_teachers bt
+      JOIN teachers t ON bt.teacher_id = t.id
+      LEFT JOIN batch_courses bc ON bc.batch_id = bt.batch_id
+      LEFT JOIN training_weeks tw ON tw.course_id = bc.course_id
+      LEFT JOIN teacher_course_completion tcc ON tcc.teacher_id = t.id AND tcc.course_id = bc.course_id AND tcc.batch_id = bt.batch_id
+      ${batchFilter}
+      GROUP BY t.id, t.name, t.teacher_id
+      ORDER BY coverage_percentage DESC
+    `);
+
+    return result.rows;
+  }
+
+  async getBestFormedWeekAnalytics(): Promise<any> {
+    const result = await db.execute(sqlOp`
+      SELECT
+        tw.id as week_id,
+        tw.week_number,
+        tw.competency_focus,
+        c.name as course_name,
+        COUNT(DISTINCT tcp.teacher_id) FILTER (WHERE tcp.status = 'completed')::int as completions,
+        COUNT(DISTINCT tcp.teacher_id)::int as total_accessed,
+        COUNT(DISTINCT fr.teacher_id)::int as reflections_count,
+        COUNT(DISTINCT tqa.teacher_id) FILTER (WHERE tqa.passed = 'yes')::int as quiz_passes,
+        COUNT(DISTINCT tqa.teacher_id)::int as quiz_attempts,
+        CASE WHEN COUNT(DISTINCT tcp.teacher_id) > 0
+          THEN ROUND(
+            (
+              COALESCE(COUNT(DISTINCT tcp.teacher_id) FILTER (WHERE tcp.status = 'completed')::numeric / NULLIF(COUNT(DISTINCT tcp.teacher_id), 0), 0) * 40 +
+              COALESCE(COUNT(DISTINCT tqa.teacher_id) FILTER (WHERE tqa.passed = 'yes')::numeric / NULLIF(COUNT(DISTINCT tqa.teacher_id), 0), 0) * 40 +
+              COALESCE(COUNT(DISTINCT fr.teacher_id)::numeric / NULLIF(COUNT(DISTINCT tcp.teacher_id), 0), 0) * 20
+            ), 1
+          )
+          ELSE 0
+        END as composite_score
+      FROM training_weeks tw
+      JOIN courses c ON tw.course_id = c.id
+      LEFT JOIN teacher_content_progress tcp ON tcp.week_id = tw.id
+      LEFT JOIN fellow_reflections fr ON fr.week_id = tw.id
+      LEFT JOIN teacher_quiz_attempts tqa ON tqa.teacher_id = tcp.teacher_id
+      GROUP BY tw.id, tw.week_number, tw.competency_focus, c.name
+      ORDER BY composite_score DESC
+    `);
+
+    return result.rows;
+  }
+
+  async getQuizPerformanceAnalytics(batchId?: string): Promise<any> {
+    const batchFilter = batchId ? sqlOp`AND bt.batch_id = ${batchId}` : sqlOp``;
+
+    // Per-fellow quiz performance
+    const perFellow = await db.execute(sqlOp`
+      SELECT
+        t.id as teacher_id,
+        t.name as teacher_name,
+        COUNT(tqa.id)::int as total_attempts,
+        COUNT(CASE WHEN tqa.passed = 'yes' THEN 1 END)::int as passed_count,
+        ROUND(AVG(tqa.score)::numeric, 1) as avg_score,
+        ROUND(AVG(tqa.total_questions)::numeric, 1) as avg_total_questions,
+        CASE WHEN COUNT(tqa.id) > 0
+          THEN ROUND(COUNT(CASE WHEN tqa.passed = 'yes' THEN 1 END)::numeric / COUNT(tqa.id) * 100, 1)
+          ELSE 0
+        END as pass_rate
+      FROM batch_teachers bt
+      JOIN teachers t ON bt.teacher_id = t.id
+      LEFT JOIN teacher_quiz_attempts tqa ON tqa.teacher_id = t.id
+      WHERE 1=1 ${batchFilter}
+      GROUP BY t.id, t.name
+      ORDER BY pass_rate DESC
+    `);
+
+    // Aggregate by cohort
+    const perCohort = await db.execute(sqlOp`
+      SELECT
+        b.id as batch_id,
+        b.name as batch_name,
+        COUNT(tqa.id)::int as total_attempts,
+        COUNT(CASE WHEN tqa.passed = 'yes' THEN 1 END)::int as passed_count,
+        ROUND(AVG(tqa.score)::numeric, 1) as avg_score,
+        CASE WHEN COUNT(tqa.id) > 0
+          THEN ROUND(COUNT(CASE WHEN tqa.passed = 'yes' THEN 1 END)::numeric / COUNT(tqa.id) * 100, 1)
+          ELSE 0
+        END as pass_rate
+      FROM batches b
+      LEFT JOIN batch_teachers bt ON bt.batch_id = b.id
+      LEFT JOIN teacher_quiz_attempts tqa ON tqa.teacher_id = bt.teacher_id
+      GROUP BY b.id, b.name
+      ORDER BY pass_rate DESC
+    `);
+
+    return {
+      perFellow: perFellow.rows,
+      perCohort: perCohort.rows,
+    };
+  }
+
+  async getCourseAssignmentTracking(): Promise<any> {
+    const result = await db.execute(sqlOp`
+      SELECT
+        u.id as trainer_id,
+        COALESCE(u.first_name || ' ' || u.last_name, u.username) as trainer_name,
+        c.id as course_id,
+        c.name as course_name,
+        b.id as batch_id,
+        b.name as batch_name,
+        bc.assigned_at
+      FROM batch_courses bc
+      JOIN users u ON bc.assigned_by = u.id
+      JOIN courses c ON bc.course_id = c.id
+      JOIN batches b ON bc.batch_id = b.id
+      ORDER BY bc.assigned_at DESC
+    `);
+
+    return result.rows;
   }
 }
 

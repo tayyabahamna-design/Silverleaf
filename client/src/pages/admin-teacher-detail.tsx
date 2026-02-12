@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileText, MessageSquare, Award } from "lucide-react";
 import { format } from "date-fns";
 import { useRoute } from "wouter";
 
@@ -40,6 +40,28 @@ export default function AdminTeacherDetail() {
   const { data: teacher, isLoading } = useQuery<TeacherDetail>({
     queryKey: ["/api/admin/teachers", teacherId],
     enabled: !!teacherId,
+  });
+
+  // Fetch reflections for this teacher
+  const { data: reflections } = useQuery<any[]>({
+    queryKey: ["/api/reflections/teacher", teacherId],
+    enabled: !!teacherId,
+    queryFn: async () => {
+      const response = await fetch(`/api/reflections/teacher/${teacherId}`);
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  // Fetch trainer comments for this teacher
+  const { data: trainerComments } = useQuery<any[]>({
+    queryKey: ["/api/trainer/comments/teacher", teacherId],
+    enabled: !!teacherId,
+    queryFn: async () => {
+      const response = await fetch(`/api/trainer/comments/teacher/${teacherId}`);
+      if (!response.ok) return [];
+      return await response.json();
+    },
   });
 
   if (user?.role !== "admin") {
@@ -186,7 +208,7 @@ export default function AdminTeacherDetail() {
 
         {/* Activity Timeline */}
         {teacher.activityTimeline && teacher.activityTimeline.length > 0 && (
-          <Card className="p-6">
+          <Card className="p-6 mb-6">
             <h2 className="text-xl font-bold mb-4">Activity Timeline</h2>
             <div className="space-y-4">
               {teacher.activityTimeline.map((activity, idx) => (
@@ -206,6 +228,64 @@ export default function AdminTeacherDetail() {
                   <p className="text-sm text-muted-foreground whitespace-nowrap">
                     {format(new Date(activity.timestamp), "MMM d, HH:mm")}
                   </p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Reflections */}
+        {reflections && reflections.length > 0 && (
+          <Card className="p-6 mb-6">
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Reflections
+            </h2>
+            <div className="space-y-3">
+              {reflections.map((reflection: any, idx: number) => (
+                <div
+                  key={reflection.id || idx}
+                  className="p-4 bg-muted rounded-lg"
+                  data-testid={`reflection-${idx}`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      {reflection.rating && (
+                        <Badge variant="outline">{reflection.rating}/5</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {reflection.submittedAt ? format(new Date(reflection.submittedAt), "MMM d, yyyy") : ""}
+                    </p>
+                  </div>
+                  <p className="text-sm">{reflection.content}</p>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {/* Trainer Comments */}
+        {trainerComments && trainerComments.length > 0 && (
+          <Card className="p-6 mb-6">
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <MessageSquare className="w-5 h-5" />
+              Trainer Comments
+            </h2>
+            <div className="space-y-3">
+              {trainerComments.map((comment: any, idx: number) => (
+                <div
+                  key={comment.id || idx}
+                  className="p-4 bg-muted rounded-lg"
+                  data-testid={`trainer-comment-${idx}`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <Badge variant="outline" className="capitalize">{comment.category}</Badge>
+                    <p className="text-sm text-muted-foreground">
+                      {comment.createdAt ? format(new Date(comment.createdAt), "MMM d, yyyy") : ""}
+                    </p>
+                  </div>
+                  <p className="text-sm">{comment.comment}</p>
                 </div>
               ))}
             </div>

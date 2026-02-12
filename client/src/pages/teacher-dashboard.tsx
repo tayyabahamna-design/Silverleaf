@@ -5,9 +5,14 @@ import posthog from "posthog-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProfileSettingsDialog } from "@/components/ProfileSettingsDialog";
-import { Award, CheckCircle, LogOut, GraduationCap, ArrowRight } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Award, CheckCircle, LogOut, GraduationCap, ArrowRight, FileText, Star } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 export default function TeacherDashboard() {
@@ -30,6 +35,14 @@ export default function TeacherDashboard() {
     queryKey: ["/api/teacher/assigned-weeks"],
   });
 
+  const { toast } = useToast();
+  const [reflectionWeekId, setReflectionWeekId] = useState("");
+  const [reflectionBatchId, setReflectionBatchId] = useState("");
+  const [reflectionContent, setReflectionContent] = useState("");
+  const [reflectionRating, setReflectionRating] = useState(0);
+  const [satisfactionScore, setSatisfactionScore] = useState(0);
+  const [satisfactionCourseId, setSatisfactionCourseId] = useState("");
+
   const logoutMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch("/api/teacher/logout", {
@@ -41,6 +54,48 @@ export default function TeacherDashboard() {
     },
     onSuccess: () => {
       setLocation("/auth");
+    },
+  });
+
+  // Fetch own reflections
+  const { data: reflections = [] } = useQuery<any[]>({
+    queryKey: ["/api/teacher/reflections"],
+    queryFn: async () => {
+      const response = await fetch("/api/teacher/reflections");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  // Submit reflection mutation
+  const submitReflectionMutation = useMutation({
+    mutationFn: async (data: { weekId: string; batchId: string; content: string; rating: number | null }) => {
+      await apiRequest("POST", "/api/teacher/reflections", data);
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Reflection submitted successfully" });
+      setReflectionContent("");
+      setReflectionRating(0);
+      setReflectionWeekId("");
+      queryClient.invalidateQueries({ queryKey: ["/api/teacher/reflections"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Submit satisfaction score mutation
+  const submitSatisfactionMutation = useMutation({
+    mutationFn: async (data: { type: string; raterId: string; raterRole: string; targetId: string; targetType: string; score: number }) => {
+      await apiRequest("POST", "/api/satisfaction-scores", data);
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Rating submitted successfully" });
+      setSatisfactionScore(0);
+      setSatisfactionCourseId("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -240,6 +295,173 @@ export default function TeacherDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Weekly Reflection Submission */}
+        <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Weekly Reflection
+            </CardTitle>
+            <CardDescription>Share your learning reflections after completing a week</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {assignedWeeks.length > 0 && (
+                <div>
+                  <Label>Select Week</Label>
+                  <Select value={reflectionWeekId} onValueChange={(val) => {
+                    setReflectionWeekId(val);
+                    const week = assignedWeeks.find((w: any) => w.id === val);
+                    if (week?.batchId) setReflectionBatchId(week.batchId);
+                  }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a week to reflect on..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {assignedWeeks.map((week: any) => (
+                        <SelectItem key={week.id} value={week.id}>
+                          {week.courseName || week.title} - Week {week.weekNumber}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div>
+                <Label>Your Reflection</Label>
+                <Textarea
+                  value={reflectionContent}
+                  onChange={(e) => setReflectionContent(e.target.value)}
+                  placeholder="What did you learn this week? What challenges did you face? What would you do differently?"
+                  rows={4}
+                />
+              </div>
+              <div>
+                <Label>Self-Rating (1-5)</Label>
+                <div className="flex gap-2 mt-1">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Button
+                      key={n}
+                      variant={reflectionRating === n ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setReflectionRating(n)}
+                      className="w-10 h-10"
+                    >
+                      {n}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  if (!reflectionWeekId || !reflectionContent.trim()) {
+                    toast({ title: "Error", description: "Please select a week and write your reflection", variant: "destructive" });
+                    return;
+                  }
+                  submitReflectionMutation.mutate({
+                    weekId: reflectionWeekId,
+                    batchId: reflectionBatchId,
+                    content: reflectionContent,
+                    rating: reflectionRating || null,
+                  });
+                }}
+                disabled={submitReflectionMutation.isPending}
+              >
+                {submitReflectionMutation.isPending ? "Submitting..." : "Submit Reflection"}
+              </Button>
+            </div>
+
+            {/* Previous Reflections */}
+            {reflections.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Previous Reflections</h3>
+                <div className="space-y-2">
+                  {reflections.slice(0, 5).map((r: any) => (
+                    <div key={r.id} className="p-3 bg-muted rounded-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        {r.rating && <Badge variant="outline">{r.rating}/5</Badge>}
+                        <span className="text-xs text-muted-foreground">
+                          {r.submittedAt ? new Date(r.submittedAt).toLocaleDateString() : ""}
+                        </span>
+                      </div>
+                      <p className="text-sm">{r.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Course Satisfaction Rating */}
+        {uniqueCourses.length > 0 && (
+          <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Star className="h-5 w-5" />
+                Rate Your Courses
+              </CardTitle>
+              <CardDescription>Help us improve by rating your learning experience</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label>Select Course</Label>
+                  <Select value={satisfactionCourseId} onValueChange={setSatisfactionCourseId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a course to rate..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {uniqueCourses.map((course: any) => (
+                        <SelectItem key={course.courseName} value={course.courseName}>
+                          {course.courseName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Your Rating</Label>
+                  <div className="flex gap-2 mt-1">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <Button
+                        key={n}
+                        variant={satisfactionScore === n ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSatisfactionScore(n)}
+                        className="w-10 h-10"
+                      >
+                        <Star className={`h-4 w-4 ${satisfactionScore >= n ? "fill-current" : ""}`} />
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    if (!satisfactionCourseId || !satisfactionScore) {
+                      toast({ title: "Error", description: "Please select a course and give a rating", variant: "destructive" });
+                      return;
+                    }
+                    submitSatisfactionMutation.mutate({
+                      type: "fellow_rates_course",
+                      raterId: teacher?.id,
+                      raterRole: "teacher",
+                      targetId: satisfactionCourseId,
+                      targetType: "course",
+                      score: satisfactionScore,
+                    });
+                  }}
+                  disabled={submitSatisfactionMutation.isPending}
+                >
+                  {submitSatisfactionMutation.isPending ? "Submitting..." : "Submit Rating"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       </div>
     </div>

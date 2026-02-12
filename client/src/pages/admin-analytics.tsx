@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock, Trash2, Ban, UserPlus, GraduationCap, MapPin, Briefcase, Activity, Plus, Award, FileText } from "lucide-react";
+import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock, Trash2, Ban, UserPlus, GraduationCap, MapPin, Briefcase, Activity, Plus, Award, FileText, Heart, Shield, Star, MessageSquare, Repeat, Target } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -360,6 +360,97 @@ export default function AdminAnalytics() {
     },
   });
 
+  // Engagement & Retention Analytics Queries
+  const { data: reflectionData, isLoading: loadingReflections } = useQuery({
+    queryKey: ["/api/analytics/reflection-completion"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/reflection-completion");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  const { data: engagementData, isLoading: loadingEngagement } = useQuery({
+    queryKey: ["/api/analytics/engagement"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/engagement");
+      if (!response.ok) return null;
+      return await response.json();
+    },
+  });
+
+  const { data: weekCoverageData, isLoading: loadingWeekCoverage } = useQuery({
+    queryKey: ["/api/analytics/week-coverage"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/week-coverage");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  const { data: bestFormedWeekData, isLoading: loadingBestWeek } = useQuery({
+    queryKey: ["/api/analytics/best-formed-week"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/best-formed-week");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  const { data: disqualificationData, isLoading: loadingDisqualification } = useQuery({
+    queryKey: ["/api/analytics/disqualification-rate"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/disqualification-rate");
+      if (!response.ok) return null;
+      return await response.json();
+    },
+  });
+
+  const { data: repetitionData, isLoading: loadingRepetition } = useQuery({
+    queryKey: ["/api/analytics/repetition-rate"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/repetition-rate");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  const { data: satisfactionData, isLoading: loadingSatisfaction } = useQuery({
+    queryKey: ["/api/analytics/satisfaction-trends"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/satisfaction-trends");
+      if (!response.ok) return null;
+      return await response.json();
+    },
+  });
+
+  const { data: quizPerformanceData, isLoading: loadingQuizPerformance } = useQuery({
+    queryKey: ["/api/analytics/quiz-performance"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/quiz-performance");
+      if (!response.ok) return null;
+      return await response.json();
+    },
+  });
+
+  const { data: courseAssignmentData, isLoading: loadingCourseAssignment } = useQuery({
+    queryKey: ["/api/analytics/course-assignments"],
+    enabled: isAdmin,
+    queryFn: async () => {
+      const response = await fetch("/api/analytics/course-assignments");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
   // Mutation for deleting/dismissing trainers
   const dismissTrainerMutation = useMutation({
     mutationFn: async (trainerId: string) =>
@@ -676,7 +767,7 @@ export default function AdminAnalytics() {
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
         {/* Main Tabs */}
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsList className="flex w-full overflow-x-auto mb-8 sm:grid sm:grid-cols-7">
             <TabsTrigger value="overview" data-testid="tab-overview">
               <BarChart3 className="w-4 h-4 mr-2 hidden sm:inline" />
               Overview
@@ -684,6 +775,14 @@ export default function AdminAnalytics() {
             <TabsTrigger value="cohorts" data-testid="tab-cohorts">
               <Users className="w-4 h-4 mr-2 hidden sm:inline" />
               Cohorts
+            </TabsTrigger>
+            <TabsTrigger value="engagement" data-testid="tab-engagement">
+              <Heart className="w-4 h-4 mr-2 hidden sm:inline" />
+              Engagement
+            </TabsTrigger>
+            <TabsTrigger value="retention" data-testid="tab-retention">
+              <Shield className="w-4 h-4 mr-2 hidden sm:inline" />
+              Retention
             </TabsTrigger>
             <TabsTrigger value="demographics" data-testid="tab-demographics">
               <MapPin className="w-4 h-4 mr-2 hidden sm:inline" />
@@ -761,6 +860,42 @@ export default function AdminAnalytics() {
                   />
                 </div>
               )}
+            </div>
+
+            {/* Engagement & Retention Summary KPIs */}
+            <div className="mb-8">
+              <div className="mb-4">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Engagement & Retention</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <KPICard
+                  label="Reflections Submitted"
+                  value={engagementData?.reflectionRate?.total_reflections || 0}
+                  icon={FileText}
+                  subtitle={`${engagementData?.reflectionRate?.fellows_with_reflections || 0} fellows`}
+                />
+                <KPICard
+                  label="Avg Satisfaction"
+                  value={satisfactionData?.overallAverages?.length > 0
+                    ? `${(satisfactionData.overallAverages.reduce((sum: number, a: any) => sum + Number(a.avg_score), 0) / satisfactionData.overallAverages.length).toFixed(1)}/5`
+                    : "N/A"}
+                  icon={Star}
+                  subtitle="across all ratings"
+                />
+                <KPICard
+                  label="Disqualified"
+                  value={disqualificationData?.byBatch?.reduce((sum: number, b: any) => sum + (b.disqualified_count || 0), 0) || 0}
+                  icon={Ban}
+                  color="red"
+                  subtitle="total fellows"
+                />
+                <KPICard
+                  label="Course Repetitions"
+                  value={repetitionData?.reduce((sum: number, r: any) => sum + (r.total_repetitions || 0), 0) || 0}
+                  icon={Repeat}
+                  subtitle={`${repetitionData?.reduce((sum: number, r: any) => sum + (r.fellows_repeating || 0), 0) || 0} fellows`}
+                />
+              </div>
             </div>
 
             {/* Charts Row */}
@@ -948,6 +1083,32 @@ export default function AdminAnalytics() {
                       </TableBody>
                     </Table>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Enrollment vs Graduation Chart */}
+            {Array.isArray(cohortsData) && cohortsData.length > 0 && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-base">Enrollment vs Graduation Rate</CardTitle>
+                  <CardDescription>Comparison across cohorts</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={{
+                    enrollment: { label: "Enrolled", color: CHART_COLORS[0] },
+                    graduationRate: { label: "Graduation %", color: CHART_COLORS[2] },
+                  }} className="h-[300px] w-full">
+                    <BarChart data={cohortsData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="batchName" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 11 }} />
+                      <YAxis />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Legend />
+                      <Bar dataKey="enrollment" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} name="Enrolled" />
+                      <Bar dataKey="graduationRate" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} name="Graduation %" />
+                    </BarChart>
+                  </ChartContainer>
                 </CardContent>
               </Card>
             )}
@@ -1449,6 +1610,463 @@ export default function AdminAnalytics() {
                 </div>
               )}
             </div>
+          </TabsContent>
+
+          {/* ===== ENGAGEMENT TAB ===== */}
+          <TabsContent value="engagement">
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Heart className="w-5 h-5" />
+                Fellow Engagement
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">Reflection completion, content engagement, and week coverage metrics</p>
+            </div>
+
+            {loadingEngagement || loadingReflections || loadingWeekCoverage || loadingBestWeek ? (
+              <div className="space-y-6">
+                {[...Array(4)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="pt-6 h-48" />
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Engagement KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <KPICard
+                    label="Active Fellows"
+                    value={engagementData?.contentViewing?.active_fellows || 0}
+                    icon={Users}
+                    subtitle={`of ${engagementData?.contentViewing?.total_fellows || 0} total`}
+                  />
+                  <KPICard
+                    label="Content Completion"
+                    value={engagementData?.contentViewing?.total_tracked_items > 0
+                      ? `${Math.round((engagementData.contentViewing.completed_items / engagementData.contentViewing.total_tracked_items) * 100)}%`
+                      : "0%"}
+                    icon={BookOpen}
+                    subtitle={`${engagementData?.contentViewing?.completed_items || 0} of ${engagementData?.contentViewing?.total_tracked_items || 0} items`}
+                  />
+                  <KPICard
+                    label="Reflections Submitted"
+                    value={engagementData?.reflectionRate?.total_reflections || 0}
+                    icon={FileText}
+                    subtitle={`${engagementData?.reflectionRate?.fellows_with_reflections || 0} fellows participated`}
+                  />
+                  <KPICard
+                    label="Quiz Pass Rate"
+                    value={engagementData?.quizCompletion?.total_attempts > 0
+                      ? `${Math.round((engagementData.quizCompletion.passed_count / engagementData.quizCompletion.total_attempts) * 100)}%`
+                      : "0%"}
+                    icon={Award}
+                    subtitle={`${engagementData?.quizCompletion?.passed_count || 0} of ${engagementData?.quizCompletion?.total_attempts || 0} passed`}
+                  />
+                </div>
+
+                {/* Reflection Completion by Week */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Reflection Completion by Week
+                    </CardTitle>
+                    <CardDescription>Percentage of fellows who submitted reflections per week</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {reflectionData && reflectionData.length > 0 ? (
+                      <ChartContainer config={{ completion_percentage: { label: "Completion %", color: CHART_COLORS[2] } }} className="h-[300px] w-full">
+                        <BarChart data={reflectionData.slice(0, 20)}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="course_name" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 11 }} />
+                          <YAxis domain={[0, 100]} tickFormatter={(val: number) => `${val}%`} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="completion_percentage" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} name="Completion %" />
+                        </BarChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No reflection data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Week Coverage by Teacher */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Target className="w-4 h-4" />
+                      Week Coverage by Teacher
+                    </CardTitle>
+                    <CardDescription>Number of weeks completed vs total weeks per teacher</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {weekCoverageData && weekCoverageData.length > 0 ? (
+                      <div className="space-y-3">
+                        {weekCoverageData.slice(0, 15).map((teacher: any) => (
+                          <div key={teacher.teacher_id} className="flex items-center gap-4">
+                            <div className="w-36 truncate text-sm font-medium">{teacher.teacher_name}</div>
+                            <div className="flex-1">
+                              <Progress value={Number(teacher.coverage_percentage)} className="h-3" />
+                            </div>
+                            <div className="w-24 text-right text-sm text-muted-foreground">
+                              {teacher.completed_weeks}/{teacher.total_weeks} weeks ({teacher.coverage_percentage}%)
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No week coverage data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Best Formed Week */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Star className="w-4 h-4 text-yellow-500" />
+                      Best Formed Weeks
+                    </CardTitle>
+                    <CardDescription>Top performing weeks by composite score (completion 40% + quiz pass 40% + reflections 20%)</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {bestFormedWeekData && bestFormedWeekData.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Course</TableHead>
+                              <TableHead>Week</TableHead>
+                              <TableHead className="text-center">Completions</TableHead>
+                              <TableHead className="text-center">Quiz Passes</TableHead>
+                              <TableHead className="text-center">Reflections</TableHead>
+                              <TableHead className="text-center">Score</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {bestFormedWeekData.slice(0, 10).map((week: any, index: number) => (
+                              <TableRow key={week.week_id}>
+                                <TableCell className="font-medium">{week.course_name}</TableCell>
+                                <TableCell>Week {week.week_number}</TableCell>
+                                <TableCell className="text-center">{week.completions}/{week.total_accessed}</TableCell>
+                                <TableCell className="text-center">{week.quiz_passes}/{week.quiz_attempts}</TableCell>
+                                <TableCell className="text-center">{week.reflections_count}</TableCell>
+                                <TableCell className="text-center">
+                                  <Badge variant={Number(week.composite_score) >= 70 ? "default" : Number(week.composite_score) >= 40 ? "secondary" : "destructive"}>
+                                    {week.composite_score}%
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No week performance data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ===== RETENTION TAB ===== */}
+          <TabsContent value="retention">
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Retention & Discipline
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">Disqualification rates, course repetition, satisfaction scores, quiz performance, and trainer feedback</p>
+            </div>
+
+            {loadingDisqualification || loadingRepetition || loadingSatisfaction || loadingQuizPerformance || loadingCourseAssignment ? (
+              <div className="space-y-6">
+                {[...Array(4)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardContent className="pt-6 h-48" />
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Retention KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <KPICard
+                    label="Disqualified Fellows"
+                    value={disqualificationData?.byBatch?.reduce((sum: number, b: any) => sum + (b.disqualified_count || 0), 0) || 0}
+                    icon={Ban}
+                    color="destructive"
+                    subtitle="across all cohorts"
+                  />
+                  <KPICard
+                    label="Course Repetitions"
+                    value={repetitionData?.reduce((sum: number, r: any) => sum + (r.total_repetitions || 0), 0) || 0}
+                    icon={Repeat}
+                    subtitle={`${repetitionData?.reduce((sum: number, r: any) => sum + (r.fellows_repeating || 0), 0) || 0} fellows repeating`}
+                  />
+                  <KPICard
+                    label="Avg Satisfaction"
+                    value={satisfactionData?.overallAverages?.length > 0
+                      ? `${(satisfactionData.overallAverages.reduce((sum: number, a: any) => sum + Number(a.avg_score), 0) / satisfactionData.overallAverages.length).toFixed(1)}/5`
+                      : "N/A"}
+                    icon={Star}
+                    subtitle={`${satisfactionData?.overallAverages?.reduce((sum: number, a: any) => sum + (a.total_ratings || 0), 0) || 0} ratings total`}
+                  />
+                  <KPICard
+                    label="Quiz Pass Rate"
+                    value={quizPerformanceData?.perCohort?.length > 0
+                      ? `${(quizPerformanceData.perCohort.reduce((sum: number, c: any) => sum + Number(c.pass_rate || 0), 0) / quizPerformanceData.perCohort.length).toFixed(1)}%`
+                      : "N/A"}
+                    icon={Award}
+                    subtitle="average across cohorts"
+                  />
+                </div>
+
+                {/* Disqualification Rate by Cohort */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Ban className="w-4 h-4 text-red-500" />
+                      Disqualification Rate by Cohort
+                    </CardTitle>
+                    <CardDescription>Percentage of fellows disqualified per batch</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {disqualificationData?.byBatch?.length > 0 ? (
+                      <ChartContainer config={{ disqualification_rate: { label: "Disqualification %", color: CHART_COLORS[4] } }} className="h-[300px] w-full">
+                        <BarChart data={disqualificationData.byBatch}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="batch_name" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 11 }} />
+                          <YAxis domain={[0, 100]} tickFormatter={(val: number) => `${val}%`} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="disqualification_rate" fill={CHART_COLORS[4]} radius={[4, 4, 0, 0]} name="Disqualification %" />
+                        </BarChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
+                        <div className="text-center">
+                          <CheckCircle className="w-12 h-12 text-green-500/30 mx-auto mb-3" />
+                          <p className="font-medium">No disqualifications recorded</p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Disqualification Monthly Trend */}
+                {disqualificationData?.monthlyTrend?.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Disqualification Trend</CardTitle>
+                      <CardDescription>Monthly disqualification counts</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ChartContainer config={{ count: { label: "Disqualifications", color: CHART_COLORS[4] } }} className="h-[250px] w-full">
+                        <LineChart data={disqualificationData.monthlyTrend}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" />
+                          <YAxis />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Line type="monotone" dataKey="count" stroke={CHART_COLORS[4]} strokeWidth={2} dot={{ r: 4 }} />
+                        </LineChart>
+                      </ChartContainer>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Course Repetition Rate */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Repeat className="w-4 h-4" />
+                      Course Repetition Rate
+                    </CardTitle>
+                    <CardDescription>How many fellows had to repeat courses</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {repetitionData && repetitionData.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Course</TableHead>
+                              <TableHead className="text-center">Fellows Repeating</TableHead>
+                              <TableHead className="text-center">Total Repetitions</TableHead>
+                              <TableHead className="text-center">Avg Repetitions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {repetitionData.map((row: any) => (
+                              <TableRow key={row.course_id}>
+                                <TableCell className="font-medium">{row.course_name}</TableCell>
+                                <TableCell className="text-center">{row.fellows_repeating}</TableCell>
+                                <TableCell className="text-center">{row.total_repetitions}</TableCell>
+                                <TableCell className="text-center">{row.avg_repetitions}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No course repetition data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Satisfaction Score Trends */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Star className="w-4 h-4 text-yellow-500" />
+                      Satisfaction Score Trends
+                    </CardTitle>
+                    <CardDescription>Average satisfaction ratings over time (1-5 scale)</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {satisfactionData?.trends?.length > 0 ? (
+                      <ChartContainer config={{
+                        avg_score: { label: "Avg Score", color: CHART_COLORS[3] },
+                      }} className="h-[300px] w-full">
+                        <LineChart data={satisfactionData.trends}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="month" />
+                          <YAxis domain={[0, 5]} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Line type="monotone" dataKey="avg_score" stroke={CHART_COLORS[3]} strokeWidth={2} dot={{ r: 4 }} name="Avg Score" />
+                        </LineChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No satisfaction data yet</div>
+                    )}
+                    {/* Satisfaction Averages by Type */}
+                    {satisfactionData?.overallAverages?.length > 0 && (
+                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {satisfactionData.overallAverages.map((avg: any) => (
+                          <div key={avg.type} className="p-3 rounded-lg border bg-muted/50">
+                            <p className="text-xs text-muted-foreground capitalize">{avg.type.replace(/_/g, ' ')}</p>
+                            <p className="text-lg font-bold">{avg.avg_score}/5</p>
+                            <p className="text-xs text-muted-foreground">{avg.total_ratings} ratings</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Quiz Performance by Cohort */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Award className="w-4 h-4" />
+                      Quiz Performance by Cohort
+                    </CardTitle>
+                    <CardDescription>Pass rates and average scores per batch</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {quizPerformanceData?.perCohort?.length > 0 ? (
+                      <ChartContainer config={{
+                        pass_rate: { label: "Pass Rate %", color: CHART_COLORS[2] },
+                        avg_score: { label: "Avg Score", color: CHART_COLORS[0] },
+                      }} className="h-[300px] w-full">
+                        <BarChart data={quizPerformanceData.perCohort}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="batch_name" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 11 }} />
+                          <YAxis domain={[0, 100]} tickFormatter={(val: number) => `${val}%`} />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar dataKey="pass_rate" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} name="Pass Rate %" />
+                        </BarChart>
+                      </ChartContainer>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No quiz performance data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Quiz Performance by Fellow */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Quiz Performance by Fellow</CardTitle>
+                    <CardDescription>Individual quiz scores and pass rates</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {quizPerformanceData?.perFellow?.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Fellow</TableHead>
+                              <TableHead className="text-center">Attempts</TableHead>
+                              <TableHead className="text-center">Passed</TableHead>
+                              <TableHead className="text-center">Avg Score</TableHead>
+                              <TableHead className="text-center">Pass Rate</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {quizPerformanceData.perFellow.slice(0, 20).map((fellow: any) => (
+                              <TableRow key={fellow.teacher_id}>
+                                <TableCell className="font-medium">{fellow.teacher_name}</TableCell>
+                                <TableCell className="text-center">{fellow.total_attempts}</TableCell>
+                                <TableCell className="text-center">{fellow.passed_count}</TableCell>
+                                <TableCell className="text-center">{fellow.avg_score}</TableCell>
+                                <TableCell className="text-center">
+                                  <Badge variant={Number(fellow.pass_rate) >= 70 ? "default" : Number(fellow.pass_rate) >= 40 ? "secondary" : "destructive"}>
+                                    {fellow.pass_rate}%
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No fellow quiz data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Course Assignment Tracking */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <BookOpen className="w-4 h-4" />
+                      Course Assignments by Trainers
+                    </CardTitle>
+                    <CardDescription>Which trainers assigned which courses to batches</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {courseAssignmentData && courseAssignmentData.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Trainer</TableHead>
+                              <TableHead>Course</TableHead>
+                              <TableHead>Batch</TableHead>
+                              <TableHead>Assigned Date</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {courseAssignmentData.slice(0, 20).map((row: any, index: number) => (
+                              <TableRow key={`${row.batch_id}-${row.course_id}-${index}`}>
+                                <TableCell className="font-medium">{row.trainer_name}</TableCell>
+                                <TableCell>{row.course_name}</TableCell>
+                                <TableCell>{row.batch_name}</TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {row.assigned_at ? new Date(row.assigned_at).toLocaleDateString() : "N/A"}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">No course assignment data yet</div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </TabsContent>
 
           {/* ===== TAB 3: DEMOGRAPHICS ===== */}

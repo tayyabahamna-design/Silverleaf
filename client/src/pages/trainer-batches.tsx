@@ -18,7 +18,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp, Home, ChevronDown, ChevronRight, AlertCircle, FileText, X } from "lucide-react";
+import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp, Home, ChevronDown, ChevronRight, AlertCircle, FileText, X, MessageSquare, Ban } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 export default function TrainerBatches() {
@@ -46,6 +46,13 @@ export default function TrainerBatches() {
   const [appreciationText, setAppreciationText] = useState("");
   const [adminName1, setAdminName1] = useState("");
   const [adminName2, setAdminName2] = useState("");
+  const [commentDialogOpen, setCommentDialogOpen] = useState(false);
+  const [disqualifyDialogOpen, setDisqualifyDialogOpen] = useState(false);
+  const [commentTeacher, setCommentTeacher] = useState<any>(null);
+  const [commentText, setCommentText] = useState("");
+  const [commentCategory, setCommentCategory] = useState("general");
+  const [disqualifyTeacher, setDisqualifyTeacher] = useState<any>(null);
+  const [disqualifyReason, setDisqualifyReason] = useState("");
 
   const { data: batches = [] } = useQuery<any[]>({
     queryKey: ["/api/batches"],
@@ -139,6 +146,41 @@ export default function TrainerBatches() {
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  // Add trainer comment mutation
+  const addCommentMutation = useMutation({
+    mutationFn: async ({ teacherId, batchId, comment, category }: { teacherId: string; batchId: string; comment: string; category: string }) => {
+      await apiRequest("POST", "/api/trainer/comments", { teacherId, batchId, comment, category });
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Comment added successfully" });
+      setCommentDialogOpen(false);
+      setCommentText("");
+      setCommentCategory("general");
+      setCommentTeacher(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Disqualify fellow mutation
+  const disqualifyMutation = useMutation({
+    mutationFn: async ({ teacherId, batchId, reason }: { teacherId: string; batchId: string; reason: string }) => {
+      await apiRequest("POST", `/api/fellows/${teacherId}/disqualify`, { batchId, reason });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", selectedBatch?.id] });
+      toast({ title: "Success", description: "Fellow disqualified" });
+      setDisqualifyDialogOpen(false);
+      setDisqualifyReason("");
+      setDisqualifyTeacher(null);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -531,28 +573,55 @@ export default function TrainerBatches() {
                     <div className="space-y-2">
                       {batchDetails?.teachers?.map((teacher: any) => (
                         <Card key={teacher.id}>
-                          <CardContent className="flex items-center justify-between py-4">
+                          <CardContent className="flex items-center justify-between gap-2 py-4">
                             <div>
                               <p className="font-semibold">{teacher.name}</p>
                               <p className="text-sm text-muted-foreground">
                                 Teacher ID: {teacher.teacherId} • {teacher.email}
                               </p>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                if (confirm(`Remove ${teacher.name} from this batch?`)) {
-                                  removeTeacherMutation.mutate({
-                                    batchId: selectedBatch.id,
-                                    teacherId: teacher.id,
-                                  });
-                                }
-                              }}
-                              data-testid={`button-remove-teacher-${teacher.id}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Add Comment"
+                                onClick={() => {
+                                  setCommentTeacher(teacher);
+                                  setCommentDialogOpen(true);
+                                }}
+                                data-testid={`button-comment-teacher-${teacher.id}`}
+                              >
+                                <MessageSquare className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Disqualify Fellow"
+                                className="text-red-500 hover:text-red-700"
+                                onClick={() => {
+                                  setDisqualifyTeacher(teacher);
+                                  setDisqualifyDialogOpen(true);
+                                }}
+                                data-testid={`button-disqualify-teacher-${teacher.id}`}
+                              >
+                                <Ban className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  if (confirm(`Remove ${teacher.name} from this batch?`)) {
+                                    removeTeacherMutation.mutate({
+                                      batchId: selectedBatch.id,
+                                      teacherId: teacher.id,
+                                    });
+                                  }
+                                }}
+                                data-testid={`button-remove-teacher-${teacher.id}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </CardContent>
                         </Card>
                       ))}
@@ -1089,6 +1158,101 @@ export default function TrainerBatches() {
               })}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Comment Dialog */}
+      <Dialog open={commentDialogOpen} onOpenChange={setCommentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Comment for {commentTeacher?.name}</DialogTitle>
+            <DialogDescription>Provide feedback on this fellow's progress</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Category</Label>
+              <Select value={commentCategory} onValueChange={setCommentCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="progress">Progress</SelectItem>
+                  <SelectItem value="improvement">Improvement</SelectItem>
+                  <SelectItem value="general">General</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Comment</Label>
+              <Textarea
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder="Enter your feedback..."
+                rows={4}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setCommentDialogOpen(false)}>Cancel</Button>
+              <Button
+                onClick={() => {
+                  if (!commentText.trim()) {
+                    toast({ title: "Error", description: "Comment cannot be empty", variant: "destructive" });
+                    return;
+                  }
+                  addCommentMutation.mutate({
+                    teacherId: commentTeacher.id,
+                    batchId: selectedBatch.id,
+                    comment: commentText,
+                    category: commentCategory,
+                  });
+                }}
+                disabled={addCommentMutation.isPending}
+              >
+                {addCommentMutation.isPending ? "Adding..." : "Add Comment"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Disqualify Fellow Dialog */}
+      <Dialog open={disqualifyDialogOpen} onOpenChange={setDisqualifyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Disqualify {disqualifyTeacher?.name}</DialogTitle>
+            <DialogDescription>This action will mark the fellow as disqualified from this batch. Please provide a reason.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Reason for Disqualification</Label>
+              <Textarea
+                value={disqualifyReason}
+                onChange={(e) => setDisqualifyReason(e.target.value)}
+                placeholder="Enter the reason for disqualification..."
+                rows={4}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setDisqualifyDialogOpen(false)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (!disqualifyReason.trim()) {
+                    toast({ title: "Error", description: "Reason is required", variant: "destructive" });
+                    return;
+                  }
+                  disqualifyMutation.mutate({
+                    teacherId: disqualifyTeacher.id,
+                    batchId: selectedBatch.id,
+                    reason: disqualifyReason,
+                  });
+                }}
+                disabled={disqualifyMutation.isPending}
+              >
+                {disqualifyMutation.isPending ? "Disqualifying..." : "Disqualify Fellow"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

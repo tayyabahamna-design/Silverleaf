@@ -570,3 +570,116 @@ export const insertTeacherCertificateSchema = createInsertSchema(teacherCertific
 
 export type InsertTeacherCertificate = z.infer<typeof insertTeacherCertificateSchema>;
 export type TeacherCertificate = typeof teacherCertificates.$inferSelect;
+
+// Fellow reflections table (post-week journal entries)
+export const fellowReflections = pgTable("fellow_reflections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  weekId: varchar("week_id").notNull().references(() => trainingWeeks.id, { onDelete: "cascade" }),
+  batchId: varchar("batch_id").notNull().references(() => batches.id, { onDelete: "cascade" }),
+  content: text("content").notNull(),
+  rating: integer("rating"), // optional self-rating 1-5
+  submittedAt: timestamp("submitted_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_fellow_reflection_unique").on(table.teacherId, table.weekId, table.batchId),
+]);
+
+export const insertFellowReflectionSchema = createInsertSchema(fellowReflections).omit({
+  id: true,
+  submittedAt: true,
+});
+
+export type InsertFellowReflection = z.infer<typeof insertFellowReflectionSchema>;
+export type FellowReflection = typeof fellowReflections.$inferSelect;
+
+// Fellow disqualifications table (manual by trainer/admin)
+export const fellowDisqualifications = pgTable("fellow_disqualifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  batchId: varchar("batch_id").notNull().references(() => batches.id, { onDelete: "cascade" }),
+  reason: text("reason").notNull(),
+  disqualifiedBy: varchar("disqualified_by").notNull().references(() => users.id, { onDelete: "cascade" }),
+  disqualifiedByRole: varchar("disqualified_by_role").notNull(), // 'admin' or 'trainer'
+  disqualifiedAt: timestamp("disqualified_at").defaultNow(),
+}, (table) => [
+  index("idx_fellow_disqualification").on(table.teacherId, table.batchId),
+]);
+
+export const insertFellowDisqualificationSchema = createInsertSchema(fellowDisqualifications).omit({
+  id: true,
+  disqualifiedAt: true,
+});
+
+export type InsertFellowDisqualification = z.infer<typeof insertFellowDisqualificationSchema>;
+export type FellowDisqualification = typeof fellowDisqualifications.$inferSelect;
+
+// Satisfaction scores table (multi-directional 1-5 ratings)
+export const satisfactionScores = pgTable("satisfaction_scores", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  type: varchar("type").notNull(), // 'fellow_rates_course', 'trainer_rates_fellow', 'fellow_rates_trainer'
+  raterId: varchar("rater_id").notNull(),
+  raterRole: varchar("rater_role").notNull(), // 'teacher', 'trainer', 'admin'
+  targetId: varchar("target_id").notNull(),
+  targetType: varchar("target_type").notNull(), // 'course', 'teacher', 'user'
+  batchId: varchar("batch_id").references(() => batches.id, { onDelete: "set null" }),
+  weekId: varchar("week_id").references(() => trainingWeeks.id, { onDelete: "set null" }),
+  score: integer("score").notNull(), // 1-5
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_satisfaction_type_target").on(table.type, table.targetId),
+  index("idx_satisfaction_rater").on(table.raterId),
+]);
+
+export const insertSatisfactionScoreSchema = createInsertSchema(satisfactionScores).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSatisfactionScore = z.infer<typeof insertSatisfactionScoreSchema>;
+export type SatisfactionScore = typeof satisfactionScores.$inferSelect;
+
+// Trainer comments table (feedback per fellow)
+export const trainerComments = pgTable("trainer_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  trainerId: varchar("trainer_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  batchId: varchar("batch_id").references(() => batches.id, { onDelete: "set null" }),
+  weekId: varchar("week_id").references(() => trainingWeeks.id, { onDelete: "set null" }),
+  comment: text("comment").notNull(),
+  category: varchar("category").notNull().default("general"), // 'progress', 'improvement', 'general'
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_trainer_comments_teacher").on(table.teacherId),
+  index("idx_trainer_comments_trainer").on(table.trainerId),
+]);
+
+export const insertTrainerCommentSchema = createInsertSchema(trainerComments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTrainerComment = z.infer<typeof insertTrainerCommentSchema>;
+export type TrainerComment = typeof trainerComments.$inferSelect;
+
+// Course repetitions table (track when fellows repeat a course)
+export const courseRepetitions = pgTable("course_repetitions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  courseId: varchar("course_id").notNull().references(() => courses.id, { onDelete: "cascade" }),
+  batchId: varchar("batch_id").notNull().references(() => batches.id, { onDelete: "cascade" }),
+  repetitionNumber: integer("repetition_number").notNull().default(1),
+  reason: text("reason"),
+  startedAt: timestamp("started_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_course_repetitions").on(table.teacherId, table.courseId),
+]);
+
+export const insertCourseRepetitionSchema = createInsertSchema(courseRepetitions).omit({
+  id: true,
+  startedAt: true,
+});
+
+export type InsertCourseRepetition = z.infer<typeof insertCourseRepetitionSchema>;
+export type CourseRepetition = typeof courseRepetitions.$inferSelect;
