@@ -754,7 +754,7 @@ export default function AdminAnalytics() {
         <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 sm:py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-analytics-title">Silver Leaf – Admin Dashboard</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold" data-testid="text-analytics-title">Silver Leaf – Trainer Dashboard</h1>
               <p className="text-sm text-muted-foreground mt-1">Organization overview and analytics</p>
             </div>
             <Button onClick={() => navigate("/")} variant="outline" size="sm" data-testid="button-back-header">

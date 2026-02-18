@@ -2827,7 +2827,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin Dashboard Routes
+  // Trainer Dashboard Routes
   
   // Get dashboard statistics
   app.get("/api/admin/dashboard-stats", isAuthenticated, isStrictAdmin, async (req, res) => {

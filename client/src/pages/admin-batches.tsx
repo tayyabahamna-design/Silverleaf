@@ -98,7 +98,7 @@ export default function AdminBatches() {
             data-testid="button-back-admin"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Admin Dashboard
+            Back to Trainer Dashboard
           </Button>
           <h1 className="text-3xl font-bold mb-2">Batch Management</h1>
           <p className="text-muted-foreground">
