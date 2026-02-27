@@ -57,6 +57,16 @@ import {
   type InsertTrainerComment,
   type CourseRepetition,
   type InsertCourseRepetition,
+  type AttendanceRecord,
+  type InsertAttendanceRecord,
+  type Notification,
+  type InsertNotification,
+  type AlertRule,
+  type InsertAlertRule,
+  type TeacherGoal,
+  type InsertTeacherGoal,
+  type ScheduledEvent,
+  type InsertScheduledEvent,
   trainingWeeks,
   approvalHistory,
   users,
@@ -84,7 +94,12 @@ import {
   fellowDisqualifications,
   satisfactionScores,
   trainerComments,
-  courseRepetitions
+  courseRepetitions,
+  attendanceRecords,
+  notifications,
+  alertRules,
+  teacherGoals,
+  scheduledEvents
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql as sqlOp, desc, max } from "drizzle-orm";
@@ -299,6 +314,37 @@ export interface IStorage {
   getBestFormedWeekAnalytics(): Promise<any>;
   getQuizPerformanceAnalytics(batchId?: string): Promise<any>;
   getCourseAssignmentTracking(): Promise<any>;
+
+  // Attendance operations
+  createAttendanceRecord(record: InsertAttendanceRecord): Promise<AttendanceRecord>;
+  getAttendanceByTeacher(teacherId: string, batchId?: string): Promise<AttendanceRecord[]>;
+  getAttendanceByBatch(batchId: string, date?: Date): Promise<AttendanceRecord[]>;
+  getAttendanceSummary(teacherId: string, batchId?: string): Promise<any>;
+  getBatchAttendanceSummary(batchId: string): Promise<any>;
+
+  // Notification operations
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getNotifications(recipientId: string, recipientType: string, limit?: number): Promise<Notification[]>;
+  markNotificationRead(id: string): Promise<void>;
+  markAllNotificationsRead(recipientId: string, recipientType: string): Promise<void>;
+  getUnreadNotificationCount(recipientId: string, recipientType: string): Promise<number>;
+
+  // Alert rule operations
+  createAlertRule(rule: InsertAlertRule): Promise<AlertRule>;
+  getAlertRules(batchId?: string): Promise<AlertRule[]>;
+  deleteAlertRule(id: string): Promise<void>;
+
+  // Teacher goal operations
+  createTeacherGoal(goal: InsertTeacherGoal): Promise<TeacherGoal>;
+  getTeacherGoals(teacherId: string): Promise<TeacherGoal[]>;
+  updateTeacherGoal(id: string, updates: Partial<InsertTeacherGoal>): Promise<TeacherGoal>;
+  deleteTeacherGoal(id: string): Promise<void>;
+
+  // Scheduled event operations
+  createScheduledEvent(event: InsertScheduledEvent): Promise<ScheduledEvent>;
+  getScheduledEvents(batchId: string): Promise<ScheduledEvent[]>;
+  getScheduledEventsForTeacher(teacherId: string): Promise<ScheduledEvent[]>;
+  deleteScheduledEvent(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2475,6 +2521,208 @@ export class DatabaseStorage implements IStorage {
     `);
 
     return result.rows;
+  }
+
+  // ── Attendance Operations ──
+
+  async createAttendanceRecord(record: InsertAttendanceRecord): Promise<AttendanceRecord> {
+    const [result] = await db.insert(attendanceRecords).values(record).returning();
+    return result;
+  }
+
+  async getAttendanceByTeacher(teacherId: string, batchId?: string): Promise<AttendanceRecord[]> {
+    if (batchId) {
+      return db.select().from(attendanceRecords)
+        .where(and(eq(attendanceRecords.teacherId, teacherId), eq(attendanceRecords.batchId, batchId)))
+        .orderBy(desc(attendanceRecords.date));
+    }
+    return db.select().from(attendanceRecords)
+      .where(eq(attendanceRecords.teacherId, teacherId))
+      .orderBy(desc(attendanceRecords.date));
+  }
+
+  async getAttendanceByBatch(batchId: string, date?: Date): Promise<AttendanceRecord[]> {
+    if (date) {
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+      return db.select().from(attendanceRecords)
+        .where(and(
+          eq(attendanceRecords.batchId, batchId),
+          sqlOp`${attendanceRecords.date} >= ${startOfDay}`,
+          sqlOp`${attendanceRecords.date} <= ${endOfDay}`
+        ))
+        .orderBy(attendanceRecords.teacherId);
+    }
+    return db.select().from(attendanceRecords)
+      .where(eq(attendanceRecords.batchId, batchId))
+      .orderBy(desc(attendanceRecords.date));
+  }
+
+  async getAttendanceSummary(teacherId: string, batchId?: string): Promise<any> {
+    const condition = batchId
+      ? sqlOp`teacher_id = ${teacherId} AND batch_id = ${batchId}`
+      : sqlOp`teacher_id = ${teacherId}`;
+
+    const result = await db.execute(sqlOp`
+      SELECT
+        COUNT(*) as total_days,
+        COUNT(*) FILTER (WHERE status = 'present') as present_days,
+        COUNT(*) FILTER (WHERE status = 'absent') as absent_days,
+        COUNT(*) FILTER (WHERE status = 'late') as late_days,
+        COUNT(*) FILTER (WHERE status = 'excused') as excused_days,
+        ROUND(
+          COUNT(*) FILTER (WHERE status = 'present' OR status = 'late')::numeric /
+          NULLIF(COUNT(*)::numeric, 0) * 100, 1
+        ) as attendance_rate
+      FROM attendance_records
+      WHERE ${condition}
+    `);
+
+    return result.rows[0];
+  }
+
+  async getBatchAttendanceSummary(batchId: string): Promise<any> {
+    const result = await db.execute(sqlOp`
+      SELECT
+        ar.teacher_id,
+        t.name as teacher_name,
+        t.cnic,
+        COUNT(*) as total_days,
+        COUNT(*) FILTER (WHERE ar.status = 'present') as present_days,
+        COUNT(*) FILTER (WHERE ar.status = 'absent') as absent_days,
+        COUNT(*) FILTER (WHERE ar.status = 'late') as late_days,
+        COUNT(*) FILTER (WHERE ar.status = 'excused') as excused_days,
+        ROUND(
+          COUNT(*) FILTER (WHERE ar.status = 'present' OR ar.status = 'late')::numeric /
+          NULLIF(COUNT(*)::numeric, 0) * 100, 1
+        ) as attendance_rate
+      FROM attendance_records ar
+      JOIN teachers t ON ar.teacher_id = t.id
+      WHERE ar.batch_id = ${batchId}
+      GROUP BY ar.teacher_id, t.name, t.cnic
+      ORDER BY attendance_rate DESC
+    `);
+
+    return result.rows;
+  }
+
+  // ── Notification Operations ──
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [result] = await db.insert(notifications).values(notification).returning();
+    return result;
+  }
+
+  async getNotifications(recipientId: string, recipientType: string, limit: number = 50): Promise<Notification[]> {
+    return db.select().from(notifications)
+      .where(and(
+        eq(notifications.recipientId, recipientId),
+        eq(notifications.recipientType, recipientType)
+      ))
+      .orderBy(desc(notifications.createdAt))
+      .limit(limit);
+  }
+
+  async markNotificationRead(id: string): Promise<void> {
+    await db.update(notifications)
+      .set({ isRead: "yes" })
+      .where(eq(notifications.id, id));
+  }
+
+  async markAllNotificationsRead(recipientId: string, recipientType: string): Promise<void> {
+    await db.update(notifications)
+      .set({ isRead: "yes" })
+      .where(and(
+        eq(notifications.recipientId, recipientId),
+        eq(notifications.recipientType, recipientType),
+        eq(notifications.isRead, "no")
+      ));
+  }
+
+  async getUnreadNotificationCount(recipientId: string, recipientType: string): Promise<number> {
+    const result = await db.select({ count: sqlOp`COUNT(*)::int` })
+      .from(notifications)
+      .where(and(
+        eq(notifications.recipientId, recipientId),
+        eq(notifications.recipientType, recipientType),
+        eq(notifications.isRead, "no")
+      ));
+    return result[0]?.count as number ?? 0;
+  }
+
+  // ── Alert Rule Operations ──
+
+  async createAlertRule(rule: InsertAlertRule): Promise<AlertRule> {
+    const [result] = await db.insert(alertRules).values(rule).returning();
+    return result;
+  }
+
+  async getAlertRules(batchId?: string): Promise<AlertRule[]> {
+    if (batchId) {
+      return db.select().from(alertRules)
+        .where(eq(alertRules.batchId, batchId))
+        .orderBy(desc(alertRules.createdAt));
+    }
+    return db.select().from(alertRules).orderBy(desc(alertRules.createdAt));
+  }
+
+  async deleteAlertRule(id: string): Promise<void> {
+    await db.delete(alertRules).where(eq(alertRules.id, id));
+  }
+
+  // ── Teacher Goal Operations ──
+
+  async createTeacherGoal(goal: InsertTeacherGoal): Promise<TeacherGoal> {
+    const [result] = await db.insert(teacherGoals).values(goal).returning();
+    return result;
+  }
+
+  async getTeacherGoals(teacherId: string): Promise<TeacherGoal[]> {
+    return db.select().from(teacherGoals)
+      .where(eq(teacherGoals.teacherId, teacherId))
+      .orderBy(desc(teacherGoals.createdAt));
+  }
+
+  async updateTeacherGoal(id: string, updates: Partial<InsertTeacherGoal>): Promise<TeacherGoal> {
+    const [result] = await db.update(teacherGoals)
+      .set(updates)
+      .where(eq(teacherGoals.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteTeacherGoal(id: string): Promise<void> {
+    await db.delete(teacherGoals).where(eq(teacherGoals.id, id));
+  }
+
+  // ── Scheduled Event Operations ──
+
+  async createScheduledEvent(event: InsertScheduledEvent): Promise<ScheduledEvent> {
+    const [result] = await db.insert(scheduledEvents).values(event).returning();
+    return result;
+  }
+
+  async getScheduledEvents(batchId: string): Promise<ScheduledEvent[]> {
+    return db.select().from(scheduledEvents)
+      .where(eq(scheduledEvents.batchId, batchId))
+      .orderBy(scheduledEvents.startDate);
+  }
+
+  async getScheduledEventsForTeacher(teacherId: string): Promise<ScheduledEvent[]> {
+    const result = await db.execute(sqlOp`
+      SELECT se.*
+      FROM scheduled_events se
+      JOIN batch_teachers bt ON se.batch_id = bt.batch_id
+      WHERE bt.teacher_id = ${teacherId}
+      ORDER BY se.start_date ASC
+    `);
+    return result.rows as ScheduledEvent[];
+  }
+
+  async deleteScheduledEvent(id: string): Promise<void> {
+    await db.delete(scheduledEvents).where(eq(scheduledEvents.id, id));
   }
 }
 

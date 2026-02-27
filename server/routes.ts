@@ -4113,6 +4113,538 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ══════════════════════════════════════════════════════════════
+  // Attendance Endpoints
+  // ══════════════════════════════════════════════════════════════
+
+  // Bulk mark attendance for a batch (trainer/admin)
+  app.post("/api/batches/:batchId/attendance", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { batchId } = req.params;
+      const { date, records } = req.body;
+      // records: [{ teacherId, status, notes? }]
+      if (!date || !Array.isArray(records) || records.length === 0) {
+        return res.status(400).json({ error: "date and records array are required" });
+      }
+      const markerId = (req.user as any)?.id;
+      const attendanceDate = new Date(date);
+      const results = [];
+      for (const record of records) {
+        if (!record.teacherId || !record.status) continue;
+        try {
+          const result = await storage.createAttendanceRecord({
+            teacherId: record.teacherId,
+            batchId,
+            date: attendanceDate,
+            status: record.status,
+            markedBy: markerId,
+            notes: record.notes || null,
+          });
+          results.push(result);
+        } catch (err: any) {
+          if (err.code === '23505') {
+            // Duplicate - update instead
+            results.push({ teacherId: record.teacherId, status: 'duplicate_skipped' });
+          } else {
+            throw err;
+          }
+        }
+      }
+      res.json({ created: results.length, records: results });
+    } catch (error) {
+      console.error("Error marking attendance:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get batch attendance records (trainer/admin)
+  app.get("/api/batches/:batchId/attendance", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { batchId } = req.params;
+      const dateStr = req.query.date as string | undefined;
+      const date = dateStr ? new Date(dateStr) : undefined;
+      const records = await storage.getAttendanceByBatch(batchId, date);
+      res.json(records);
+    } catch (error) {
+      console.error("Error getting batch attendance:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get batch attendance summary per teacher (trainer/admin)
+  app.get("/api/batches/:batchId/attendance/summary", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { batchId } = req.params;
+      const summary = await storage.getBatchAttendanceSummary(batchId);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error getting attendance summary:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get own attendance (teacher auth)
+  app.get("/api/teacher/attendance", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) {
+        return res.status(401).json({ error: "Not authenticated as teacher" });
+      }
+      const batchId = req.query.batchId as string | undefined;
+      const records = await storage.getAttendanceByTeacher(teacherSession.teacherId, batchId);
+      res.json(records);
+    } catch (error) {
+      console.error("Error getting teacher attendance:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get own attendance summary (teacher auth)
+  app.get("/api/teacher/attendance/summary", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) {
+        return res.status(401).json({ error: "Not authenticated as teacher" });
+      }
+      const batchId = req.query.batchId as string | undefined;
+      const summary = await storage.getAttendanceSummary(teacherSession.teacherId, batchId);
+      res.json(summary);
+    } catch (error) {
+      console.error("Error getting attendance summary:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // Notification Endpoints
+  // ══════════════════════════════════════════════════════════════
+
+  // Get own notifications (any authenticated user)
+  app.get("/api/notifications", isAuthenticatedAny, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      const user = req.user as any;
+      let recipientId: string;
+      let recipientType: string;
+      if (teacherSession?.teacherId) {
+        recipientId = teacherSession.teacherId;
+        recipientType = "teacher";
+      } else if (user?.id) {
+        recipientId = user.id;
+        recipientType = user.role || "admin";
+      } else {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const limit = parseInt(req.query.limit as string) || 50;
+      const notifs = await storage.getNotifications(recipientId, recipientType, limit);
+      res.json(notifs);
+    } catch (error) {
+      console.error("Error getting notifications:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get unread notification count (any authenticated user)
+  app.get("/api/notifications/unread-count", isAuthenticatedAny, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      const user = req.user as any;
+      let recipientId: string;
+      let recipientType: string;
+      if (teacherSession?.teacherId) {
+        recipientId = teacherSession.teacherId;
+        recipientType = "teacher";
+      } else if (user?.id) {
+        recipientId = user.id;
+        recipientType = user.role || "admin";
+      } else {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const count = await storage.getUnreadNotificationCount(recipientId, recipientType);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error getting unread count:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Mark a notification as read (any authenticated user)
+  app.post("/api/notifications/:id/read", isAuthenticatedAny, async (req, res) => {
+    try {
+      await storage.markNotificationRead(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification read:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Mark all notifications as read (any authenticated user)
+  app.post("/api/notifications/read-all", isAuthenticatedAny, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      const user = req.user as any;
+      let recipientId: string;
+      let recipientType: string;
+      if (teacherSession?.teacherId) {
+        recipientId = teacherSession.teacherId;
+        recipientType = "teacher";
+      } else if (user?.id) {
+        recipientId = user.id;
+        recipientType = user.role || "admin";
+      } else {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      await storage.markAllNotificationsRead(recipientId, recipientType);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking all read:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Send a manual notification (trainer/admin)
+  app.post("/api/notifications", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { recipientId, recipientType, type, title, message, metadata } = req.body;
+      if (!recipientId || !recipientType || !title || !message) {
+        return res.status(400).json({ error: "recipientId, recipientType, title, and message are required" });
+      }
+      const notification = await storage.createNotification({
+        recipientId,
+        recipientType,
+        type: type || "general",
+        title,
+        message,
+        metadata: metadata || null,
+      });
+      res.json(notification);
+    } catch (error) {
+      console.error("Error creating notification:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // Alert Rule Endpoints
+  // ══════════════════════════════════════════════════════════════
+
+  // Create alert rule (trainer/admin)
+  app.post("/api/alert-rules", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { batchId, ruleType, threshold } = req.body;
+      if (!ruleType || threshold === undefined) {
+        return res.status(400).json({ error: "ruleType and threshold are required" });
+      }
+      const rule = await storage.createAlertRule({
+        batchId: batchId || null,
+        ruleType,
+        threshold,
+        createdBy: (req.user as any)?.id,
+      });
+      res.json(rule);
+    } catch (error) {
+      console.error("Error creating alert rule:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get alert rules (trainer/admin)
+  app.get("/api/alert-rules", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batchId = req.query.batchId as string | undefined;
+      const rules = await storage.getAlertRules(batchId);
+      res.json(rules);
+    } catch (error) {
+      console.error("Error getting alert rules:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete alert rule (trainer/admin)
+  app.delete("/api/alert-rules/:id", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      await storage.deleteAlertRule(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting alert rule:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // Teacher Goal Endpoints
+  // ══════════════════════════════════════════════════════════════
+
+  // Create goal (teacher auth)
+  app.post("/api/teacher/goals", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) {
+        return res.status(401).json({ error: "Not authenticated as teacher" });
+      }
+      const { goalText, batchId, dueDate } = req.body;
+      if (!goalText) {
+        return res.status(400).json({ error: "goalText is required" });
+      }
+      const goal = await storage.createTeacherGoal({
+        teacherId: teacherSession.teacherId,
+        batchId: batchId || null,
+        goalText,
+        dueDate: dueDate ? new Date(dueDate) : null,
+      });
+      res.json(goal);
+    } catch (error) {
+      console.error("Error creating goal:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get own goals (teacher auth)
+  app.get("/api/teacher/goals", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) {
+        return res.status(401).json({ error: "Not authenticated as teacher" });
+      }
+      const goals = await storage.getTeacherGoals(teacherSession.teacherId);
+      res.json(goals);
+    } catch (error) {
+      console.error("Error getting goals:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update goal (teacher auth)
+  app.patch("/api/teacher/goals/:id", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) {
+        return res.status(401).json({ error: "Not authenticated as teacher" });
+      }
+      const updates: any = {};
+      if (req.body.goalText) updates.goalText = req.body.goalText;
+      if (req.body.status) {
+        updates.status = req.body.status;
+        if (req.body.status === 'completed') {
+          updates.completedAt = new Date();
+        }
+      }
+      if (req.body.dueDate !== undefined) {
+        updates.dueDate = req.body.dueDate ? new Date(req.body.dueDate) : null;
+      }
+      const goal = await storage.updateTeacherGoal(req.params.id, updates);
+      res.json(goal);
+    } catch (error) {
+      console.error("Error updating goal:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete goal (teacher auth)
+  app.delete("/api/teacher/goals/:id", isTeacherAuthenticated, async (req, res) => {
+    try {
+      await storage.deleteTeacherGoal(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting goal:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // Scheduled Event Endpoints
+  // ══════════════════════════════════════════════════════════════
+
+  // Create event (trainer/admin)
+  app.post("/api/batches/:batchId/events", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { batchId } = req.params;
+      const { title, description, eventType, startDate, endDate } = req.body;
+      if (!title || !eventType || !startDate) {
+        return res.status(400).json({ error: "title, eventType, and startDate are required" });
+      }
+      const event = await storage.createScheduledEvent({
+        title,
+        description: description || null,
+        eventType,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        batchId,
+        createdBy: (req.user as any)?.id,
+      });
+      res.json(event);
+    } catch (error) {
+      console.error("Error creating event:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get batch events (trainer/admin)
+  app.get("/api/batches/:batchId/events", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const events = await storage.getScheduledEvents(req.params.batchId);
+      res.json(events);
+    } catch (error) {
+      console.error("Error getting events:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Delete event (trainer/admin)
+  app.delete("/api/events/:id", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      await storage.deleteScheduledEvent(req.params.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting event:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get teacher events from their batches (teacher auth)
+  app.get("/api/teacher/events", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) {
+        return res.status(401).json({ error: "Not authenticated as teacher" });
+      }
+      const events = await storage.getScheduledEventsForTeacher(teacherSession.teacherId);
+      res.json(events);
+    } catch (error) {
+      console.error("Error getting teacher events:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // ══════════════════════════════════════════════════════════════
+  // Teacher-Facing Data Endpoints
+  // ══════════════════════════════════════════════════════════════
+
+  // Get own trainer comments (teacher auth) - read only
+  app.get("/api/teacher/trainer-comments", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) {
+        return res.status(401).json({ error: "Not authenticated as teacher" });
+      }
+      const comments = await storage.getTrainerCommentsByTeacher(teacherSession.teacherId);
+      res.json(comments);
+    } catch (error) {
+      console.error("Error getting trainer comments:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get improvement tips based on teacher's performance (teacher auth)
+  app.get("/api/teacher/improvement-tips", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) {
+        return res.status(401).json({ error: "Not authenticated as teacher" });
+      }
+      const teacherId = teacherSession.teacherId;
+
+      // Gather data for tips computation
+      const [attendanceSummary, quizAttemptsResult, reflections] = await Promise.all([
+        storage.getAttendanceSummary(teacherId),
+        db.execute(sql`SELECT * FROM teacher_quiz_attempts WHERE teacher_id = ${teacherId}`),
+        storage.getReflectionsByTeacher(teacherId),
+      ]);
+      const quizAttempts = quizAttemptsResult.rows;
+
+      const tips: Array<{ text: string; priority: 'high' | 'medium' | 'low' }> = [];
+
+      // Attendance tip
+      const attendanceRate = parseFloat(attendanceSummary?.attendance_rate || '0');
+      if (attendanceRate < 80) {
+        tips.push({ text: "Your attendance rate is below 80%. Regular attendance is key to completing your training successfully.", priority: "high" });
+      } else if (attendanceRate < 95) {
+        tips.push({ text: "Good attendance! Try to maintain consistent attendance for the best results.", priority: "low" });
+      }
+
+      // Quiz performance tip
+      if (quizAttempts.length > 0) {
+        const passCount = quizAttempts.filter((a: any) => a.passed === 'yes').length;
+        const passRate = (passCount / quizAttempts.length) * 100;
+        if (passRate < 60) {
+          tips.push({ text: "Your quiz pass rate needs improvement. Review the training materials before attempting quizzes.", priority: "high" });
+        } else if (passRate < 80) {
+          tips.push({ text: "You're doing well on quizzes! Focus on areas where you scored lower to boost your pass rate.", priority: "medium" });
+        }
+      } else {
+        tips.push({ text: "Start taking quizzes to assess your understanding of the training materials.", priority: "medium" });
+      }
+
+      // Reflection tip
+      if (reflections.length === 0) {
+        tips.push({ text: "Submit weekly reflections to track your growth and show your engagement with the training.", priority: "medium" });
+      }
+
+      res.json(tips);
+    } catch (error) {
+      console.error("Error computing improvement tips:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get progress summary including graduation probability (teacher auth)
+  app.get("/api/teacher/progress-summary", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) {
+        return res.status(401).json({ error: "Not authenticated as teacher" });
+      }
+      const teacherId = teacherSession.teacherId;
+
+      const [attendanceSummary, quizAttemptsResult, reflections, contentResult] = await Promise.all([
+        storage.getAttendanceSummary(teacherId),
+        db.execute(sql`SELECT * FROM teacher_quiz_attempts WHERE teacher_id = ${teacherId}`),
+        storage.getReflectionsByTeacher(teacherId),
+        db.execute(sql`SELECT * FROM teacher_content_progress WHERE teacher_id = ${teacherId}`),
+      ]);
+      const quizAttempts = quizAttemptsResult.rows;
+      const contentProgress = contentResult.rows;
+
+      // Content completion
+      const contentCount = contentProgress.length;
+      const completedContent = contentProgress.filter((p: any) => p.status === 'completed').length;
+      const contentRate = contentCount > 0 ? (completedContent / contentCount) * 100 : 0;
+
+      // Quiz pass rate
+      const totalQuizzes = quizAttempts.length;
+      const passedQuizzes = quizAttempts.filter((a: any) => a.passed === 'yes').length;
+      const quizPassRate = totalQuizzes > 0 ? (passedQuizzes / totalQuizzes) * 100 : 0;
+
+      // Attendance rate
+      const attendanceRate = parseFloat(attendanceSummary?.attendance_rate || '0');
+
+      // Reflection completion (rough estimate based on active weeks)
+      const reflectionCount = reflections.length;
+
+      // Graduation probability (weighted: content 40% + quiz 30% + attendance 20% + reflections 10%)
+      const reflectionScore = Math.min(reflectionCount * 10, 100); // cap at 100
+      const graduationProbability = Math.round(
+        contentRate * 0.4 + quizPassRate * 0.3 + attendanceRate * 0.2 + reflectionScore * 0.1
+      );
+
+      res.json({
+        contentCompletion: Math.round(contentRate),
+        quizPassRate: Math.round(quizPassRate),
+        attendanceRate: Math.round(attendanceRate),
+        reflectionCount,
+        graduationProbability: Math.min(graduationProbability, 100),
+        totalQuizzes,
+        passedQuizzes,
+        totalContent: contentCount,
+        completedContent,
+      });
+    } catch (error) {
+      console.error("Error getting progress summary:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

@@ -12,9 +12,10 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { Plus, Trash2, Pencil, ChevronRight, LogOut, BarChart3, FileText, CheckCircle, Users, Layers } from "lucide-react";
+import { Plus, Trash2, Pencil, ChevronRight, LogOut, BarChart3, FileText, CheckCircle, Users, Layers, Settings } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProfileSettingsDialog } from "@/components/ProfileSettingsDialog";
+import { MobileMenu } from "@/components/MobileMenu";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import logoImage from "@assets/image_1760460046116.png";
@@ -173,140 +174,141 @@ export default function CoursesList() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0 flex-wrap justify-end">
+          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
             {user && (
               <div className="text-xs sm:text-sm text-white/90 hidden md:block truncate max-w-[200px]" data-testid="text-user-info">
                 {user.email} ({user.role})
               </div>
             )}
-            {isAdmin && (
-              <>
-                <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      data-testid="button-reset-password"
-                      className="bg-white/10 hover:bg-white/20 text-white border-white/20 hidden sm:flex"
-                    >
-                      Reset Password
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Reset User Password</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="userIdentifier">Username or Email</Label>
-                        <Input
-                          id="userIdentifier"
-                          placeholder="admin or admin@example.com"
-                          value={resetUserIdentifier}
-                          onChange={(e) => setResetUserIdentifier(e.target.value)}
-                          data-testid="input-user-identifier"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="newPassword">New Password</Label>
-                        <PasswordInput
-                          id="newPassword"
-                          placeholder="Enter new password (min 6 characters)"
-                          value={resetNewPassword}
-                          onChange={(e) => setResetNewPassword(e.target.value)}
-                          data-testid="input-new-password"
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setResetPasswordOpen(false)}>
-                        Cancel
-                      </Button>
+            {/* Desktop navigation buttons */}
+            <div className="hidden md:flex items-center gap-2">
+              {isAdmin && (
+                <>
+                  <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
+                    <DialogTrigger asChild>
                       <Button
-                        onClick={() => {
-                          resetPasswordMutation.mutate({
-                            userIdentifier: resetUserIdentifier,
-                            newPassword: resetNewPassword,
-                          });
-                        }}
-                        disabled={resetPasswordMutation.isPending}
+                        variant="secondary"
+                        size="sm"
+                        data-testid="button-reset-password"
+                        className="bg-white/10 hover:bg-white/20 text-white border-white/20"
                       >
-                        Reset
+                        Reset Password
                       </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-                <Dialog open={updateEmailOpen} onOpenChange={setUpdateEmailOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      data-testid="button-update-email"
-                      className="bg-white/10 hover:bg-white/20 text-white border-white/20 hidden sm:flex"
-                    >
-                      Update Email
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Update User Email</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="emailUserIdentifier">Username, Email, or Teacher ID</Label>
-                        <Input
-                          id="emailUserIdentifier"
-                          placeholder="admin, admin@example.com, or 12345"
-                          value={emailUserIdentifier}
-                          onChange={(e) => setEmailUserIdentifier(e.target.value)}
-                          data-testid="input-email-user-identifier"
-                        />
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Reset User Password</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="userIdentifier">Username or Email</Label>
+                          <Input
+                            id="userIdentifier"
+                            placeholder="admin or admin@example.com"
+                            value={resetUserIdentifier}
+                            onChange={(e) => setResetUserIdentifier(e.target.value)}
+                            data-testid="input-user-identifier"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="newPassword">New Password</Label>
+                          <PasswordInput
+                            id="newPassword"
+                            placeholder="Enter new password (min 6 characters)"
+                            value={resetNewPassword}
+                            onChange={(e) => setResetNewPassword(e.target.value)}
+                            data-testid="input-new-password"
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="newEmail">New Email Address</Label>
-                        <Input
-                          id="newEmail"
-                          type="email"
-                          placeholder="newemail@example.com"
-                          value={newUserEmail}
-                          onChange={(e) => setNewUserEmail(e.target.value)}
-                          data-testid="input-new-email"
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setUpdateEmailOpen(false)}>
-                        Cancel
-                      </Button>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setResetPasswordOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            resetPasswordMutation.mutate({
+                              userIdentifier: resetUserIdentifier,
+                              newPassword: resetNewPassword,
+                            });
+                          }}
+                          disabled={resetPasswordMutation.isPending}
+                        >
+                          Reset
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog open={updateEmailOpen} onOpenChange={setUpdateEmailOpen}>
+                    <DialogTrigger asChild>
                       <Button
-                        onClick={() => {
-                          updateEmailMutation.mutate({
-                            userIdentifier: emailUserIdentifier,
-                            newEmail: newUserEmail,
-                          });
-                        }}
-                        disabled={updateEmailMutation.isPending || !emailUserIdentifier || !newUserEmail}
-                        data-testid="button-update-email-submit"
+                        variant="secondary"
+                        size="sm"
+                        data-testid="button-update-email"
+                        className="bg-white/10 hover:bg-white/20 text-white border-white/20"
                       >
-                        Update
+                        Update Email
                       </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigate("/admin/analytics")}
-                  data-testid="button-nav-analytics"
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/20 hidden sm:flex"
-                >
-                  <BarChart3 className="mr-2 h-4 w-4" />
-                  Analytics
-                </Button>
-              </>
-            )}
-            {(isAdmin || isTrainer) && (
-              <>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Update User Email</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="emailUserIdentifier">Username, Email, or Teacher ID</Label>
+                          <Input
+                            id="emailUserIdentifier"
+                            placeholder="admin, admin@example.com, or 12345"
+                            value={emailUserIdentifier}
+                            onChange={(e) => setEmailUserIdentifier(e.target.value)}
+                            data-testid="input-email-user-identifier"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="newEmail">New Email Address</Label>
+                          <Input
+                            id="newEmail"
+                            type="email"
+                            placeholder="newemail@example.com"
+                            value={newUserEmail}
+                            onChange={(e) => setNewUserEmail(e.target.value)}
+                            data-testid="input-new-email"
+                          />
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setUpdateEmailOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            updateEmailMutation.mutate({
+                              userIdentifier: emailUserIdentifier,
+                              newEmail: newUserEmail,
+                            });
+                          }}
+                          disabled={updateEmailMutation.isPending || !emailUserIdentifier || !newUserEmail}
+                          data-testid="button-update-email-submit"
+                        >
+                          Update
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigate("/admin/analytics")}
+                    data-testid="button-nav-analytics"
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                  >
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Analytics
+                  </Button>
+                </>
+              )}
+              {(isAdmin || isTrainer) && (
                 <Link href="/approvals">
                   <Button
                     variant="secondary"
@@ -318,36 +320,45 @@ export default function CoursesList() {
                     Approvals
                   </Button>
                 </Link>
-              </>
-            )}
-            <ProfileSettingsDialog
-              userType="admin"
-              currentEmail={user?.email || undefined}
-            />
-            <div className="text-white">
-              <ThemeToggle />
+              )}
+              <ProfileSettingsDialog
+                userType="admin"
+                currentEmail={user?.email || undefined}
+              />
+              <div className="text-white">
+                <ThemeToggle />
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+                data-testid="button-logout"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </Button>
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => logoutMutation.mutate()}
-              disabled={logoutMutation.isPending}
-              data-testid="button-logout"
-              className="hidden sm:flex bg-white/10 hover:bg-white/20 text-white border-white/20"
+            {/* Mobile hamburger menu */}
+            <MobileMenu
+              userInfo={user ? `${user.email} (${user.role})` : undefined}
+              items={[
+                ...(isAdmin ? [
+                  { label: "Reset Password", icon: Settings, onClick: () => setResetPasswordOpen(true) },
+                  { label: "Update Email", icon: Settings, onClick: () => setUpdateEmailOpen(true) },
+                  { label: "Analytics", icon: BarChart3, onClick: () => navigate("/admin/analytics") },
+                ] : []),
+                ...((isAdmin || isTrainer) ? [
+                  { label: "Approvals", icon: CheckCircle, onClick: () => navigate("/approvals") },
+                ] : []),
+                { label: "Logout", icon: LogOut, onClick: () => logoutMutation.mutate(), variant: "destructive" as const },
+              ]}
             >
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={() => logoutMutation.mutate()}
-              disabled={logoutMutation.isPending}
-              data-testid="button-logout-mobile"
-              className="sm:hidden h-8 w-8 bg-white/10 hover:bg-white/20 text-white border-white/20"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+              <div className="text-foreground">
+                <ThemeToggle />
+              </div>
+            </MobileMenu>
           </div>
         </div>
       </header>

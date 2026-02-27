@@ -10,11 +10,11 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProfileSettingsDialog } from "@/components/ProfileSettingsDialog";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical, CheckCircle, BarChart3, FileText, Pencil } from "lucide-react";
+import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical, CheckCircle, BarChart3, FileText, Pencil, Settings, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
-import { Users } from "lucide-react";
+import { MobileMenu } from "@/components/MobileMenu";
 import {
   Accordion,
   AccordionContent,
@@ -306,92 +306,107 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0 flex-wrap justify-end">
+          <div className="flex items-center gap-1 sm:gap-3 flex-shrink-0">
             {user && (
               <div className="text-xs sm:text-sm text-white/90 hidden md:block truncate max-w-[200px]" data-testid="text-user-info">
                 {user.email} ({user.role})
               </div>
             )}
-            {isAdmin && (
-              <>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigate("/admin/analytics")}
-                  data-testid="button-nav-analytics"
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/20 hidden sm:flex"
-                >
-                  <BarChart3 className="mr-2 h-4 w-4" />
-                  Analytics
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => navigate("/admin/certificates/batch/1/approve")}
-                  data-testid="button-nav-certificates"
-                  className="bg-white/10 hover:bg-white/20 text-white border-white/20 hidden sm:flex"
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Certificates
-                </Button>
-              </>
-            )}
-            {(user?.role === "admin" || user?.role === "trainer") && (
-              <>
-                <Link href="/approvals">
+            {/* Desktop navigation buttons */}
+            <div className="hidden md:flex items-center gap-2">
+              {isAdmin && (
+                <>
                   <Button
                     variant="secondary"
                     size="sm"
-                    data-testid="button-approvals"
+                    onClick={() => navigate("/admin/analytics")}
+                    data-testid="button-nav-analytics"
                     className="bg-white/10 hover:bg-white/20 text-white border-white/20"
                   >
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Approvals
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Analytics
                   </Button>
-                </Link>
-                {user?.role === "trainer" && (
-                  <Link href="/trainer/batches">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => navigate("/admin/certificates/batch/1/approve")}
+                    data-testid="button-nav-certificates"
+                    className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Certificates
+                  </Button>
+                </>
+              )}
+              {(user?.role === "admin" || user?.role === "trainer") && (
+                <>
+                  <Link href="/approvals">
                     <Button
                       variant="secondary"
                       size="sm"
-                      data-testid="button-manage-batches"
+                      data-testid="button-approvals"
                       className="bg-white/10 hover:bg-white/20 text-white border-white/20"
                     >
-                      <Users className="mr-2 h-4 w-4" />
-                      Manage Batches
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Approvals
                     </Button>
                   </Link>
-                )}
-              </>
-            )}
-            <ProfileSettingsDialog
-              userType="admin"
-              currentEmail={user?.email || undefined}
-            />
-            <div className="text-white">
-              <ThemeToggle />
+                  {user?.role === "trainer" && (
+                    <Link href="/trainer/batches">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        data-testid="button-manage-batches"
+                        className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                      >
+                        <Users className="mr-2 h-4 w-4" />
+                        Manage Batches
+                      </Button>
+                    </Link>
+                  )}
+                </>
+              )}
+              <ProfileSettingsDialog
+                userType="admin"
+                currentEmail={user?.email || undefined}
+              />
+              <div className="text-white">
+                <ThemeToggle />
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => logoutMutation.mutate()}
+                disabled={logoutMutation.isPending}
+                data-testid="button-logout"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </Button>
             </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => logoutMutation.mutate()}
-              disabled={logoutMutation.isPending}
-              data-testid="button-logout"
-              className="hidden sm:flex bg-white/10 hover:bg-white/20 text-white border-white/20"
+            {/* Mobile hamburger menu */}
+            <MobileMenu
+              userInfo={user ? `${user.email} (${user.role})` : undefined}
+              items={[
+                ...(isAdmin ? [
+                  { label: "Analytics", icon: BarChart3, onClick: () => navigate("/admin/analytics") },
+                  { label: "Certificates", icon: FileText, onClick: () => navigate("/admin/certificates/batch/1/approve") },
+                ] : []),
+                ...((user?.role === "admin" || user?.role === "trainer") ? [
+                  { label: "Approvals", icon: CheckCircle, onClick: () => navigate("/approvals") },
+                ] : []),
+                ...(user?.role === "trainer" ? [
+                  { label: "Manage Batches", icon: Users, onClick: () => navigate("/trainer/batches") },
+                ] : []),
+                { label: "Profile Settings", icon: Settings, onClick: () => {} },
+                { label: "Logout", icon: LogOut, onClick: () => logoutMutation.mutate(), variant: "destructive" as const },
+              ]}
             >
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </Button>
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={() => logoutMutation.mutate()}
-              disabled={logoutMutation.isPending}
-              data-testid="button-logout-mobile"
-              className="sm:hidden h-8 w-8 bg-white/10 hover:bg-white/20 text-white border-white/20"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+              <div className="text-foreground">
+                <ThemeToggle />
+              </div>
+            </MobileMenu>
           </div>
         </div>
       </header>

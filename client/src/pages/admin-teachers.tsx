@@ -108,9 +108,9 @@ export default function AdminTeachers() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
+    <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 md:mb-8">
           <div className="flex items-center gap-4">
             <Button
               variant="outline"
@@ -240,7 +240,7 @@ export default function AdminTeachers() {
                       </Badge>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-4 mb-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">
                           Progress

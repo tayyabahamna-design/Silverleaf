@@ -72,12 +72,12 @@ export default function AdminHome() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-8">
+    <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex items-start justify-between">
+        <div className="mb-6 md:mb-8 flex flex-col sm:flex-row items-start justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Admin Dashboard</h1>
             <p className="text-muted-foreground">
               Manage trainers, teachers, and view system statistics
             </p>

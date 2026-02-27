@@ -683,3 +683,116 @@ export const insertCourseRepetitionSchema = createInsertSchema(courseRepetitions
 
 export type InsertCourseRepetition = z.infer<typeof insertCourseRepetitionSchema>;
 export type CourseRepetition = typeof courseRepetitions.$inferSelect;
+
+// Attendance records table (daily attendance tracking)
+export const attendanceRecords = pgTable("attendance_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  batchId: varchar("batch_id").notNull().references(() => batches.id, { onDelete: "cascade" }),
+  date: timestamp("date").notNull(),
+  status: varchar("status").notNull().default("present"), // 'present', 'absent', 'late', 'excused'
+  markedBy: varchar("marked_by").references(() => users.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_attendance_unique").on(table.teacherId, table.batchId, table.date),
+  index("idx_attendance_batch_date").on(table.batchId, table.date),
+]);
+
+export const insertAttendanceRecordSchema = createInsertSchema(attendanceRecords).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAttendanceRecord = z.infer<typeof insertAttendanceRecordSchema>;
+export type AttendanceRecord = typeof attendanceRecords.$inferSelect;
+
+// Notifications table (in-app notification system)
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  recipientId: varchar("recipient_id").notNull(),
+  recipientType: varchar("recipient_type").notNull(), // 'trainer', 'teacher', 'admin'
+  type: varchar("type").notNull(), // 'session_reminder', 'deadline', 'feedback_received', 'performance_alert', 'attendance_alert', 'general'
+  title: varchar("title").notNull(),
+  message: text("message").notNull(),
+  metadata: jsonb("metadata"), // flexible payload
+  isRead: varchar("is_read").notNull().default("no"), // 'yes' or 'no'
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_notifications_recipient").on(table.recipientId, table.recipientType),
+  index("idx_notifications_unread").on(table.recipientId, table.isRead),
+]);
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Notification = typeof notifications.$inferSelect;
+
+// Alert rules table (configurable thresholds for automated alerts)
+export const alertRules = pgTable("alert_rules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  batchId: varchar("batch_id").references(() => batches.id, { onDelete: "cascade" }),
+  ruleType: varchar("rule_type").notNull(), // 'attendance_drop', 'performance_drop', 'quiz_failure_streak', 'inactivity'
+  threshold: integer("threshold").notNull(),
+  isActive: varchar("is_active").notNull().default("yes"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAlertRuleSchema = createInsertSchema(alertRules).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAlertRule = z.infer<typeof insertAlertRuleSchema>;
+export type AlertRule = typeof alertRules.$inferSelect;
+
+// Teacher goals table (self-reflection goal tracking)
+export const teacherGoals = pgTable("teacher_goals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  batchId: varchar("batch_id").references(() => batches.id, { onDelete: "set null" }),
+  goalText: text("goal_text").notNull(),
+  status: varchar("status").notNull().default("pending"), // 'pending', 'in_progress', 'completed', 'abandoned'
+  dueDate: timestamp("due_date"),
+  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_teacher_goals").on(table.teacherId),
+]);
+
+export const insertTeacherGoalSchema = createInsertSchema(teacherGoals).omit({
+  id: true,
+  completedAt: true,
+  createdAt: true,
+});
+
+export type InsertTeacherGoal = z.infer<typeof insertTeacherGoalSchema>;
+export type TeacherGoal = typeof teacherGoals.$inferSelect;
+
+// Scheduled events table (calendar events for batches)
+export const scheduledEvents = pgTable("scheduled_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: varchar("title").notNull(),
+  description: text("description"),
+  eventType: varchar("event_type").notNull(), // 'session', 'deadline', 'assessment', 'general'
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+  batchId: varchar("batch_id").notNull().references(() => batches.id, { onDelete: "cascade" }),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_events_batch").on(table.batchId),
+  index("idx_events_date").on(table.startDate),
+])
+
+export const insertScheduledEventSchema = createInsertSchema(scheduledEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertScheduledEvent = z.infer<typeof insertScheduledEventSchema>;
+export type ScheduledEvent = typeof scheduledEvents.$inferSelect;
