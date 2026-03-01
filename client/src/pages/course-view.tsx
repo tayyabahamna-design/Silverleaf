@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ChevronLeft, ChevronRight, ChevronDown, FileText, CheckCircle2, Circle, Maximize2, Minimize2, ZoomIn, ZoomOut, X, Award, List, PanelLeftClose, PanelLeftOpen, Menu } from "lucide-react";
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -130,6 +130,40 @@ export default function CourseView() {
   
   // Responsive breakpoint detection
   const { isMobile, isTablet } = useBreakpoint();
+
+  // Pinch-to-zoom for mobile PDF
+  const [zoomScale, setZoomScale] = useState<number>(1.0);
+  const lastPinchDistance = useRef<number | null>(null);
+
+  // Fit-to-screen PDF width (constrained by width AND height for landscape slides)
+  const [basePdfWidth, setBasePdfWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') return 360;
+    return Math.min(window.innerWidth - 8, (window.innerHeight - 120) * (16 / 9));
+  });
+  useEffect(() => {
+    const update = () => {
+      setBasePdfWidth(Math.min(window.innerWidth - 8, (window.innerHeight - 120) * (16 / 9)));
+    };
+    window.addEventListener('resize', update);
+    update();
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  const mobilePdfWidth = basePdfWidth * zoomScale;
+
+  const handlePdfTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if (lastPinchDistance.current !== null) {
+        const delta = dist / lastPinchDistance.current;
+        setZoomScale(prev => Math.min(3, Math.max(0.8, prev * delta)));
+      }
+      lastPinchDistance.current = dist;
+    }
+  };
+  const handlePdfTouchEnd = () => { lastPinchDistance.current = null; };
 
   // Screenshot protection
   const { showWarning, dismissWarning } = useScreenshotProtection(weekId);
@@ -456,20 +490,40 @@ export default function CourseView() {
               {selectedFile.progress?.status && (<><span>•</span><span className="capitalize">{selectedFile.progress.status}</span></>)}
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto bg-muted/20 flex flex-col min-h-0">
+          <div className={`flex-1 ${(isMobile || isTablet) ? 'overflow-hidden' : 'overflow-y-auto'} bg-muted/20 flex flex-col min-h-0`}>
             {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || selectedFile.fileName.toLowerCase().endsWith('.pptx') || selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
+              (isMobile || isTablet) ? (
+                // Mobile: fit-to-screen with pinch-to-zoom
+                <div
+                  className="flex items-center justify-center w-full h-full overflow-auto relative"
+                  onTouchMove={handlePdfTouchMove}
+                  onTouchEnd={handlePdfTouchEnd}
+                  style={{ touchAction: zoomScale > 1 ? 'none' : 'pan-y' }}
+                >
+                  {viewUrl ? (
+                    <Document file={viewUrl} onLoadSuccess={({ numPages }) => { setNumPages(numPages); setDocumentLoadError(false); }} onLoadError={() => setDocumentLoadError(true)} className="shadow-lg flex-shrink-0">
+                      <Page pageNumber={pageNumber} width={mobilePdfWidth} devicePixelRatio={window.devicePixelRatio || 1} renderTextLayer={false} renderAnnotationLayer={false} />
+                    </Document>
+                  ) : (<div className="p-8 text-muted-foreground text-sm">Loading document...</div>)}
+                  {documentLoadError && <div className="p-8 text-muted-foreground text-sm">Preview not available</div>}
+                  {zoomScale > 1.05 && (
+                    <button onClick={() => setZoomScale(1.0)} className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full z-10">Reset zoom</button>
+                  )}
+                </div>
+              ) : (
               <div className="flex flex-col items-center p-2 sm:p-8 pb-24 overflow-x-auto">
                 <div className="w-full max-w-5xl flex flex-col items-center gap-6">
                   {viewUrl ? (
                     <>
                       <Document file={viewUrl} onLoadSuccess={({ numPages }) => { setNumPages(numPages); setDocumentLoadError(false); }} onLoadError={(error) => { console.error('PDF load error:', error); setDocumentLoadError(true); }} className="shadow-2xl rounded-xl overflow-hidden">
-                        <Page pageNumber={pageNumber} scale={isMobile ? 0.6 : scale} devicePixelRatio={window.devicePixelRatio || 1} renderTextLayer={true} renderAnnotationLayer={true} />
+                        <Page pageNumber={pageNumber} scale={scale} devicePixelRatio={window.devicePixelRatio || 1} renderTextLayer={true} renderAnnotationLayer={true} />
                       </Document>
                       {documentLoadError && (<div className="h-96 bg-muted rounded-xl flex items-center justify-center"><p className="text-xs text-muted-foreground">Preview not available</p></div>)}
                     </>
                   ) : (<div className="p-8 text-center text-muted-foreground">Loading document...</div>)}
                 </div>
               </div>
+              )
             ) : (selectedFile.fileName.toLowerCase().endsWith('.mp4') || selectedFile.fileName.toLowerCase().endsWith('.webm') || selectedFile.fileName.toLowerCase().endsWith('.mov')) ? (
               <div className="flex flex-col items-center justify-center p-4 sm:p-8">
                 {viewUrl && (<div className="w-full max-w-5xl"><video src={viewUrl} controls controlsList="nodownload" className="w-full h-auto rounded-xl shadow-2xl bg-black" data-testid="video-viewer">Your browser does not support the video tag.</video></div>)}
@@ -551,28 +605,63 @@ export default function CourseView() {
     </>
   );
 
+  // Detect if current file is a PDF/PPTX (for bottom nav on mobile)
+  const isMobilePdfFile = (isMobile || isTablet) && selectedFile && (
+    selectedFile.fileName.toLowerCase().endsWith('.pdf') ||
+    selectedFile.fileName.toLowerCase().endsWith('.pptx') ||
+    selectedFile.fileName.toLowerCase().endsWith('.ppt')
+  );
+
   return (
-    <div className="h-screen bg-background flex flex-col">
-      {isMobile ? (
+    <div className="h-[100dvh] bg-background flex flex-col">
+      {(isMobile || isTablet) ? (
         <>
-          {/* Mobile: top bar with hamburger */}
-          <div className="flex items-center gap-2 p-3 border-b bg-card flex-shrink-0">
-            <Button variant="ghost" size="sm" onClick={() => setMobileSidebarOpen(true)}>
-              <Menu className="h-5 w-5" />
+          {/* Mobile: top bar */}
+          <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 bg-card border-b shadow-sm z-10">
+            <Button variant="ghost" size="sm" onClick={() => courseId ? navigate(`/courses/${courseId}`) : navigate('/')} className="-ml-2">
+              <ChevronLeft className="h-5 w-5" />
+              <span className="text-sm font-medium">Back</span>
             </Button>
-            <span className="text-sm font-medium truncate flex-1">{selectedFile?.fileName || `Week ${currentWeek?.weekNumber}`}</span>
-            <Button variant="ghost" size="sm" onClick={() => courseId ? navigate(`/courses/${courseId}`) : navigate('/')}>
-              <ChevronLeft className="h-4 w-4" />
+            <span className="text-base font-semibold truncate max-w-[140px]">{selectedFile?.fileName || `Week ${currentWeek?.weekNumber}`}</span>
+            <Button variant="ghost" size="sm" onClick={() => setMobileSidebarOpen(true)} className="-mr-2">
+              <Menu className="h-5 w-5" />
             </Button>
           </div>
           {/* Mobile sidebar as Sheet */}
           <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-            <SheetContent side="left" className="w-[85vw] max-w-sm p-0">
-              <div className="h-full flex flex-col">{sidebarInner}</div>
+            <SheetContent side="left" className="w-[85vw] max-w-sm p-0 flex flex-col">
+              <SheetTitle className="sr-only">Week {currentWeek?.weekNumber} content</SheetTitle>
+              <div className="h-full flex flex-col overflow-y-auto">{sidebarInner}</div>
             </SheetContent>
           </Sheet>
           {/* Mobile main content - full width */}
           <div className="flex-1 flex flex-col overflow-hidden">{mainContentInner}</div>
+          {/* Fixed bottom nav for PDF on mobile */}
+          {isMobilePdfFile && viewUrl && (
+            <div className="flex-shrink-0 bg-card/95 backdrop-blur-sm border-t shadow-lg">
+              <div className="flex items-center justify-between px-3 py-2 gap-2">
+                <Button onClick={() => setPageNumber(p => Math.max(1, p - 1))} disabled={pageNumber <= 1} variant="outline" size="sm" className="h-10 px-3">
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <div className="flex items-center gap-1.5 flex-1 justify-center">
+                  <Input type="text" inputMode="numeric" value={pageInputValue} onChange={handlePageInputChange} onKeyDown={handlePageInputKeyDown} onBlur={handlePageInputSubmit} placeholder={pageNumber.toString()} className="w-12 h-10 text-center text-sm" />
+                  <span className="text-sm text-muted-foreground">/ {numPages}</span>
+                </div>
+                <Button onClick={() => setPageNumber(p => Math.min(numPages, p + 1))} disabled={pageNumber >= numPages} variant="outline" size="sm" className="h-10 px-3">
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+                <Button onClick={() => setIsFullscreen(true)} variant="outline" size="sm" className="h-10 px-3">
+                  <Maximize2 className="h-5 w-5" />
+                </Button>
+              </div>
+              {pageNumber === numPages && numPages > 0 && (
+                <div className="flex items-center justify-center gap-1.5 pb-2">
+                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                  <span className="text-xs font-semibold text-primary">Last page reached!</span>
+                </div>
+              )}
+            </div>
+          )}
         </>
       ) : (
         <ResizablePanelGroup direction="horizontal" className="flex-1">
@@ -593,15 +682,20 @@ export default function CourseView() {
             <div className="flex items-center justify-between p-3 sm:p-4 border-b bg-card flex-shrink-0">
               <h2 className="text-base sm:text-lg font-semibold truncate">{selectedFile?.fileName}</h2>
             </div>
-            <div className="flex-1 overflow-y-auto bg-muted/20 relative pb-24">
+            <div className="flex-1 overflow-hidden bg-muted/20 relative">
               {selectedFile && (
                 (selectedFile.fileName.toLowerCase().endsWith('.pdf') || selectedFile.fileName.toLowerCase().endsWith('.pptx') || selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                  <div className="flex flex-col items-center p-2 sm:p-6 overflow-x-auto">
+                  <div
+                    className="flex items-center justify-center w-full h-full overflow-auto"
+                    onTouchMove={handlePdfTouchMove}
+                    onTouchEnd={handlePdfTouchEnd}
+                    style={{ touchAction: zoomScale > 1 ? 'none' : 'pan-y' }}
+                  >
                     {viewUrl ? (
                       <>
-                        <div className="select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
+                        <div className="select-none flex-shrink-0" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
                           <Document file={viewUrl} onLoadSuccess={({ numPages }) => { setNumPages(numPages); setDocumentLoadError(false); }} onLoadError={(error) => { console.error('PDF load error:', error); setDocumentLoadError(true); }} className="shadow-2xl">
-                            <Page pageNumber={pageNumber} scale={isMobile ? 0.5 : scale} devicePixelRatio={window.devicePixelRatio || 1} renderTextLayer={true} renderAnnotationLayer={true} />
+                            <Page pageNumber={pageNumber} width={(isMobile || isTablet) ? mobilePdfWidth : undefined} scale={(isMobile || isTablet) ? undefined : scale} devicePixelRatio={window.devicePixelRatio || 1} renderTextLayer={!(isMobile || isTablet)} renderAnnotationLayer={!(isMobile || isTablet)} />
                           </Document>
                         </div>
                         {documentLoadError && (<div className="h-96 bg-muted rounded-xl flex items-center justify-center mt-4"><p className="text-xs text-muted-foreground">Preview not available</p></div>)}

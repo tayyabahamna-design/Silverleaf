@@ -130,14 +130,39 @@ export default function TeacherContentView() {
   // Responsive breakpoint detection
   const { isMobile, isTablet } = useBreakpoint();
 
-  // Dynamic PDF width for mobile (fills screen minus padding)
-  const [pdfWidth, setPdfWidth] = useState<number>(typeof window !== 'undefined' ? window.innerWidth - 16 : 360);
+  // Pinch-to-zoom state for mobile PDF
+  const [zoomScale, setZoomScale] = useState<number>(1.0);
+  const lastPinchDistance = useRef<number | null>(null);
+
+  // Fit-to-screen PDF width: constrained by both screen width and available height (for landscape slides)
+  const [basePdfWidth, setBasePdfWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') return 360;
+    return Math.min(window.innerWidth - 8, (window.innerHeight - 120) * (16 / 9));
+  });
   useEffect(() => {
-    const update = () => setPdfWidth(window.innerWidth - 16);
+    const update = () => {
+      setBasePdfWidth(Math.min(window.innerWidth - 8, (window.innerHeight - 120) * (16 / 9)));
+    };
     window.addEventListener('resize', update);
     update();
     return () => window.removeEventListener('resize', update);
   }, []);
+  const pdfWidth = basePdfWidth * zoomScale;
+
+  const handlePdfTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if (lastPinchDistance.current !== null) {
+        const delta = dist / lastPinchDistance.current;
+        setZoomScale(prev => Math.min(3, Math.max(0.8, prev * delta)));
+      }
+      lastPinchDistance.current = dist;
+    }
+  };
+  const handlePdfTouchEnd = () => { lastPinchDistance.current = null; };
 
   // Screenshot protection
   const { showWarning, dismissWarning } = useScreenshotProtection(weekId);
@@ -489,15 +514,20 @@ export default function TeacherContentView() {
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto bg-muted/20">
+        <div className="flex-1 overflow-hidden bg-muted/20 relative">
           {isPdfFile ? (
-            <div className="flex flex-col items-center py-2">
+            <div
+              className="flex items-center justify-center w-full h-full overflow-auto"
+              onTouchMove={handlePdfTouchMove}
+              onTouchEnd={handlePdfTouchEnd}
+              style={{ touchAction: zoomScale > 1 ? 'none' : 'pan-y' }}
+            >
               {viewUrl ? (
                 <Document
                   file={viewUrl}
                   onLoadSuccess={({ numPages }) => { setNumPages(numPages); setDocumentLoadError(false); }}
                   onLoadError={() => setDocumentLoadError(true)}
-                  className="shadow-lg"
+                  className="shadow-lg flex-shrink-0"
                 >
                   <Page
                     pageNumber={pageNumber}
@@ -512,6 +542,14 @@ export default function TeacherContentView() {
               )}
               {documentLoadError && (
                 <div className="p-8 text-muted-foreground text-sm">Preview not available</div>
+              )}
+              {zoomScale > 1.05 && (
+                <button
+                  onClick={() => setZoomScale(1.0)}
+                  className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full z-10"
+                >
+                  Reset zoom
+                </button>
               )}
             </div>
           ) : isVideoFile ? (
@@ -601,10 +639,15 @@ export default function TeacherContentView() {
                 <h2 className="text-sm font-semibold truncate">{selectedFile?.fileName}</h2>
                 <Button variant="ghost" size="sm" onClick={() => setIsFullscreen(false)}><X className="h-4 w-4" /></Button>
               </div>
-              <div className="flex-1 overflow-y-auto bg-muted/20 pb-20">
+              <div
+                className="flex-1 overflow-auto bg-muted/20 flex items-center justify-center pb-16"
+                onTouchMove={handlePdfTouchMove}
+                onTouchEnd={handlePdfTouchEnd}
+                style={{ touchAction: zoomScale > 1 ? 'none' : 'pan-y' }}
+              >
                 {isPdfFile && viewUrl ? (
-                  <div className="flex flex-col items-center py-2">
-                    <Document file={viewUrl} onLoadSuccess={({ numPages }) => setNumPages(numPages)} className="shadow-lg">
+                  <div className="flex items-center justify-center">
+                    <Document file={viewUrl} onLoadSuccess={({ numPages }) => setNumPages(numPages)} className="shadow-lg flex-shrink-0">
                       <Page pageNumber={pageNumber} width={pdfWidth} devicePixelRatio={window.devicePixelRatio || 1} renderTextLayer={false} renderAnnotationLayer={false} />
                     </Document>
                   </div>
