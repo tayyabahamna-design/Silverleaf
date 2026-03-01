@@ -463,7 +463,7 @@ export default function CourseView() {
                   {viewUrl ? (
                     <>
                       <Document file={viewUrl} onLoadSuccess={({ numPages }) => { setNumPages(numPages); setDocumentLoadError(false); }} onLoadError={(error) => { console.error('PDF load error:', error); setDocumentLoadError(true); }} className="shadow-2xl rounded-xl overflow-hidden">
-                        <Page pageNumber={pageNumber} scale={isMobile ? 0.6 : scale} renderTextLayer={true} renderAnnotationLayer={true} />
+                        <Page pageNumber={pageNumber} scale={isMobile ? 0.6 : scale} devicePixelRatio={window.devicePixelRatio || 1} renderTextLayer={true} renderAnnotationLayer={true} />
                       </Document>
                       {documentLoadError && (<div className="h-96 bg-muted rounded-xl flex items-center justify-center"><p className="text-xs text-muted-foreground">Preview not available</p></div>)}
                     </>
@@ -601,7 +601,7 @@ export default function CourseView() {
                       <>
                         <div className="select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
                           <Document file={viewUrl} onLoadSuccess={({ numPages }) => { setNumPages(numPages); setDocumentLoadError(false); }} onLoadError={(error) => { console.error('PDF load error:', error); setDocumentLoadError(true); }} className="shadow-2xl">
-                            <Page pageNumber={pageNumber} scale={isMobile ? 0.5 : scale} renderTextLayer={true} renderAnnotationLayer={true} />
+                            <Page pageNumber={pageNumber} scale={isMobile ? 0.5 : scale} devicePixelRatio={window.devicePixelRatio || 1} renderTextLayer={true} renderAnnotationLayer={true} />
                           </Document>
                         </div>
                         {documentLoadError && (<div className="h-96 bg-muted rounded-xl flex items-center justify-center mt-4"><p className="text-xs text-muted-foreground">Preview not available</p></div>)}

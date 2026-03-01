@@ -584,6 +584,7 @@ export default function TeacherContentView() {
                               <Page
                                 pageNumber={pageNumber}
                                 scale={isMobile ? 0.6 : scale}
+                                devicePixelRatio={window.devicePixelRatio || 1}
                                 renderTextLayer={true}
                                 renderAnnotationLayer={true}
                               />
@@ -760,6 +761,7 @@ export default function TeacherContentView() {
                             <Page
                               pageNumber={pageNumber}
                               scale={isMobile ? 0.5 : scale}
+                              devicePixelRatio={window.devicePixelRatio || 1}
                               renderTextLayer={true}
                               renderAnnotationLayer={true}
                             />
