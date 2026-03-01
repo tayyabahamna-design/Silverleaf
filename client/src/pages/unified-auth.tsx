@@ -365,9 +365,9 @@ export default function UnifiedAuth() {
 
       {/* Decorative background shapes */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-primary/20 dark:bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-primary/20 dark:bg-primary/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-primary/20 dark:bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute top-20 left-10 w-48 sm:w-72 h-48 sm:h-72 bg-primary/20 dark:bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-10 w-64 sm:w-96 h-64 sm:h-96 bg-primary/20 dark:bg-primary/10 rounded-full blur-3xl hidden sm:block" />
+        <div className="absolute top-1/2 left-1/3 w-48 sm:w-64 h-48 sm:h-64 bg-primary/20 dark:bg-primary/10 rounded-full blur-3xl" />
       </div>
 
       <div className="flex-1 flex items-center justify-center p-3 sm:p-4 md:p-6 lg:p-8 relative z-10">

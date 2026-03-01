@@ -12,7 +12,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProfileSettingsDialog } from "@/components/ProfileSettingsDialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { Award, CheckCircle, LogOut, GraduationCap, ArrowRight, FileText, Star } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Award, CheckCircle, LogOut, GraduationCap, ArrowRight, FileText, Star, Calendar, MessageSquare, Target, Lightbulb, TrendingUp, ClipboardCheck, BookOpen } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 export default function TeacherDashboard() {
@@ -64,6 +65,94 @@ export default function TeacherDashboard() {
       const response = await fetch("/api/teacher/reflections");
       if (!response.ok) return [];
       return await response.json();
+    },
+  });
+
+  // Fetch attendance summary
+  const { data: attendanceSummary } = useQuery<any>({
+    queryKey: ["/api/teacher/attendance/summary"],
+    queryFn: async () => {
+      const response = await fetch("/api/teacher/attendance/summary");
+      if (!response.ok) return null;
+      return await response.json();
+    },
+  });
+
+  // Fetch trainer comments
+  const { data: trainerComments = [] } = useQuery<any[]>({
+    queryKey: ["/api/teacher/trainer-comments"],
+    queryFn: async () => {
+      const response = await fetch("/api/teacher/trainer-comments");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  // Fetch goals
+  const { data: goals = [] } = useQuery<any[]>({
+    queryKey: ["/api/teacher/goals"],
+    queryFn: async () => {
+      const response = await fetch("/api/teacher/goals");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  // Fetch improvement tips
+  const { data: tips = [] } = useQuery<any[]>({
+    queryKey: ["/api/teacher/improvement-tips"],
+    queryFn: async () => {
+      const response = await fetch("/api/teacher/improvement-tips");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  // Fetch progress summary
+  const { data: progressSummary } = useQuery<any>({
+    queryKey: ["/api/teacher/progress-summary"],
+    queryFn: async () => {
+      const response = await fetch("/api/teacher/progress-summary");
+      if (!response.ok) return null;
+      return await response.json();
+    },
+  });
+
+  // Goal state
+  const [newGoalText, setNewGoalText] = useState("");
+
+  // Create goal mutation
+  const createGoalMutation = useMutation({
+    mutationFn: async (data: { goalText: string }) => {
+      await apiRequest("POST", "/api/teacher/goals", data);
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Goal created successfully" });
+      setNewGoalText("");
+      queryClient.invalidateQueries({ queryKey: ["/api/teacher/goals"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Update goal mutation
+  const updateGoalMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      await apiRequest("PATCH", `/api/teacher/goals/${id}`, { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teacher/goals"] });
+    },
+  });
+
+  // Delete goal mutation
+  const deleteGoalMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/teacher/goals/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teacher/goals"] });
     },
   });
 
@@ -197,15 +286,15 @@ export default function TeacherDashboard() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
           <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Current Level</CardTitle>
-              <Award className="h-5 w-5 text-primary/60" />
+              <CardTitle className="text-xs font-medium">Level</CardTitle>
+              <Award className="h-4 w-4 text-primary/60" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-level">
-                <Badge variant={getLevelBadgeVariant(reportCard?.level || "Beginner")}>
+              <div className="text-lg font-bold" data-testid="text-level">
+                <Badge variant={getLevelBadgeVariant(reportCard?.level || "Beginner")} className="text-xs">
                   {reportCard?.level || "Beginner"}
                 </Badge>
               </div>
@@ -214,11 +303,11 @@ export default function TeacherDashboard() {
 
           <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Quizzes Taken</CardTitle>
-              <CheckCircle className="h-5 w-5 text-primary/60" />
+              <CardTitle className="text-xs font-medium">Quizzes</CardTitle>
+              <CheckCircle className="h-4 w-4 text-primary/60" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-quizzes-taken">
+              <div className="text-lg font-bold" data-testid="text-quizzes-taken">
                 {reportCard?.totalQuizzesTaken || 0}
               </div>
             </CardContent>
@@ -226,12 +315,48 @@ export default function TeacherDashboard() {
 
           <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Average Score</CardTitle>
-              <CheckCircle className="h-5 w-5 text-primary/60" />
+              <CardTitle className="text-xs font-medium">Avg Score</CardTitle>
+              <TrendingUp className="h-4 w-4 text-primary/60" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold" data-testid="text-average-score">
+              <div className="text-lg font-bold" data-testid="text-average-score">
                 {reportCard?.averageScore || 0}%
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-medium">Attendance</CardTitle>
+              <ClipboardCheck className="h-4 w-4 text-primary/60" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold">
+                {attendanceSummary?.attendance_rate || 0}%
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-medium">Weeks</CardTitle>
+              <BookOpen className="h-4 w-4 text-primary/60" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold">
+                {assignedWeeks.length}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-medium">Reflections</CardTitle>
+              <FileText className="h-4 w-4 text-primary/60" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold">
+                {reflections.length}
               </div>
             </CardContent>
           </Card>
@@ -462,6 +587,226 @@ export default function TeacherDashboard() {
             </CardContent>
           </Card>
         )}
+
+        {/* Progress Toward Graduation */}
+        {progressSummary && (
+          <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GraduationCap className="h-5 w-5" />
+                Progress Toward Graduation
+              </CardTitle>
+              <CardDescription>
+                Your overall training completion and graduation probability
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="text-center">
+                  <div className={`text-4xl font-bold ${
+                    progressSummary.graduationProbability >= 80 ? 'text-green-600' :
+                    progressSummary.graduationProbability >= 60 ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    {progressSummary.graduationProbability}%
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">Graduation Probability</p>
+                </div>
+                <Progress value={progressSummary.graduationProbability} className="h-3" />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center text-sm">
+                  <div className="p-2 bg-muted rounded-lg">
+                    <div className="font-semibold">{progressSummary.contentCompletion}%</div>
+                    <div className="text-muted-foreground text-xs">Content</div>
+                  </div>
+                  <div className="p-2 bg-muted rounded-lg">
+                    <div className="font-semibold">{progressSummary.quizPassRate}%</div>
+                    <div className="text-muted-foreground text-xs">Quiz Pass Rate</div>
+                  </div>
+                  <div className="p-2 bg-muted rounded-lg">
+                    <div className="font-semibold">{progressSummary.attendanceRate}%</div>
+                    <div className="text-muted-foreground text-xs">Attendance</div>
+                  </div>
+                  <div className="p-2 bg-muted rounded-lg">
+                    <div className="font-semibold">{progressSummary.reflectionCount}</div>
+                    <div className="text-muted-foreground text-xs">Reflections</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Attendance Record */}
+        {attendanceSummary && (
+          <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardCheck className="h-5 w-5" />
+                Attendance Record
+              </CardTitle>
+              <CardDescription>Your training attendance overview</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Attendance Rate</span>
+                  <span className="font-bold">{attendanceSummary.attendance_rate || 0}%</span>
+                </div>
+                <Progress value={parseFloat(attendanceSummary.attendance_rate || '0')} className="h-2" />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center text-sm">
+                  <div className="p-2 bg-green-50 dark:bg-green-950/30 rounded-lg">
+                    <div className="font-semibold text-green-700 dark:text-green-400">{attendanceSummary.present_days || 0}</div>
+                    <div className="text-muted-foreground text-xs">Present</div>
+                  </div>
+                  <div className="p-2 bg-red-50 dark:bg-red-950/30 rounded-lg">
+                    <div className="font-semibold text-red-700 dark:text-red-400">{attendanceSummary.absent_days || 0}</div>
+                    <div className="text-muted-foreground text-xs">Absent</div>
+                  </div>
+                  <div className="p-2 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg">
+                    <div className="font-semibold text-yellow-700 dark:text-yellow-400">{attendanceSummary.late_days || 0}</div>
+                    <div className="text-muted-foreground text-xs">Late</div>
+                  </div>
+                  <div className="p-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+                    <div className="font-semibold text-blue-700 dark:text-blue-400">{attendanceSummary.excused_days || 0}</div>
+                    <div className="text-muted-foreground text-xs">Excused</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Trainer Feedback (Read-Only) */}
+        <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Trainer Feedback
+            </CardTitle>
+            <CardDescription>Comments and feedback from your trainer</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {trainerComments.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4 text-sm">No feedback received yet</p>
+            ) : (
+              <div className="space-y-3">
+                {trainerComments.slice(0, 5).map((comment: any) => (
+                  <div key={comment.id} className="p-3 bg-muted rounded-lg">
+                    <div className="flex items-center justify-between mb-1">
+                      {comment.category && (
+                        <Badge variant="outline" className="text-xs">{comment.category}</Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : ""}
+                      </span>
+                    </div>
+                    <p className="text-sm">{comment.comment}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Improvement Tips */}
+        {tips.length > 0 && (
+          <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5" />
+                Tips for You
+              </CardTitle>
+              <CardDescription>Personalized suggestions based on your performance</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {tips.map((tip: any, i: number) => (
+                  <div key={i} className="flex items-start gap-3 p-3 bg-muted rounded-lg">
+                    <Badge variant={tip.priority === 'high' ? 'destructive' : tip.priority === 'medium' ? 'secondary' : 'outline'} className="text-xs mt-0.5 flex-shrink-0">
+                      {tip.priority}
+                    </Badge>
+                    <p className="text-sm">{tip.text}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Goals & Action Items */}
+        <Card className="shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-border/50 rounded-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              Goals & Action Items
+            </CardTitle>
+            <CardDescription>Set personal learning goals and track your progress</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Textarea
+                  value={newGoalText}
+                  onChange={(e) => setNewGoalText(e.target.value)}
+                  placeholder="What do you want to achieve?"
+                  rows={2}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => {
+                    if (!newGoalText.trim()) return;
+                    createGoalMutation.mutate({ goalText: newGoalText });
+                  }}
+                  disabled={createGoalMutation.isPending || !newGoalText.trim()}
+                  size="sm"
+                  className="self-end"
+                >
+                  Add
+                </Button>
+              </div>
+
+              {goals.length === 0 ? (
+                <p className="text-muted-foreground text-center py-2 text-sm">No goals set yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {goals.map((goal: any) => (
+                    <div key={goal.id} className={`flex items-start gap-3 p-3 rounded-lg border ${
+                      goal.status === 'completed' ? 'bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : 'bg-muted border-transparent'
+                    }`}>
+                      <div className="flex-1">
+                        <p className={`text-sm ${goal.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>
+                          {goal.goalText}
+                        </p>
+                        {goal.dueDate && (
+                          <span className="text-xs text-muted-foreground">
+                            Due: {new Date(goal.dueDate).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        {goal.status === 'pending' && (
+                          <Button size="sm" variant="outline" className="h-7 text-xs"
+                            onClick={() => updateGoalMutation.mutate({ id: goal.id, status: 'in_progress' })}>
+                            Start
+                          </Button>
+                        )}
+                        {goal.status === 'in_progress' && (
+                          <Button size="sm" variant="default" className="h-7 text-xs"
+                            onClick={() => updateGoalMutation.mutate({ id: goal.id, status: 'completed' })}>
+                            Done
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive"
+                          onClick={() => deleteGoalMutation.mutate(goal.id)}>
+                          x
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
       </div>
     </div>

@@ -317,7 +317,7 @@ export default function TeacherContentView() {
         <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
           <div className="h-full border-r bg-card flex flex-col shadow-lg">
             {/* Fixed Header: Back Button and Week Title */}
-            <div className="p-6 border-b flex-shrink-0">
+            <div className="p-4 sm:p-6 border-b flex-shrink-0">
               <Button
                 variant="ghost"
                 size="sm"
@@ -328,14 +328,14 @@ export default function TeacherContentView() {
                 <ChevronLeft className="h-4 w-4 mr-1" />
                 Back to Dashboard
               </Button>
-              <h2 className="text-3xl font-bold mb-2">
+              <h2 className="text-2xl sm:text-3xl font-bold mb-2">
                 Week {currentWeek?.weekNumber}
               </h2>
             </div>
 
             {/* Scrollable Content: Competency Focus, Objectives, Progress, and File List */}
             <div className="flex-1 overflow-y-auto">
-              <div className="p-6 pb-32 space-y-6">
+              <div className="p-4 sm:p-6 pb-32 space-y-6">
                 {/* Competency Focus */}
                 <div>
                   <h3 className="text-base font-semibold uppercase tracking-wider text-[#666] mb-3">
@@ -546,8 +546,8 @@ export default function TeacherContentView() {
             {selectedFile ? (
               <div className="flex-1 flex flex-col h-full">
                 {/* Content Header */}
-                <div className="p-6 border-b bg-card flex-shrink-0">
-                  <h1 className="text-2xl font-bold mb-1">{selectedFile.fileName}</h1>
+                <div className="p-3 sm:p-6 border-b bg-card flex-shrink-0">
+                  <h1 className="text-base sm:text-2xl font-bold mb-1 truncate">{selectedFile.fileName}</h1>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>Presentation File</span>
                     {selectedFile.progress?.status && (
@@ -564,7 +564,7 @@ export default function TeacherContentView() {
                   {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
                     selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
                     selectedFile.fileName.toLowerCase().endsWith('.ppt')) ? (
-                    <div className="flex flex-col items-center p-8 pb-24">
+                    <div className="flex flex-col items-center p-2 sm:p-8 pb-24 overflow-x-auto">
                       {/* Slides Viewer */}
                       <div className="w-full max-w-5xl flex flex-col items-center gap-6">
                         {viewUrl ? (
@@ -583,7 +583,8 @@ export default function TeacherContentView() {
                             >
                               <Page
                                 pageNumber={pageNumber}
-                                scale={scale}
+                                scale={isMobile ? 0.6 : scale}
+                                devicePixelRatio={window.devicePixelRatio || 1}
                                 renderTextLayer={true}
                                 renderAnnotationLayer={true}
                               />
@@ -604,7 +605,7 @@ export default function TeacherContentView() {
                   ) : (selectedFile.fileName.toLowerCase().endsWith('.mp4') ||
                     selectedFile.fileName.toLowerCase().endsWith('.webm') ||
                     selectedFile.fileName.toLowerCase().endsWith('.mov')) ? (
-                    <div className="flex flex-col items-center justify-center p-8">
+                    <div className="flex flex-col items-center justify-center p-4 sm:p-8">
                       {/* Video Player */}
                       {viewUrl && (
                         <div className="w-full max-w-5xl">
@@ -674,69 +675,32 @@ export default function TeacherContentView() {
                 </div>
 
                 {/* Persistent Control Bar - PDF/PPTX Files Only - Always visible */}
-                {(selectedFile.fileName.toLowerCase().endsWith('.pdf') || 
-                  selectedFile.fileName.toLowerCase().endsWith('.pptx') || 
+                {(selectedFile.fileName.toLowerCase().endsWith('.pdf') ||
+                  selectedFile.fileName.toLowerCase().endsWith('.pptx') ||
                   selectedFile.fileName.toLowerCase().endsWith('.ppt')) && viewUrl && (
                   <div className="flex-shrink-0 bg-card/95 backdrop-blur-sm border-t shadow-2xl">
-                    <div className="max-w-7xl mx-auto px-4 py-4">
-                      <div className="flex items-center gap-4 flex-wrap justify-center">
-                        {/* Page Navigation Controls */}
-                        <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
-                          <Button
-                            onClick={() => setPageNumber(p => Math.max(1, p - 1))}
-                            disabled={pageNumber <= 1}
-                            variant="outline"
-                            size="sm"
-                          >
-                            Previous
+                    <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4">
+                      <div className="flex items-center gap-2 sm:gap-4 flex-wrap justify-center">
+                        <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-muted/50 rounded-lg">
+                          <Button onClick={() => setPageNumber(p => Math.max(1, p - 1))} disabled={pageNumber <= 1} variant="outline" size="sm">
+                            <ChevronLeft className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Previous</span>
                           </Button>
-                          
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">
-                              Page
-                            </span>
-                            <Input
-                              type="text"
-                              inputMode="numeric"
-                              value={pageInputValue}
-                              onChange={handlePageInputChange}
-                              onKeyDown={handlePageInputKeyDown}
-                              onBlur={handlePageInputSubmit}
-                              placeholder={pageNumber.toString()}
-                              className="w-16 h-8 text-center text-sm"
-                              data-testid="input-page-number"
-                            />
-                            <span className="text-sm text-muted-foreground whitespace-nowrap">
-                              of {numPages}
-                            </span>
+                          <div className="flex items-center gap-1 sm:gap-2">
+                            <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap hidden sm:inline">Page</span>
+                            <Input type="text" inputMode="numeric" value={pageInputValue} onChange={handlePageInputChange} onKeyDown={handlePageInputKeyDown} onBlur={handlePageInputSubmit} placeholder={pageNumber.toString()} className="w-12 sm:w-16 h-8 text-center text-sm" data-testid="input-page-number" />
+                            <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">/ {numPages}</span>
                           </div>
-                          
-                          <Button
-                            onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
-                            disabled={pageNumber >= numPages}
-                            variant="outline"
-                            size="sm"
-                          >
-                            Next
+                          <Button onClick={() => setPageNumber(p => Math.min(numPages, p + 1))} disabled={pageNumber >= numPages} variant="outline" size="sm">
+                            <span className="hidden sm:inline">Next</span><ChevronRight className="h-4 w-4 sm:ml-1" />
                           </Button>
                         </div>
-                        
-                        {/* Fullscreen Button */}
-                        <Button
-                          onClick={() => setIsFullscreen(true)}
-                          variant="outline"
-                          size="sm"
-                          data-testid="button-fullscreen-normal"
-                        >
-                          <Maximize2 className="h-4 w-4 mr-1" />
-                          Fullscreen
+                        <Button onClick={() => setIsFullscreen(true)} variant="outline" size="sm" data-testid="button-fullscreen-normal">
+                          <Maximize2 className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Fullscreen</span>
                         </Button>
-                        
-                        {/* Completion Indicator */}
                         {pageNumber === numPages && numPages > 0 && (
-                          <div className="flex items-center gap-1.5 px-3 py-2 bg-primary/10 rounded-lg">
+                          <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-primary/10 rounded-lg">
                             <CheckCircle2 className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-semibold text-primary">Last page reached!</span>
+                            <span className="text-xs sm:text-sm font-semibold text-primary">Last page!</span>
                           </div>
                         )}
                       </div>
@@ -765,7 +729,7 @@ export default function TeacherContentView() {
 
       {/* Fullscreen Dialog */}
       <Dialog open={isFullscreen} onOpenChange={setIsFullscreen}>
-        <DialogContent className="max-w-[100vw] w-full h-screen p-0 gap-0">
+        <DialogContent className="max-w-[100vw] w-full h-[100dvh] p-0 gap-0">
           <div className="flex flex-col h-full bg-background">
             {/* Fullscreen header */}
             <div className="flex items-center justify-between p-4 border-b bg-card flex-shrink-0">
@@ -796,7 +760,8 @@ export default function TeacherContentView() {
                           >
                             <Page
                               pageNumber={pageNumber}
-                              scale={scale}
+                              scale={isMobile ? 0.5 : scale}
+                              devicePixelRatio={window.devicePixelRatio || 1}
                               renderTextLayer={true}
                               renderAnnotationLayer={true}
                             />

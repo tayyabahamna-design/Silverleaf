@@ -32,8 +32,8 @@ export default function AdminCertificateView() {
   });
 
   return (
-    <div className="min-h-screen bg-background p-8">
-      <Button onClick={() => navigate("/admin")} variant="outline" className="mb-8">
+    <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8">
+      <Button onClick={() => navigate("/admin")} variant="outline" className="mb-4 sm:mb-6 md:mb-8">
         <ArrowLeft className="w-4 h-4 mr-2" /> Back
       </Button>
 
@@ -46,7 +46,7 @@ export default function AdminCertificateView() {
           <div className="grid grid-cols-1 gap-6">
             {certs.length > 0 ? (
               certs.map((cert: any) => (
-                <Card key={cert.id} className="p-8 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950 border-2 border-amber-200 dark:border-amber-800">
+                <Card key={cert.id} className="p-4 sm:p-8 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950 dark:to-orange-950 border-2 border-amber-200 dark:border-amber-800">
                   <div className="text-center space-y-6">
                     <div className="flex justify-center">
                       <img src={logoImage} alt="Silverleaf Academy" className="w-20 h-20" data-testid="img-academy-logo" />
@@ -59,7 +59,7 @@ export default function AdminCertificateView() {
 
                     <div className="space-y-1">
                       <p className="text-sm text-amber-800 dark:text-amber-200">This is to certify that</p>
-                      <p className="text-3xl font-bold text-amber-900 dark:text-amber-100" data-testid={`text-teacher-name-${cert.id}`}>
+                      <p className="text-xl sm:text-3xl font-bold text-amber-900 dark:text-amber-100 break-words" data-testid={`text-teacher-name-${cert.id}`}>
                         {cert.teacherName}
                       </p>
                     </div>
