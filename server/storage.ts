@@ -1992,9 +1992,9 @@ export class DatabaseStorage implements IStorage {
   async getDemographicsAnalytics(): Promise<any> {
     const approved = eq(teachers.approvalStatus, "approved");
 
-    // Gender breakdown
+    // Gender breakdown — returns { gender, count } for frontend
     const genderRows = await db
-      .select({ label: sqlOp`COALESCE(${teachers.gender}, 'Not Specified')`, value: sqlOp`COUNT(*)::int` })
+      .select({ gender: sqlOp`COALESCE(${teachers.gender}, 'Not Specified')`, count: sqlOp`COUNT(*)::int` })
       .from(teachers)
       .where(approved)
       .groupBy(sqlOp`COALESCE(${teachers.gender}, 'Not Specified')`);
@@ -2015,7 +2015,7 @@ export class DatabaseStorage implements IStorage {
       .where(approved)
       .groupBy(sqlOp`COALESCE(${teachers.qualification}, 'Not Specified')`);
 
-    // Employment status
+    // Employment status — returns { status, count } for frontend (frontend maps e.employmentStatus to e.status)
     const empRows = await db
       .select({ status: sqlOp`COALESCE(${teachers.employmentStatus}, 'Not Specified')`, count: sqlOp`COUNT(*)::int` })
       .from(teachers)
@@ -2045,11 +2045,11 @@ export class DatabaseStorage implements IStorage {
         END`);
 
     return {
-      genderBreakdown: genderRows,
-      geographicDistribution: geoRows,
-      qualificationBreakdown: qualRows,
-      employmentStatusBreakdown: empRows,
-      experienceLevelBreakdown: expRows,
+      gender: genderRows,
+      geographic: geoRows,
+      qualification: qualRows,
+      employment: empRows,
+      experience: expRows,
     };
   }
 

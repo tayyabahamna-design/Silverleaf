@@ -741,10 +741,12 @@ export default function AdminAnalytics() {
     female: { label: "Female", color: CHART_COLORS[2] },
     other: { label: "Other", color: CHART_COLORS[3] },
     prefer_not_to_say: { label: "Not Specified", color: CHART_COLORS[4] },
+    notSpecified: { label: "Not Specified", color: CHART_COLORS[5] },
   };
 
   const completionChartConfig: ChartConfig = {
     completionRate: { label: "Completion Rate", color: CHART_COLORS[0] },
+    rate: { label: "Completion Rate", color: CHART_COLORS[0] },
   };
 
   return (
@@ -912,24 +914,19 @@ export default function AdminAnalytics() {
                       {loadingPipeline ? "Loading..." : "No demographic data available yet"}
                     </div>
                   ) : (() => {
+                    const labelMap: Record<string, string> = { male: "Male", female: "Female", other: "Other", notSpecified: "Not Specified" };
                     const genderArray = Object.entries(pipelineData.genderDistribution)
-                      .filter(([key]) => key !== "notSpecified")
-                      .map(([gender, count]) => ({ gender, count: Number(count) }));
-                    return genderArray.length === 0 || genderArray.every(g => g.count === 0) ? (
+                      .map(([gender, count]) => ({ gender, label: labelMap[gender] || gender, count: Number(count) }))
+                      .filter(g => g.count > 0);
+                    return genderArray.length === 0 ? (
                       <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
                         No demographic data available yet
                       </div>
                     ) : (
                       <ChartContainer config={genderChartConfig} className="h-[250px] w-full">
-                        <BarChart data={genderArray.map((g) => ({
-                          ...g,
-                          fill: genderChartConfig[g.gender as keyof typeof genderChartConfig]?.color || CHART_COLORS[5],
-                        }))}>
+                        <BarChart data={genderArray}>
                           <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="gender" tickFormatter={(val) => {
-                            const labels: Record<string, string> = { male: "Male", female: "Female", other: "Other" };
-                            return labels[val] || val;
-                          }} />
+                          <XAxis dataKey="label" />
                           <YAxis allowDecimals={false} />
                           <ChartTooltip content={<ChartTooltipContent />} />
                           <Bar dataKey="count" radius={[4, 4, 0, 0]}>
@@ -959,12 +956,12 @@ export default function AdminAnalytics() {
                     <ChartContainer config={completionChartConfig} className="h-[250px] w-full">
                       <LineChart data={completionTrends}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
+                        <XAxis dataKey="date" tickFormatter={(val) => val ? new Date(val).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) : ''} />
                         <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
                         <ChartTooltip content={<ChartTooltipContent />} />
                         <Line
                           type="monotone"
-                          dataKey="completionRate"
+                          dataKey="rate"
                           stroke={CHART_COLORS[0]}
                           strokeWidth={2}
                           dot={{ r: 4 }}
@@ -2198,10 +2195,7 @@ export default function AdminAnalytics() {
                   <CardContent>
                     {demographicsData.employment?.length > 0 ? (
                       <ChartContainer config={{ count: { label: "Candidates", color: CHART_COLORS[3] } }} className="h-[250px] w-full">
-                        <BarChart data={demographicsData.employment.map((e: any) => ({
-                          ...e,
-                          status: e.employmentStatus || "Not Specified",
-                        }))}>
+                        <BarChart data={demographicsData.employment}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="status" tick={{ fontSize: 11 }} />
                           <YAxis allowDecimals={false} />
@@ -2265,16 +2259,16 @@ export default function AdminAnalytics() {
                     <CardDescription>Monthly completion rates across all batches</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {performanceData?.completionTrends?.length > 0 ? (
+                    {performanceData?.completionRateTrends?.length > 0 ? (
                       <ChartContainer config={completionChartConfig} className="h-[300px] w-full">
-                        <LineChart data={performanceData.completionTrends}>
+                        <LineChart data={performanceData.completionRateTrends}>
                           <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis dataKey="month" />
-                          <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
+                          <XAxis dataKey="period" />
+                          <YAxis allowDecimals={false} />
                           <ChartTooltip content={<ChartTooltipContent />} />
                           <Line
                             type="monotone"
-                            dataKey="completionRate"
+                            dataKey="rate"
                             stroke={CHART_COLORS[0]}
                             strokeWidth={2}
                             dot={{ r: 4 }}
@@ -2313,7 +2307,7 @@ export default function AdminAnalytics() {
                           <TableBody>
                             {performanceData.atRiskFellows.map((fellow: any) => (
                               <TableRow key={fellow.teacherId}>
-                                <TableCell className="font-medium">{fellow.name || fellow.email}</TableCell>
+                                <TableCell className="font-medium">{fellow.teacherName || fellow.name || fellow.email}</TableCell>
                                 <TableCell>{fellow.batchName || "Unassigned"}</TableCell>
                                 <TableCell className="text-center">
                                   <div className="flex items-center gap-2 justify-center">

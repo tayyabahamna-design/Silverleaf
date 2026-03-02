@@ -150,6 +150,14 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
 - `PRIVATE_OBJECT_DIR` - Private file directory
 - `SESSION_SECRET` - Express session encryption key
 
+### Database Tables
+All tables are now migrated. The following tables were added manually (not via drizzle-kit push):
+- `attendance_records` - Teacher session attendance tracking
+- `teacher_goals` - Self-reflection goal tracking per teacher
+- `alert_rules` - Configurable performance/attendance alert thresholds
+- `notifications` - In-app notification system (trainers, teachers, admins)
+- `scheduled_events` - Calendar events linked to batches
+
 ### Troubleshooting
 - **Issue**: Admin login fails in production
   - **Solution**: Run `NODE_ENV=production tsx server/init-db.ts` to initialize/fix admin user
@@ -159,5 +167,8 @@ The application is built with a modern web stack, emphasizing a clean UI/UX and 
 - **Issue**: Files uploaded in development don't appear in production
   - **Cause**: Separate databases mean separate data
   - **Solution**: Re-upload files after deployment or use database export/import
+- **Issue**: `drizzle-kit push` asks about renaming `user_progress` to `alert_rules`
+  - **Cause**: `user_progress` is an old legacy table still in the DB but not in the schema
+  - **Solution**: The missing tables were created manually via SQL; select "No, skip renaming" if prompted
 
 See `DEPLOYMENT.md` for complete deployment guide and best practices.
