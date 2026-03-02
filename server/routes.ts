@@ -8,7 +8,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { storage } from "./storage";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers, batches, batchCourses, teacherCourseCompletion, assignedQuizzes, quizAttempts } from "@shared/schema";
+import { insertTrainingWeekSchema, updateTrainingWeekSchema, users, teachers, batches, batchCourses, batchTeachers, courses, teacherCourseCompletion, assignedQuizzes, quizAttempts } from "@shared/schema";
 import { setupAuth, hashPassword, comparePasswords } from "./auth";
 import { setupTeacherAuth, isTeacherAuthenticated } from "./teacherAuth";
 import { z } from "zod";
@@ -2616,22 +2616,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const teacherId = req.teacherId!;
       
-      // Get all UNIQUE courses assigned to this teacher (deduplication handled by storage)
-      const courses = await storage.getCoursesForTeacher(teacherId);
+      // Get (course, batch) pairs so each week knows its batchId
+      const courseBatchPairs = await db
+        .select({ course: courses, batchId: batchTeachers.batchId })
+        .from(batchTeachers)
+        .innerJoin(batchCourses, eq(batchTeachers.batchId, batchCourses.batchId))
+        .innerJoin(courses, eq(batchCourses.courseId, courses.id))
+        .where(eq(batchTeachers.teacherId, teacherId));
       
-      if (courses.length === 0) {
+      if (courseBatchPairs.length === 0) {
         return res.json([]);
       }
       
-      // For each unique course, get its weeks
+      // For each (course, batch) pair, get its weeks — track by weekId to avoid duplicates
       const allWeeks: any[] = [];
       const seenWeekIds = new Set<string>();
       
-      for (const course of courses) {
+      for (const { course, batchId } of courseBatchPairs) {
         const courseWeeks = await storage.getWeeksForCourse(course.id);
         
         for (const week of courseWeeks) {
-          // Skip if we've already added this week (prevents duplicates)
           if (seenWeekIds.has(week.id)) {
             continue;
           }
@@ -2643,6 +2647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           allWeeks.push({
             ...week,
+            batchId,
             courseName: course.name,
             progress: {
               total: totalFiles,
