@@ -36,6 +36,12 @@ export default function AdminTeacherDetail() {
 
   const teacherId = params?.id;
 
+  // Guard: only admins can access this page
+  if (user && user.role !== "admin") {
+    navigate("/");
+    return null;
+  }
+
   // Fetch teacher details
   const { data: teacher, isLoading } = useQuery<TeacherDetail>({
     queryKey: ["/api/admin/teachers", teacherId],

@@ -18,7 +18,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp, Home, ChevronDown, ChevronRight, AlertCircle, FileText, X, MessageSquare, Ban } from "lucide-react";
+import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp, Home, ChevronDown, ChevronRight, AlertCircle, FileText, X, MessageSquare, Ban, Search } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 export default function TrainerBatches() {
@@ -38,6 +38,8 @@ export default function TrainerBatches() {
   const [activeTab, setActiveTab] = useState("teachers");
 
   const [teacherId, setTeacherId] = useState("");
+  const [teacherSearch, setTeacherSearch] = useState("");
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
   const [quizTitle, setQuizTitle] = useState("");
   const [quizDescription, setQuizDescription] = useState("");
   const [selectedWeek, setSelectedWeek] = useState("");
@@ -106,27 +108,63 @@ export default function TrainerBatches() {
     enabled: !!selectedBatch?.id && activeTab === "certificates",
   });
 
+  // Search approved teachers for bulk enrollment
+  const { data: searchedTeachers = [] } = useQuery<any[]>({
+    queryKey: ["/api/teachers/search", teacherSearch],
+    queryFn: async () => {
+      const url = teacherSearch.trim()
+        ? `/api/teachers/search?q=${encodeURIComponent(teacherSearch.trim())}`
+        : `/api/teachers/search`;
+      const res = await apiRequest("GET", url);
+      return res.json();
+    },
+    enabled: addTeacherOpen,
+  });
+
   const addTeacherMutation = useMutation({
-    mutationFn: async ({ batchId, teacherId }: { batchId: string; teacherId: number }) => {
-      const response = await apiRequest("POST", `/api/batches/${batchId}/teachers`, {
-        teacherId,
-      });
+    mutationFn: async ({ batchId, query }: { batchId: string; query: string }) => {
+      // Support ID, email, or name in a single field
+      const isNumeric = /^\d+$/.test(query.trim());
+      const isEmail = query.includes("@");
+      const body = isNumeric
+        ? { teacherId: parseInt(query) }
+        : isEmail
+        ? { teacherEmail: query.trim() }
+        : { teacherName: query.trim() };
+      const response = await apiRequest("POST", `/api/batches/${batchId}/teachers`, body);
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to add teacher");
+      }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
       queryClient.invalidateQueries({ queryKey: ["/api/batches", selectedBatch?.id] });
       toast({ title: "Success", description: "Teacher added to batch" });
-      posthog.capture("teacher_added_to_batch", { batchId: selectedBatch?.id, teacherId });
-      setAddTeacherOpen(false);
+      posthog.capture("teacher_added_to_batch", { batchId: selectedBatch?.id });
       setTeacherId("");
     },
     onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const bulkAddTeachersMutation = useMutation({
+    mutationFn: async ({ batchId, teacherIds }: { batchId: string; teacherIds: string[] }) => {
+      const response = await apiRequest("POST", `/api/batches/${batchId}/teachers/bulk`, { teacherIds });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", selectedBatch?.id] });
+      toast({ title: "Success", description: `Added ${data.added} teacher${data.added !== 1 ? "s" : ""}${data.skipped > 0 ? `, ${data.skipped} already enrolled` : ""}` });
+      setAddTeacherOpen(false);
+      setSelectedTeacherIds([]);
+      setTeacherSearch("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -320,7 +358,7 @@ export default function TrainerBatches() {
     if (selectedBatch && teacherId) {
       addTeacherMutation.mutate({
         batchId: selectedBatch.id,
-        teacherId: parseInt(teacherId),
+        query: teacherId,
       });
     }
   };
@@ -537,30 +575,96 @@ export default function TrainerBatches() {
                           Add
                         </Button>
                       </DialogTrigger>
-                      <DialogContent>
+                      <DialogContent className="max-w-md">
                         <DialogHeader>
-                          <DialogTitle>Add Teacher to {selectedBatch?.name}</DialogTitle>
-                          <DialogDescription>Enter the teacher ID to add them to this batch</DialogDescription>
+                          <DialogTitle>Add Teachers to {selectedBatch?.name}</DialogTitle>
+                          <DialogDescription>Search by Teacher ID, name, or email. Select one or more teachers to add at once.</DialogDescription>
                         </DialogHeader>
                         <div className="space-y-4">
+                          {/* Quick add by ID/email/name */}
                           <div className="space-y-2">
-                            <Label htmlFor="teacher-id">Teacher ID</Label>
-                            <Input
-                              id="teacher-id"
-                              data-testid="input-teacher-id"
-                              type="number"
-                              placeholder="e.g., 101"
-                              value={teacherId}
-                              onChange={(e) => setTeacherId(e.target.value)}
-                            />
+                            <Label htmlFor="teacher-id">Quick Add by ID, Name, or Email</Label>
+                            <div className="flex gap-2">
+                              <Input
+                                id="teacher-id"
+                                data-testid="input-teacher-id"
+                                type="text"
+                                placeholder="e.g., 7101, Ali Hassan, ali@school.com"
+                                value={teacherId}
+                                onChange={(e) => setTeacherId(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && handleAddTeacher()}
+                              />
+                              <Button
+                                type="button"
+                                onClick={handleAddTeacher}
+                                disabled={!teacherId || addTeacherMutation.isPending}
+                                data-testid="button-submit-teacher"
+                                size="sm"
+                              >
+                                {addTeacherMutation.isPending ? "..." : "Add"}
+                              </Button>
+                            </div>
                           </div>
-                          <Button
-                            onClick={handleAddTeacher}
-                            disabled={!teacherId || addTeacherMutation.isPending}
-                            data-testid="button-submit-teacher"
-                          >
-                            {addTeacherMutation.isPending ? "Adding..." : "Add Teacher"}
-                          </Button>
+
+                          <div className="relative">
+                            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                            <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or select multiple</span></div>
+                          </div>
+
+                          {/* Bulk select */}
+                          <div className="space-y-2">
+                            <div className="relative">
+                              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                placeholder="Search teachers..."
+                                value={teacherSearch}
+                                onChange={(e) => setTeacherSearch(e.target.value)}
+                                className="pl-8"
+                              />
+                            </div>
+                            <ScrollArea className="h-48 border rounded-md">
+                              <div className="p-2 space-y-1">
+                                {searchedTeachers.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground text-center py-4">No teachers found</p>
+                                ) : (
+                                  searchedTeachers.map((t: any) => {
+                                    const alreadyEnrolled = batchDetails?.teachers?.some((bt: any) => bt.id === t.id);
+                                    const checked = selectedTeacherIds.includes(t.id);
+                                    return (
+                                      <label key={t.id} className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-muted/50 ${alreadyEnrolled ? "opacity-50" : ""}`}>
+                                        <input
+                                          type="checkbox"
+                                          checked={checked}
+                                          disabled={alreadyEnrolled}
+                                          onChange={(e) => {
+                                            setSelectedTeacherIds(prev =>
+                                              e.target.checked ? [...prev, t.id] : prev.filter(id => id !== t.id)
+                                            );
+                                          }}
+                                          className="h-4 w-4"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-medium text-sm truncate">{t.name}</div>
+                                          <div className="text-xs text-muted-foreground">ID: {t.teacherId} · {t.email}</div>
+                                        </div>
+                                        {alreadyEnrolled && <Badge variant="secondary" className="text-xs">Enrolled</Badge>}
+                                      </label>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            </ScrollArea>
+                            {selectedTeacherIds.length > 0 && (
+                              <Button
+                                type="button"
+                                className="w-full"
+                                onClick={() => bulkAddTeachersMutation.mutate({ batchId: selectedBatch.id, teacherIds: selectedTeacherIds })}
+                                disabled={bulkAddTeachersMutation.isPending}
+                              >
+                                {bulkAddTeachersMutation.isPending ? "Adding..." : `Add Selected (${selectedTeacherIds.length})`}
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </DialogContent>
                     </Dialog>

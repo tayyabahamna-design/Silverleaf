@@ -171,6 +171,7 @@ export interface IStorage {
   getAllTeachersByEmail(email: string): Promise<Teacher[]>; // For multi-role support
   getTeacherByTeacherId(teacherId: number): Promise<Teacher | undefined>;
   getTeacherByName(name: string): Promise<Teacher[]>;
+  getApprovedTeachers(): Promise<Teacher[]>;
   createTeacher(teacher: InsertTeacher): Promise<Teacher>;
   getNextTeacherId(): Promise<number>;
   updateTeacherPassword(teacherId: string, hashedPassword: string): Promise<Teacher | undefined>;
@@ -994,6 +995,10 @@ export class DatabaseStorage implements IStorage {
       .from(teachers)
       .where(sqlOp`LOWER(${teachers.name}) LIKE LOWER(${'%' + name + '%'})`);
     return results;
+  }
+
+  async getApprovedTeachers(): Promise<Teacher[]> {
+    return db.select().from(teachers).where(eq(teachers.approvalStatus, "approved")).orderBy(teachers.name);
   }
 
   async getNextTeacherId(): Promise<number> {

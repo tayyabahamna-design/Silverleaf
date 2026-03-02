@@ -40,6 +40,13 @@ export default function AdminTeachers() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  // Guard: only admins can access this page
+  if (user && user.role !== "admin") {
+    navigate("/");
+    return null;
+  }
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",

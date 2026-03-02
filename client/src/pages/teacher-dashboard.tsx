@@ -468,6 +468,7 @@ export default function TeacherDashboard() {
                   {[1, 2, 3, 4, 5].map((n) => (
                     <Button
                       key={n}
+                      type="button"
                       variant={reflectionRating === n ? "default" : "outline"}
                       size="sm"
                       onClick={() => setReflectionRating(n)}
@@ -553,7 +554,8 @@ export default function TeacherDashboard() {
                     {[1, 2, 3, 4, 5].map((n) => (
                       <Button
                         key={n}
-                        variant={satisfactionScore === n ? "default" : "outline"}
+                        type="button"
+                        variant={satisfactionScore >= n ? "default" : "outline"}
                         size="sm"
                         onClick={() => setSatisfactionScore(n)}
                         className="w-10 h-10"

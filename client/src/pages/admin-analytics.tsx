@@ -2077,6 +2077,9 @@ export default function AdminAnalytics() {
                 Demographics & Diversity
               </h2>
               <p className="text-sm text-muted-foreground mt-1">Candidate demographics and diversity breakdown</p>
+              <p className="text-xs text-muted-foreground mt-1 bg-muted/40 rounded px-2 py-1 inline-block">
+                ℹ️ Data sourced from teacher profile information (gender, location, qualification, employment status) provided at registration. Incomplete profiles show as "Not Specified" / "Unknown".
+              </p>
             </div>
 
             {loadingDemographics ? (

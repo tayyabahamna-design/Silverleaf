@@ -752,16 +752,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Failed to update password" });
       }
 
-      // Sync password to linked admin/trainer accounts with the same email
-      let syncInfo = "";
-      const synced = await storage.syncPasswordByEmail(updatedTeacher.email, hashedPassword, 'teachers');
-      if (synced.usersUpdated > 0) {
-        syncInfo = ` (also updated ${synced.usersUpdated} linked admin/trainer account${synced.usersUpdated > 1 ? 's' : ''})`;
-      }
-
+      // Trainers can only reset teacher passwords — do NOT sync to admin/trainer accounts
       res.json({
         success: true,
-        message: `Password reset successful for teacher: ${updatedTeacher.name} (ID: ${updatedTeacher.teacherId})${syncInfo}`
+        message: `Password reset successful for teacher: ${updatedTeacher.name} (ID: ${updatedTeacher.teacherId})`
       });
     } catch (error) {
       console.error("Error resetting teacher password:", error);
@@ -1911,7 +1905,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Add teacher to batch by teacherId
+  // Search teachers by name, email, or ID (for enrollment lookup)
+  app.get("/api/teachers/search", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const q = String(req.query.q || "").trim();
+      if (!q) {
+        const all = await storage.getApprovedTeachers();
+        return res.json(all);
+      }
+      // Try numeric ID first
+      const numId = parseInt(q, 10);
+      if (!isNaN(numId)) {
+        const t = await storage.getTeacherByTeacherId(numId);
+        return res.json(t ? [t] : []);
+      }
+      // Try email
+      if (q.includes("@")) {
+        const t = await storage.getTeacherByEmail(q);
+        return res.json(t ? [t] : []);
+      }
+      // Search by name
+      const results = await storage.getTeacherByName(q);
+      return res.json(results);
+    } catch (error) {
+      console.error("Error searching teachers:", error);
+      res.status(500).json({ error: "Failed to search teachers" });
+    }
+  });
+
+  // Add teacher to batch by teacherId, name, or email
   app.post("/api/batches/:batchId/teachers", isAuthenticated, isTrainer, async (req, res) => {
     try {
       const batch = await storage.getBatch(req.params.batchId);
@@ -1923,12 +1945,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied" });
       }
 
-      const { teacherId } = req.body; // Numeric teacher ID
-      
-      // Find teacher by numeric ID
-      const teacher = await storage.getTeacherByTeacherId(teacherId);
-      if (!teacher) {
-        return res.status(404).json({ error: "Teacher not found with that ID" });
+      const { teacherId, teacherEmail, teacherName } = req.body;
+      let teacher;
+
+      if (teacherId !== undefined && teacherId !== "") {
+        // Numeric ID lookup
+        teacher = await storage.getTeacherByTeacherId(Number(teacherId));
+        if (!teacher) return res.status(404).json({ error: "Teacher not found with that ID" });
+      } else if (teacherEmail) {
+        teacher = await storage.getTeacherByEmail(String(teacherEmail).trim());
+        if (!teacher) return res.status(404).json({ error: "Teacher not found with that email" });
+      } else if (teacherName) {
+        const matches = await storage.getTeacherByName(String(teacherName).trim());
+        if (matches.length === 0) return res.status(404).json({ error: "No teacher found with that name" });
+        if (matches.length > 1) return res.status(400).json({ error: "Multiple teachers match that name", matches: matches.map(t => ({ id: t.teacherId, name: t.name, email: t.email })) });
+        teacher = matches[0];
+      } else {
+        return res.status(400).json({ error: "Provide teacherId, teacherEmail, or teacherName" });
       }
 
       await storage.addTeacherToBatch({
@@ -1936,10 +1969,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         teacherId: teacher.id,
       });
 
-      res.status(201).json({ message: "Teacher added to batch" });
+      res.status(201).json({ message: "Teacher added to batch", teacher: { id: teacher.teacherId, name: teacher.name } });
     } catch (error) {
       console.error("Error adding teacher to batch:", error);
       res.status(500).json({ error: "Failed to add teacher to batch" });
+    }
+  });
+
+  // Bulk add teachers to batch
+  app.post("/api/batches/:batchId/teachers/bulk", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) return res.status(404).json({ error: "Batch not found" });
+      if (req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const { teacherIds } = req.body; // Array of teacher UUID ids (not numeric)
+      if (!Array.isArray(teacherIds) || teacherIds.length === 0) {
+        return res.status(400).json({ error: "teacherIds must be a non-empty array" });
+      }
+
+      let added = 0, skipped = 0;
+      const errors: string[] = [];
+
+      for (const tid of teacherIds) {
+        try {
+          await storage.addTeacherToBatch({ batchId: req.params.batchId, teacherId: tid });
+          added++;
+        } catch (err: any) {
+          // Unique constraint violation = already enrolled
+          if (err?.code === "23505" || String(err?.message).includes("duplicate")) {
+            skipped++;
+          } else {
+            errors.push(`Teacher ${tid}: ${err?.message || "unknown error"}`);
+          }
+        }
+      }
+
+      res.json({ added, skipped, errors });
+    } catch (error) {
+      console.error("Error bulk adding teachers:", error);
+      res.status(500).json({ error: "Failed to bulk add teachers" });
     }
   });
 

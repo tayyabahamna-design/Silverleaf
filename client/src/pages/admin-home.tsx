@@ -31,7 +31,13 @@ export default function AdminHome() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  
+
+  // Guard: only admins can access this page
+  if (user && user.role !== "admin") {
+    navigate("/");
+    return null;
+  }
+
   // Reset password state
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [resetUserIdentifier, setResetUserIdentifier] = useState("");

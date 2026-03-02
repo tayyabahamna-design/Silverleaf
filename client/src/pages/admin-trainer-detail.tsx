@@ -39,6 +39,12 @@ export default function AdminTrainerDetail() {
 
   const trainerId = params?.id;
 
+  // Guard: only admins can access this page
+  if (user && user.role !== "admin") {
+    navigate("/");
+    return null;
+  }
+
   // Fetch trainer details
   const { data: trainer, isLoading } = useQuery<TrainerDetail>({
     queryKey: ["/api/admin/trainers", trainerId],

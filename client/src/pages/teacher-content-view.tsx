@@ -283,7 +283,19 @@ export default function TeacherContentView() {
     setSelectedFileId(file.id);
     setHasMarkedComplete(file.progress?.status === 'completed');
     setMobileSidebarOpen(false);
+    // Auto-expand ToC for newly selected file if it has one
+    if (file.toc && file.toc.length > 0) {
+      setExpandedTocFileId(file.id);
+    }
     posthog.capture("file_opened", { weekId, fileId: file.id, fileName: file.fileName });
+  };
+
+  // Auto-expand ToC when sidebar opens (show ToC for current file)
+  const handleSidebarOpen = () => {
+    setMobileSidebarOpen(true);
+    if (selectedFile?.toc && selectedFile.toc.length > 0) {
+      setExpandedTocFileId(selectedFile.id);
+    }
   };
 
   // Track completion when user reaches the last page
@@ -438,7 +450,11 @@ export default function TeacherContentView() {
                           onClick={(e) => { e.stopPropagation(); setExpandedTocFileId(isTocExpanded ? null : file.id); }}
                           className="absolute top-3 right-3 p-1.5 rounded-md hover:bg-muted/80 transition-colors"
                         >
-                          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isTocExpanded ? 'rotate-180' : ''}`} />
+                          <span className="flex items-center gap-1 text-xs text-primary font-medium">
+                            <List className="h-3.5 w-3.5" />
+                            Contents
+                            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isTocExpanded ? 'rotate-180' : ''}`} />
+                          </span>
                         </button>
                       )}
                     </div>
@@ -508,7 +524,7 @@ export default function TeacherContentView() {
           <span className="text-base font-semibold truncate max-w-[140px]">
             {selectedFile?.fileName || `Week ${currentWeek?.weekNumber}`}
           </span>
-          <Button variant="ghost" size="sm" onClick={() => setMobileSidebarOpen(true)} className="-mr-2">
+          <Button variant="ghost" size="sm" onClick={handleSidebarOpen} className="-mr-2">
             <Menu className="h-5 w-5" />
           </Button>
         </div>
@@ -846,11 +862,11 @@ export default function TeacherContentView() {
                                   data-testid={`button-toggle-toc-${file.id}`}
                                   aria-label={isTocExpanded ? "Hide contents" : "View contents"}
                                 >
-                                  <ChevronDown 
-                                    className={`h-5 w-5 text-muted-foreground transition-transform ${
-                                      isTocExpanded ? 'rotate-180' : ''
-                                    }`}
-                                  />
+                                  <span className="flex items-center gap-1 text-xs text-primary font-medium">
+                                    <List className="h-3.5 w-3.5" />
+                                    Contents
+                                    <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isTocExpanded ? 'rotate-180' : ''}`} />
+                                  </span>
                                 </button>
                               )}
                             </div>
