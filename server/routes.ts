@@ -3983,16 +3983,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Submit a reflection (teacher auth)
   app.post("/api/teacher/reflections", isTeacherAuthenticated, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
-      if (!teacherSession?.teacherId) {
-        return res.status(401).json({ error: "Not authenticated as teacher" });
-      }
+      const teacherId = req.teacherId!;
       const { weekId, batchId, content, rating } = req.body;
       if (!weekId || !batchId || !content) {
         return res.status(400).json({ error: "weekId, batchId, and content are required" });
       }
       const reflection = await storage.createReflection({
-        teacherId: teacherSession.teacherId,
+        teacherId,
         weekId,
         batchId,
         content,
@@ -4011,11 +4008,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get own reflections (teacher auth)
   app.get("/api/teacher/reflections", isTeacherAuthenticated, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
-      if (!teacherSession?.teacherId) {
-        return res.status(401).json({ error: "Not authenticated as teacher" });
-      }
-      const reflections = await storage.getReflectionsByTeacher(teacherSession.teacherId);
+      const reflections = await storage.getReflectionsByTeacher(req.teacherId!);
       res.json(reflections);
     } catch (error) {
       console.error("Error getting reflections:", error);
@@ -4359,12 +4352,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get own attendance (teacher auth)
   app.get("/api/teacher/attendance", isTeacherAuthenticated, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
-      if (!teacherSession?.teacherId) {
-        return res.status(401).json({ error: "Not authenticated as teacher" });
-      }
       const batchId = req.query.batchId as string | undefined;
-      const records = await storage.getAttendanceByTeacher(teacherSession.teacherId, batchId);
+      const records = await storage.getAttendanceByTeacher(req.teacherId!, batchId);
       res.json(records);
     } catch (error) {
       console.error("Error getting teacher attendance:", error);
@@ -4375,12 +4364,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get own attendance summary (teacher auth)
   app.get("/api/teacher/attendance/summary", isTeacherAuthenticated, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
-      if (!teacherSession?.teacherId) {
-        return res.status(401).json({ error: "Not authenticated as teacher" });
-      }
       const batchId = req.query.batchId as string | undefined;
-      const summary = await storage.getAttendanceSummary(teacherSession.teacherId, batchId);
+      const summary = await storage.getAttendanceSummary(req.teacherId!, batchId);
       res.json(summary);
     } catch (error) {
       console.error("Error getting attendance summary:", error);
@@ -4395,12 +4380,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get own notifications (any authenticated user)
   app.get("/api/notifications", isAuthenticatedAny, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
       const user = req.user as any;
       let recipientId: string;
       let recipientType: string;
-      if (teacherSession?.teacherId) {
-        recipientId = teacherSession.teacherId;
+      if (req.teacherId) {
+        recipientId = req.teacherId;
         recipientType = "teacher";
       } else if (user?.id) {
         recipientId = user.id;
@@ -4420,12 +4404,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get unread notification count (any authenticated user)
   app.get("/api/notifications/unread-count", isAuthenticatedAny, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
       const user = req.user as any;
       let recipientId: string;
       let recipientType: string;
-      if (teacherSession?.teacherId) {
-        recipientId = teacherSession.teacherId;
+      if (req.teacherId) {
+        recipientId = req.teacherId;
         recipientType = "teacher";
       } else if (user?.id) {
         recipientId = user.id;
@@ -4455,12 +4438,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mark all notifications as read (any authenticated user)
   app.post("/api/notifications/read-all", isAuthenticatedAny, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
       const user = req.user as any;
       let recipientId: string;
       let recipientType: string;
-      if (teacherSession?.teacherId) {
-        recipientId = teacherSession.teacherId;
+      if (req.teacherId) {
+        recipientId = req.teacherId;
         recipientType = "teacher";
       } else if (user?.id) {
         recipientId = user.id;
@@ -4552,16 +4534,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create goal (teacher auth)
   app.post("/api/teacher/goals", isTeacherAuthenticated, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
-      if (!teacherSession?.teacherId) {
-        return res.status(401).json({ error: "Not authenticated as teacher" });
-      }
       const { goalText, batchId, dueDate } = req.body;
       if (!goalText) {
         return res.status(400).json({ error: "goalText is required" });
       }
       const goal = await storage.createTeacherGoal({
-        teacherId: teacherSession.teacherId,
+        teacherId: req.teacherId!,
         batchId: batchId || null,
         goalText,
         dueDate: dueDate ? new Date(dueDate) : null,
@@ -4576,11 +4554,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get own goals (teacher auth)
   app.get("/api/teacher/goals", isTeacherAuthenticated, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
-      if (!teacherSession?.teacherId) {
-        return res.status(401).json({ error: "Not authenticated as teacher" });
-      }
-      const goals = await storage.getTeacherGoals(teacherSession.teacherId);
+      const goals = await storage.getTeacherGoals(req.teacherId!);
       res.json(goals);
     } catch (error) {
       console.error("Error getting goals:", error);
@@ -4591,10 +4565,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update goal (teacher auth)
   app.patch("/api/teacher/goals/:id", isTeacherAuthenticated, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
-      if (!teacherSession?.teacherId) {
-        return res.status(401).json({ error: "Not authenticated as teacher" });
-      }
       const updates: any = {};
       if (req.body.goalText) updates.goalText = req.body.goalText;
       if (req.body.status) {
@@ -4678,11 +4648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get teacher events from their batches (teacher auth)
   app.get("/api/teacher/events", isTeacherAuthenticated, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
-      if (!teacherSession?.teacherId) {
-        return res.status(401).json({ error: "Not authenticated as teacher" });
-      }
-      const events = await storage.getScheduledEventsForTeacher(teacherSession.teacherId);
+      const events = await storage.getScheduledEventsForTeacher(req.teacherId!);
       res.json(events);
     } catch (error) {
       console.error("Error getting teacher events:", error);
@@ -4697,11 +4663,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get own trainer comments (teacher auth) - read only
   app.get("/api/teacher/trainer-comments", isTeacherAuthenticated, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
-      if (!teacherSession?.teacherId) {
-        return res.status(401).json({ error: "Not authenticated as teacher" });
-      }
-      const comments = await storage.getTrainerCommentsByTeacher(teacherSession.teacherId);
+      const comments = await storage.getTrainerCommentsByTeacher(req.teacherId!);
       res.json(comments);
     } catch (error) {
       console.error("Error getting trainer comments:", error);
@@ -4712,11 +4674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get improvement tips based on teacher's performance (teacher auth)
   app.get("/api/teacher/improvement-tips", isTeacherAuthenticated, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
-      if (!teacherSession?.teacherId) {
-        return res.status(401).json({ error: "Not authenticated as teacher" });
-      }
-      const teacherId = teacherSession.teacherId;
+      const teacherId = req.teacherId!;
 
       // Gather data for tips computation
       const [attendanceSummary, quizAttemptsResult, reflections] = await Promise.all([
@@ -4764,11 +4722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get progress summary including graduation probability (teacher auth)
   app.get("/api/teacher/progress-summary", isTeacherAuthenticated, async (req, res) => {
     try {
-      const teacherSession = (req as any).teacherSession;
-      if (!teacherSession?.teacherId) {
-        return res.status(401).json({ error: "Not authenticated as teacher" });
-      }
-      const teacherId = teacherSession.teacherId;
+      const teacherId = req.teacherId!;
 
       const [attendanceSummary, quizAttemptsResult, reflections, contentResult] = await Promise.all([
         storage.getAttendanceSummary(teacherId),
