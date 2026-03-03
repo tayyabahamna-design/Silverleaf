@@ -4,11 +4,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import posthog from "posthog-js";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, ExternalLink, GripVertical, FileText, X, ZoomIn, ZoomOut, Eye } from "lucide-react";
+import { Plus, Trash2, ChevronLeft, ChevronRight, ChevronDown, ExternalLink, GripVertical, X, ZoomIn, ZoomOut, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { ObjectUploader } from "@/components/ObjectUploader";
@@ -51,13 +48,399 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
+// ─── Sortable File Item (must be defined outside parent component) ───────────
+
+interface SortableFileItemProps {
+  file: { id: string; fileName: string; fileUrl: string; fileSize: number };
+  weekId: string;
+  onView: () => void;
+  onDelete: () => void;
+}
+
+function SortableFileItem({ file, onView, onDelete }: SortableFileItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: file.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center justify-between p-2 border rounded bg-muted/30 transition-all ${
+        isDragging ? 'shadow-lg scale-105 ring-2 ring-primary' : ''
+      }`}
+    >
+      <div className="flex items-center gap-2 flex-1 min-w-0">
+        <button
+          className="flex items-center cursor-grab active:cursor-grabbing hover:bg-muted/20 p-1 rounded transition-all touch-none select-none"
+          {...attributes}
+          {...listeners}
+          data-testid={`drag-handle-file-${file.id}`}
+          aria-label="Drag to reorder"
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </button>
+        <span className="text-sm truncate">{file.fileName}</span>
+      </div>
+      <div className="flex gap-1 flex-shrink-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onView}
+          data-testid={`button-view-${file.id}`}
+        >
+          <ExternalLink className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onDelete}
+          data-testid={`button-delete-file-${file.id}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sortable Week Item (must be defined outside parent component) ────────────
+
+interface SortableWeekItemProps {
+  week: TrainingWeek;
+  isAdmin: boolean;
+  courseId: string;
+  navigate: (path: string) => void;
+  sensors: ReturnType<typeof useSensors>;
+  activeFileId: string | null;
+  isSavingWeek: boolean;
+  onDeleteWeek: (id: string) => void;
+  onViewFile: (file: { url: string; name: string }) => void;
+  onDeleteFile: (weekId: string, fileId: string) => void;
+  onGetUploadParams: () => Promise<{ method: "PUT"; url: string }>;
+  onUploadComplete: (weekId: string) => (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => void;
+  onFileDragStart: (event: DragStartEvent) => void;
+  onFileDragEnd: (event: DragEndEvent, weekId: string) => void;
+  onSaveField: (weekId: string, field: string, value: string, onSuccess?: () => void) => void;
+}
+
+function SortableWeekItem({
+  week,
+  isAdmin,
+  courseId,
+  navigate,
+  sensors,
+  activeFileId,
+  isSavingWeek,
+  onDeleteWeek,
+  onViewFile,
+  onDeleteFile,
+  onGetUploadParams,
+  onUploadComplete,
+  onFileDragStart,
+  onFileDragEnd,
+  onSaveField,
+}: SortableWeekItemProps) {
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: week.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  useEffect(() => {
+    if (editingField === "competencyFocus" || editingField === "objective") {
+      textareaRef.current?.focus();
+    }
+  }, [editingField]);
+
+  const handleCellEdit = (field: string, currentValue: string) => {
+    setEditingField(field);
+    setEditValue(currentValue);
+  };
+
+  const handleCellSave = () => {
+    if (editingField && editValue !== "") {
+      onSaveField(week.id, editingField, editValue, () => {
+        setEditingField(null);
+        setEditValue("");
+      });
+    } else {
+      setEditingField(null);
+      setEditValue("");
+    }
+  };
+
+  const handleCellCancel = () => {
+    setEditingField(null);
+    setEditValue("");
+  };
+
+  return (
+    <AccordionItem
+      ref={setNodeRef}
+      style={style}
+      value={week.id}
+      className={`border rounded-lg overflow-hidden transition-all duration-200 ${
+        isDragging
+          ? 'shadow-2xl scale-105 ring-2 ring-primary/50'
+          : 'shadow-md hover:shadow-lg'
+      }`}
+      data-testid={`card-week-${week.id}`}
+    >
+      <div className="flex items-stretch rounded-lg overflow-hidden border border-border/50">
+        {isAdmin && (
+          <button
+            className="flex items-center px-4 cursor-grab active:cursor-grabbing hover:bg-muted/20 bg-muted/30 border-r border-border/50 transition-all touch-none select-none min-w-[48px]"
+            {...attributes}
+            {...listeners}
+            data-testid={`drag-handle-${week.id}`}
+            aria-label="Drag to reorder"
+          >
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
+          </button>
+        )}
+
+        <div className="flex-1 min-w-0">
+          {isAdmin ? (
+            <AccordionTrigger className="w-full px-4 py-3 hover:bg-muted/50">
+              <div className="flex items-center gap-3 text-left w-full">
+                <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 flex-shrink-0">
+                  <span className="text-sm font-bold text-primary">Week {week.weekNumber}</span>
+                </div>
+                <p className="text-muted-foreground truncate text-sm flex-1">
+                  {week.competencyFocus || "No competency focus set"}
+                </p>
+              </div>
+            </AccordionTrigger>
+          ) : (
+            <button
+              onClick={() => navigate(`/courses/${courseId}/weeks/${week.id}`)}
+              className="w-full px-4 py-3 hover:bg-muted/50 flex items-center justify-between"
+              data-testid={`button-open-week-${week.id}`}
+            >
+              <div className="flex items-center gap-3 text-left w-full">
+                <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 flex-shrink-0">
+                  <span className="text-sm font-bold text-primary">Week {week.weekNumber}</span>
+                </div>
+                <p className="text-muted-foreground truncate text-sm flex-1">
+                  {week.competencyFocus || "No competency focus set"}
+                </p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            </button>
+          )}
+        </div>
+
+        {isAdmin && (
+          <div className="flex items-center gap-1 px-3 border-l border-border/50 bg-muted/10">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/courses/${courseId}/weeks/${week.id}`);
+              }}
+              data-testid={`button-preview-week-${week.id}`}
+              aria-label="Preview week content"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteWeek(week.id);
+              }}
+              className="hover:bg-destructive/10 hover:text-destructive transition-colors"
+              data-testid={`button-delete-week-${week.id}`}
+              aria-label="Delete week"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {isAdmin && (
+        <AccordionContent className="px-4 py-4 bg-muted/5 border-t">
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
+                Competency Focus
+              </label>
+              {editingField === "competencyFocus" ? (
+                <div className="space-y-2">
+                  <Textarea
+                    ref={textareaRef}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    data-testid={`textarea-competency-${week.id}`}
+                    className="min-h-[80px]"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleCellSave} disabled={isSavingWeek}>
+                      Save
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleCellCancel}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => handleCellEdit("competencyFocus", week.competencyFocus || "")}
+                  className="p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center cursor-text hover:bg-muted/50"
+                  data-testid={`text-competency-${week.id}`}
+                >
+                  {week.competencyFocus || "Click to add competency focus"}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
+                Objective
+              </label>
+              {editingField === "objective" ? (
+                <div className="space-y-2">
+                  <Textarea
+                    ref={textareaRef}
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    data-testid={`textarea-objective-${week.id}`}
+                    className="min-h-[80px]"
+                  />
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={handleCellSave} disabled={isSavingWeek}>
+                      Save
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleCellCancel}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => handleCellEdit("objective", week.objective || "")}
+                  className="p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center cursor-text hover:bg-muted/50"
+                  data-testid={`text-objective-${week.id}`}
+                >
+                  {week.objective || "Click to add objective"}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
+                Presentation Files
+              </label>
+              <ObjectUploader
+                onGetUploadParameters={onGetUploadParams}
+                onComplete={onUploadComplete(week.id)}
+                maxNumberOfFiles={10}
+                key={`uploader-${week.id}`}
+              />
+              {week.deckFiles && week.deckFiles.length > 0 && (
+                <div className="mt-3">
+                  {isAdmin ? (
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragStart={onFileDragStart}
+                      onDragEnd={(event) => onFileDragEnd(event, week.id)}
+                    >
+                      <SortableContext
+                        items={week.deckFiles.map((f) => f.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-2">
+                          {week.deckFiles.map((file) => (
+                            <SortableFileItem
+                              key={file.id}
+                              file={file}
+                              weekId={week.id}
+                              onView={() => {
+                                onViewFile({ url: file.fileUrl, name: file.fileName });
+                                posthog.capture("admin_file_previewed", { weekId: week.id, fileId: file.id, fileName: file.fileName });
+                              }}
+                              onDelete={() => onDeleteFile(week.id, file.id)}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                      <DragOverlay dropAnimation={null}>
+                        {activeFileId ? (
+                          <div className="border rounded overflow-hidden bg-card shadow-2xl ring-2 ring-primary scale-105 opacity-95 p-2 flex items-center gap-2">
+                            <GripVertical className="h-5 w-5 text-primary" />
+                            <span className="text-sm font-semibold">{week.deckFiles.find(f => f.id === activeFileId)?.fileName}</span>
+                          </div>
+                        ) : null}
+                      </DragOverlay>
+                    </DndContext>
+                  ) : (
+                    <div className="space-y-2">
+                      {week.deckFiles.map((file) => (
+                        <div key={file.id} className="flex items-center justify-between p-2 border rounded bg-muted/30">
+                          <span className="text-sm truncate">{file.fileName}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              onViewFile({ url: file.fileUrl, name: file.fileName });
+                              posthog.capture("admin_file_previewed", { weekId: week.id, fileId: file.id, fileName: file.fileName });
+                            }}
+                            data-testid={`button-view-${file.id}`}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </AccordionContent>
+      )}
+    </AccordionItem>
+  );
+}
+
+// ─── Main Page Component ───────────────────────────────────────────────────────
+
 export default function CourseWeeks() {
   const { courseId } = useParams<{ courseId: string }>();
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { user, isAdmin, isTrainer, logoutMutation } = useAuth();
-  const [editingCell, setEditingCell] = useState<{ id: string; field: string } | null>(null);
-  const [editValue, setEditValue] = useState("");
   const [deleteWeekId, setDeleteWeekId] = useState<string | null>(null);
   const [viewingFile, setViewingFile] = useState<{ url: string; name: string } | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -67,8 +450,6 @@ export default function CourseWeeks() {
   const [numPages, setNumPages] = useState(0);
   const [documentLoadError, setDocumentLoadError] = useState(false);
   const [convertedUrl, setConvertedUrl] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -87,17 +468,6 @@ export default function CourseWeeks() {
     })
   );
 
-  useEffect(() => {
-    if (editingCell) {
-      const isTextarea = editingCell.field === "competencyFocus" || editingCell.field === "objective";
-      if (isTextarea && textareaRef.current) {
-        textareaRef.current.focus();
-      } else if (inputRef.current) {
-        inputRef.current.focus();
-      }
-    }
-  }, [editingCell]);
-
   // Prevent backspace from navigating back when not in an input field
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -106,14 +476,11 @@ export default function CourseWeeks() {
         const tagName = target.tagName.toLowerCase();
         const isEditable = target.isContentEditable;
         const isInput = tagName === "input" || tagName === "textarea" || tagName === "select";
-        
-        // Only allow backspace in editable elements
         if (!isInput && !isEditable) {
           e.preventDefault();
         }
       }
     };
-
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
@@ -128,41 +495,31 @@ export default function CourseWeeks() {
     if (!viewingFile) return;
 
     const fileName = viewingFile.name.toLowerCase();
-    
-    // For PPTX/PPT files, convert to PDF
+
     if (fileName.endsWith('.pptx') || fileName.endsWith('.ppt')) {
       const params = new URLSearchParams({ url: viewingFile.url });
       setConvertedUrl(`/api/files/convert-to-pdf?${params}`);
-    } 
-    // For DOCX/DOC files, convert to HTML
-    else if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
+    } else if (fileName.endsWith('.docx') || fileName.endsWith('.doc')) {
       const params = new URLSearchParams({ url: viewingFile.url });
       setConvertedUrl(`/api/files/convert-to-html?${params}`);
-    } 
-    // For regular PDF, use directly
-    else if (fileName.endsWith('.pdf')) {
+    } else if (fileName.endsWith('.pdf')) {
       setConvertedUrl(viewingFile.url);
-    } 
-    // For other files (videos, text, etc), use directly
-    else {
+    } else {
       setConvertedUrl(viewingFile.url);
     }
   }, [viewingFile]);
 
-  // Fetch course
   const { data: courseData, isLoading: isLoadingCourse } = useQuery<Course>({
     queryKey: ["/api/courses", courseId],
     enabled: !!courseId,
   });
   const course = courseData;
 
-  // Fetch weeks for this course
   const { data: weeks = [], isLoading: isLoadingWeeks } = useQuery<TrainingWeek[]>({
     queryKey: ["/api/courses", courseId, "weeks"],
     enabled: !!courseId,
   });
 
-  // Create week mutation
   const createWeekMutation = useMutation({
     mutationFn: async () => {
       const maxWeek = weeks.length > 0 ? Math.max(...weeks.map(w => w.weekNumber)) : 0;
@@ -179,20 +536,16 @@ export default function CourseWeeks() {
     },
   });
 
-  // Update week mutation
   const updateWeekMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<TrainingWeek> }) => {
       return apiRequest("PATCH", `/api/training-weeks/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId, "weeks"] });
-      setEditingCell(null);
-      setEditValue("");
       toast({ title: "Week updated" });
     },
   });
 
-  // Delete week mutation
   const deleteWeekMutation = useMutation({
     mutationFn: async (id: string) => {
       return apiRequest("DELETE", `/api/training-weeks/${id}`);
@@ -204,7 +557,6 @@ export default function CourseWeeks() {
     },
   });
 
-  // Upload deck mutation
   const uploadDeckMutation = useMutation({
     mutationFn: async ({ weekId, files }: {
       weekId: string;
@@ -218,7 +570,6 @@ export default function CourseWeeks() {
     },
   });
 
-  // Delete deck file mutation
   const deleteDeckFileMutation = useMutation({
     mutationFn: async ({ weekId, fileId }: { weekId: string; fileId: string }) => {
       return apiRequest("DELETE", `/api/training-weeks/${weekId}/deck/${fileId}`);
@@ -229,7 +580,6 @@ export default function CourseWeeks() {
     },
   });
 
-  // Reorder weeks mutation
   const reorderWeekMutation = useMutation({
     mutationFn: async ({ weekId, newPosition }: { weekId: string; newPosition: number }) => {
       return apiRequest("POST", `/api/courses/${courseId}/weeks/reorder`, { weekId, newPosition });
@@ -240,7 +590,6 @@ export default function CourseWeeks() {
     },
   });
 
-  // Reorder files mutation
   const reorderFilesMutation = useMutation({
     mutationFn: async ({ weekId, fileIds }: { weekId: string; fileIds: string[] }) => {
       return apiRequest("POST", `/api/training-weeks/${weekId}/deck/reorder`, { fileIds });
@@ -257,18 +606,13 @@ export default function CourseWeeks() {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-
     if (over && active.id !== over.id) {
       const oldIndex = weeks.findIndex((w) => w.id === active.id);
       const newIndex = weeks.findIndex((w) => w.id === over.id);
-
       if (oldIndex !== -1 && newIndex !== -1) {
-        const weekId = active.id as string;
-        const newPosition = newIndex + 1;
-        reorderWeekMutation.mutate({ weekId, newPosition });
+        reorderWeekMutation.mutate({ weekId: active.id as string, newPosition: newIndex + 1 });
       }
     }
-    
     setActiveId(null);
   };
 
@@ -278,21 +622,17 @@ export default function CourseWeeks() {
 
   const handleFileDragEnd = (event: DragEndEvent, weekId: string) => {
     const { active, over } = event;
-
     if (over && active.id !== over.id) {
       const week = weeks.find(w => w.id === weekId);
       if (week?.deckFiles) {
         const oldIndex = week.deckFiles.findIndex((f) => f.id === active.id);
         const newIndex = week.deckFiles.findIndex((f) => f.id === over.id);
-
         if (oldIndex !== -1 && newIndex !== -1) {
           const reorderedFiles = arrayMove(week.deckFiles, oldIndex, newIndex);
-          const fileIds = reorderedFiles.map(f => f.id);
-          reorderFilesMutation.mutate({ weekId, fileIds });
+          reorderFilesMutation.mutate({ weekId, fileIds: reorderedFiles.map(f => f.id) });
         }
       }
     }
-    
     setActiveFileId(null);
   };
 
@@ -300,16 +640,9 @@ export default function CourseWeeks() {
     try {
       const response = await apiRequest("POST", "/api/objects/upload", {});
       const data = await response.json();
-      return {
-        method: "PUT" as const,
-        url: data.uploadURL,
-      };
+      return { method: "PUT" as const, url: data.uploadURL };
     } catch (error) {
-      toast({
-        title: "Upload error",
-        description: "Failed to get upload URL",
-        variant: "destructive",
-      });
+      toast({ title: "Upload error", description: "Failed to get upload URL", variant: "destructive" });
       throw error;
     }
   };
@@ -318,373 +651,16 @@ export default function CourseWeeks() {
     if (result.successful && result.successful.length > 0) {
       const files = result.successful
         .filter(file => file.uploadURL && file.name)
-        .map(file => ({
-          fileUrl: file.uploadURL!,
-          fileName: file.name!,
-          fileSize: file.size || 0,
-        }));
-      
+        .map(file => ({ fileUrl: file.uploadURL!, fileName: file.name!, fileSize: file.size || 0 }));
       if (files.length > 0) {
         uploadDeckMutation.mutate({ weekId, files });
       }
     }
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  const onSaveField = (weekId: string, field: string, value: string, onSuccess?: () => void) => {
+    updateWeekMutation.mutate({ id: weekId, data: { [field]: value } }, { onSuccess });
   };
-
-  const handleCellEdit = (id: string, field: string, currentValue: string) => {
-    setEditingCell({ id, field });
-    setEditValue(currentValue);
-  };
-
-  const handleCellSave = () => {
-    if (editingCell && editValue !== "") {
-      updateWeekMutation.mutate({
-        id: editingCell.id,
-        data: { [editingCell.field]: editValue },
-      });
-    } else if (editingCell) {
-      setEditingCell(null);
-      setEditValue("");
-    }
-  };
-
-  const handleCellCancel = () => {
-    setEditingCell(null);
-    setEditValue("");
-  };
-
-  // Sortable File Item Component
-  interface SortableFileItemProps {
-    file: { id: string; fileName: string; fileUrl: string; fileSize: number };
-    weekId: string;
-    onView: () => void;
-    onDelete: () => void;
-  }
-
-  function SortableFileItem({ file, onView, onDelete }: SortableFileItemProps) {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({ id: file.id });
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.3 : 1,
-      zIndex: isDragging ? 50 : undefined,
-    };
-
-    return (
-      <div
-        ref={setNodeRef}
-        style={style}
-        className={`flex items-center justify-between p-2 border rounded bg-muted/30 transition-all ${
-          isDragging ? 'shadow-lg scale-105 ring-2 ring-primary' : ''
-        }`}
-      >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <button
-            className="flex items-center cursor-grab active:cursor-grabbing hover:bg-muted/20 p-1 rounded transition-all touch-none select-none"
-            {...attributes}
-            {...listeners}
-            data-testid={`drag-handle-file-${file.id}`}
-            aria-label="Drag to reorder"
-          >
-            <GripVertical className="h-4 w-4 text-muted-foreground" />
-          </button>
-          <span className="text-sm truncate">{file.fileName}</span>
-        </div>
-        <div className="flex gap-1 flex-shrink-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onView}
-            data-testid={`button-view-${file.id}`}
-          >
-            <ExternalLink className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDelete}
-            data-testid={`button-delete-file-${file.id}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Sortable Week Item Component for Drag and Drop
-  interface SortableWeekItemProps {
-    week: TrainingWeek;
-  }
-
-  function SortableWeekItem({ week }: SortableWeekItemProps) {
-    const {
-      attributes,
-      listeners,
-      setNodeRef,
-      transform,
-      transition,
-      isDragging,
-    } = useSortable({ id: week.id });
-
-    const style = {
-      transform: CSS.Transform.toString(transform),
-      transition,
-      opacity: isDragging ? 0.3 : 1,
-      zIndex: isDragging ? 50 : undefined,
-    };
-
-    return (
-      <AccordionItem
-        ref={setNodeRef}
-        style={style}
-        value={week.id}
-        className={`border rounded-lg overflow-hidden transition-all duration-200 ${
-          isDragging 
-            ? 'shadow-2xl scale-105 ring-2 ring-primary/50' 
-            : 'shadow-md hover:shadow-lg'
-        }`}
-        data-testid={`card-week-${week.id}`}
-      >
-        <div className="flex items-stretch rounded-lg overflow-hidden border border-border/50">
-          {/* Drag Handle - Only for Admin */}
-          {isAdmin && (
-            <button
-              className="flex items-center px-4 cursor-grab active:cursor-grabbing hover:bg-muted/20 bg-muted/30 border-r border-border/50 transition-all touch-none select-none min-w-[48px]"
-              {...attributes}
-              {...listeners}
-              data-testid={`drag-handle-${week.id}`}
-              aria-label="Drag to reorder"
-            >
-              <GripVertical className="h-5 w-5 text-muted-foreground" />
-            </button>
-          )}
-
-          {/* Card Content */}
-          <div className="flex-1 min-w-0">
-            {isAdmin ? (
-              <AccordionTrigger className="w-full px-4 py-3 hover:bg-muted/50">
-                <div className="flex items-center gap-3 text-left w-full">
-                  <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 flex-shrink-0">
-                    <span className="text-sm font-bold text-primary">Week {week.weekNumber}</span>
-                  </div>
-                  <p className="text-muted-foreground truncate text-sm flex-1">
-                    {week.competencyFocus || "No competency focus set"}
-                  </p>
-                </div>
-              </AccordionTrigger>
-            ) : (
-              <button
-                onClick={() => navigate(`/courses/${courseId}/weeks/${week.id}`)}
-                className="w-full px-4 py-3 hover:bg-muted/50 flex items-center justify-between"
-                data-testid={`button-open-week-${week.id}`}
-              >
-                <div className="flex items-center gap-3 text-left w-full">
-                  <div className="px-3 py-1 rounded-full bg-primary/10 border border-primary/30 flex-shrink-0">
-                    <span className="text-sm font-bold text-primary">Week {week.weekNumber}</span>
-                  </div>
-                  <p className="text-muted-foreground truncate text-sm flex-1">
-                    {week.competencyFocus || "No competency focus set"}
-                  </p>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-              </button>
-            )}
-          </div>
-
-          {/* Action Buttons - Only for Admin */}
-          {isAdmin && (
-            <div className="flex items-center gap-1 px-3 border-l border-border/50 bg-muted/10">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/courses/${courseId}/weeks/${week.id}`);
-                }}
-                data-testid={`button-preview-week-${week.id}`}
-                aria-label="Preview week content"
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDeleteWeekId(week.id);
-                }}
-                className="hover:bg-destructive/10 hover:text-destructive transition-colors"
-                data-testid={`button-delete-week-${week.id}`}
-                aria-label="Delete week"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {/* Accordion content only for admin */}
-        {isAdmin && (
-          <AccordionContent className="px-4 py-4 bg-muted/5 border-t">
-            <div className="space-y-4">
-              {/* Competency Focus */}
-              <div>
-                <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
-                  Competency Focus
-                </label>
-                {editingCell?.id === week.id && editingCell?.field === "competencyFocus" ? (
-                  <div className="space-y-2">
-                    <Textarea
-                      ref={textareaRef}
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      data-testid={`textarea-competency-${week.id}`}
-                      className="min-h-[80px]"
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={handleCellSave} disabled={updateWeekMutation.isPending}>
-                        Save
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={handleCellCancel}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => handleCellEdit(week.id, "competencyFocus", week.competencyFocus || "")}
-                    className="p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center cursor-text hover:bg-muted/50"
-                    data-testid={`text-competency-${week.id}`}
-                  >
-                    {week.competencyFocus || "Click to add competency focus"}
-                  </div>
-                )}
-              </div>
-
-              {/* Objective */}
-              <div>
-                <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
-                  Objective
-                </label>
-                {editingCell?.id === week.id && editingCell?.field === "objective" ? (
-                  <div className="space-y-2">
-                    <Textarea
-                      ref={textareaRef}
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      data-testid={`textarea-objective-${week.id}`}
-                      className="min-h-[80px]"
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={handleCellSave} disabled={updateWeekMutation.isPending}>
-                        Save
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={handleCellCancel}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div
-                    onClick={() => handleCellEdit(week.id, "objective", week.objective || "")}
-                    className="p-3 rounded border bg-muted/30 text-sm min-h-[60px] flex items-center cursor-text hover:bg-muted/50"
-                    data-testid={`text-objective-${week.id}`}
-                  >
-                    {week.objective || "Click to add objective"}
-                  </div>
-                )}
-              </div>
-
-              {/* Files Section */}
-              <div>
-                <label className="text-xs font-bold uppercase text-muted-foreground/60 mb-2 block">
-                  Presentation Files
-                </label>
-                <ObjectUploader
-                  onGetUploadParameters={handleGetUploadParams}
-                  onComplete={handleUploadComplete(week.id)}
-                  maxNumberOfFiles={10}
-                  key={`uploader-${week.id}`}
-                />
-                {week.deckFiles && week.deckFiles.length > 0 && (
-                  <div className="mt-3">
-                    {isAdmin ? (
-                      <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragStart={handleFileDragStart}
-                        onDragEnd={(event) => handleFileDragEnd(event, week.id)}
-                      >
-                        <SortableContext
-                          items={week.deckFiles.map((f) => f.id)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          <div className="space-y-2">
-                            {week.deckFiles.map((file) => (
-                              <SortableFileItem
-                                key={file.id}
-                                file={file}
-                                weekId={week.id}
-                                onView={() => {
-                                  setViewingFile({ url: file.fileUrl, name: file.fileName });
-                                  posthog.capture("admin_file_previewed", { weekId: week.id, fileId: file.id, fileName: file.fileName });
-                                }}
-                                onDelete={() => deleteDeckFileMutation.mutate({ weekId: week.id, fileId: file.id })}
-                              />
-                            ))}
-                          </div>
-                        </SortableContext>
-                        <DragOverlay dropAnimation={null}>
-                          {activeFileId ? (
-                            <div className="border rounded overflow-hidden bg-card shadow-2xl ring-2 ring-primary scale-105 opacity-95 p-2 flex items-center gap-2">
-                              <GripVertical className="h-5 w-5 text-primary" />
-                              <span className="text-sm font-semibold">{week.deckFiles.find(f => f.id === activeFileId)?.fileName}</span>
-                            </div>
-                          ) : null}
-                        </DragOverlay>
-                      </DndContext>
-                    ) : (
-                      <div className="space-y-2">
-                        {week.deckFiles.map((file) => (
-                          <div key={file.id} className="flex items-center justify-between p-2 border rounded bg-muted/30">
-                            <span className="text-sm truncate">{file.fileName}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setViewingFile({ url: file.fileUrl, name: file.fileName });
-                                posthog.capture("admin_file_previewed", { weekId: week.id, fileId: file.id, fileName: file.fileName });
-                              }}
-                              data-testid={`button-view-${file.id}`}
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </AccordionContent>
-        )}
-      </AccordionItem>
-    );
-  }
 
   const sortedWeeks = [...weeks].sort((a, b) => a.weekNumber - b.weekNumber);
 
@@ -786,7 +762,24 @@ export default function CourseWeeks() {
             >
               <Accordion type="multiple" className="space-y-4">
                 {sortedWeeks.map((week) => (
-                  <SortableWeekItem key={week.id} week={week} />
+                  <SortableWeekItem
+                    key={week.id}
+                    week={week}
+                    isAdmin={isAdmin}
+                    courseId={courseId!}
+                    navigate={navigate}
+                    sensors={sensors}
+                    activeFileId={activeFileId}
+                    isSavingWeek={updateWeekMutation.isPending}
+                    onDeleteWeek={setDeleteWeekId}
+                    onViewFile={setViewingFile}
+                    onDeleteFile={(weekId, fileId) => deleteDeckFileMutation.mutate({ weekId, fileId })}
+                    onGetUploadParams={handleGetUploadParams}
+                    onUploadComplete={handleUploadComplete}
+                    onFileDragStart={handleFileDragStart}
+                    onFileDragEnd={handleFileDragEnd}
+                    onSaveField={onSaveField}
+                  />
                 ))}
               </Accordion>
             </SortableContext>
@@ -808,7 +801,24 @@ export default function CourseWeeks() {
         ) : (
           <Accordion type="multiple" className="space-y-4">
             {sortedWeeks.map((week) => (
-              <SortableWeekItem key={week.id} week={week} />
+              <SortableWeekItem
+                key={week.id}
+                week={week}
+                isAdmin={isAdmin}
+                courseId={courseId!}
+                navigate={navigate}
+                sensors={sensors}
+                activeFileId={activeFileId}
+                isSavingWeek={updateWeekMutation.isPending}
+                onDeleteWeek={setDeleteWeekId}
+                onViewFile={setViewingFile}
+                onDeleteFile={(weekId, fileId) => deleteDeckFileMutation.mutate({ weekId, fileId })}
+                onGetUploadParams={handleGetUploadParams}
+                onUploadComplete={handleUploadComplete}
+                onFileDragStart={handleFileDragStart}
+                onFileDragEnd={handleFileDragEnd}
+                onSaveField={onSaveField}
+              />
             ))}
           </Accordion>
         )}
