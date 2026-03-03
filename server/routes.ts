@@ -1629,6 +1629,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get quiz cache status for all files in a week (admin view)
+  app.get("/api/training-weeks/:weekId/quiz-status", isAuthenticated, async (req, res) => {
+    try {
+      const week = await storage.getTrainingWeek(req.params.weekId);
+      if (!week || !week.deckFiles) return res.json({});
+      const result: Record<string, { generated: boolean; questionCount: number }> = {};
+      for (const file of week.deckFiles) {
+        const cached = await storage.getCachedQuiz(req.params.weekId, file.id);
+        result[file.id] = {
+          generated: !!(cached && cached.questions.length > 0),
+          questionCount: cached?.questions.length ?? 0,
+        };
+      }
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Force-regenerate quiz for a file (admin — bypasses cache)
+  app.post("/api/training-weeks/:weekId/files/:fileId/regenerate-quiz-admin", isAuthenticated, async (req, res) => {
+    try {
+      const { weekId, fileId } = req.params;
+      const week = await storage.getTrainingWeek(weekId);
+      if (!week) return res.status(404).json({ error: "Week not found" });
+      const file = week.deckFiles?.find(f => f.id === fileId);
+      if (!file) return res.status(404).json({ error: "File not found" });
+
+      // Delete existing cache entry
+      await storage.deleteCachedQuiz(weekId, fileId);
+
+      const { generateSingleFileQuiz } = await import('./quizService');
+      const questions = await generateSingleFileQuiz({
+        fileUrl: file.fileUrl,
+        fileName: file.fileName,
+        competencyFocus: week.competencyFocus,
+        objective: week.objective,
+        numQuestions: 10,
+        openEndedCount: 2,
+      });
+      await storage.saveCachedQuiz({ weekId, deckFileId: fileId, questions });
+      res.json({ success: true, questionCount: questions.length });
+    } catch (error) {
+      console.error("[ADMIN-REGEN] Error:", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to regenerate quiz" });
+    }
+  });
+
   // Submit quiz for a specific file
   app.post("/api/training-weeks/:weekId/files/:fileId/submit-quiz", isAuthenticatedAny, async (req, res) => {
     try {

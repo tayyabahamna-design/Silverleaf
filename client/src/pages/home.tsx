@@ -10,7 +10,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProfileSettingsDialog } from "@/components/ProfileSettingsDialog";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical, CheckCircle, BarChart3, FileText, Pencil, Settings, Users } from "lucide-react";
+import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical, CheckCircle, BarChart3, FileText, Pencil, Settings, Users, RefreshCw, Award } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
@@ -70,6 +71,8 @@ export default function Home() {
   const [createCourseOpen, setCreateCourseOpen] = useState(false);
   const [deleteCourseId, setDeleteCourseId] = useState<string | null>(null);
   const [deleteWeekId, setDeleteWeekId] = useState<string | null>(null);
+  const [quizStatus, setQuizStatus] = useState<Record<string, Record<string, { generated: boolean; questionCount: number }>>>({});
+  const [regeneratingFileId, setRegeneratingFileId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isSavingRef = useRef(false);
@@ -209,6 +212,27 @@ export default function Home() {
       toast({ title: "File deleted successfully" });
     },
   });
+
+  const fetchQuizStatus = async (weekId: string) => {
+    try {
+      const res = await apiRequest("GET", `/api/training-weeks/${weekId}/quiz-status`);
+      const data = await res.json();
+      setQuizStatus(prev => ({ ...prev, [weekId]: data }));
+    } catch (_) {}
+  };
+
+  const regenerateQuiz = async (weekId: string, fileId: string) => {
+    setRegeneratingFileId(fileId);
+    try {
+      await apiRequest("POST", `/api/training-weeks/${weekId}/files/${fileId}/regenerate-quiz-admin`);
+      await fetchQuizStatus(weekId);
+      toast({ title: "Quiz regenerated", description: "10 new questions generated for this file." });
+    } catch (_) {
+      toast({ title: "Failed to regenerate quiz", variant: "destructive" });
+    } finally {
+      setRegeneratingFileId(null);
+    }
+  };
 
   const resetPasswordMutation = useMutation({
     mutationFn: async ({ userIdentifier, newPassword }: { userIdentifier: string; newPassword: string }) => {
@@ -557,7 +581,9 @@ export default function Home() {
 
                 {/* Weeks within course */}
                 {course.weeks && course.weeks.length > 0 ? (
-                  <Accordion type="multiple" className="p-6 space-y-4">
+                  <Accordion type="multiple" className="p-6 space-y-4" onValueChange={(openWeeks) => {
+                    openWeeks.forEach(weekId => { if (!quizStatus[weekId]) fetchQuizStatus(weekId); });
+                  }}>
                     {course.weeks.map((week) => (
                       <AccordionItem
                         key={week.id}
@@ -656,10 +682,31 @@ export default function Home() {
                               />
                               {week.deckFiles && week.deckFiles.length > 0 && (
                                 <div className="mt-3 space-y-2">
-                                  {week.deckFiles.map((file) => (
-                                    <div key={file.id} className="flex items-center justify-between p-2 border rounded bg-muted/30">
-                                      <span className="text-sm truncate">{file.fileName}</span>
-                                      <div className="flex gap-1">
+                                  {week.deckFiles.map((file) => {
+                                    const fileQuizInfo = quizStatus[week.id]?.[file.id];
+                                    const isRegen = regeneratingFileId === file.id;
+                                    return (
+                                    <div key={file.id} className="flex items-center justify-between p-2 border rounded bg-muted/30 gap-2">
+                                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        <span className="text-sm truncate">{file.fileName}</span>
+                                        {fileQuizInfo !== undefined && (
+                                          fileQuizInfo.generated
+                                            ? <Badge variant="outline" className="text-xs text-green-600 border-green-300 shrink-0 gap-1">
+                                                <Award className="h-3 w-3" />{fileQuizInfo.questionCount}q
+                                              </Badge>
+                                            : <Badge variant="outline" className="text-xs text-muted-foreground shrink-0">No quiz</Badge>
+                                        )}
+                                      </div>
+                                      <div className="flex gap-1 shrink-0">
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          title={fileQuizInfo?.generated ? "Regenerate quiz" : "Generate quiz"}
+                                          onClick={() => regenerateQuiz(week.id, file.id)}
+                                          disabled={isRegen}
+                                        >
+                                          <RefreshCw className={`h-4 w-4 ${isRegen ? "animate-spin" : ""}`} />
+                                        </Button>
                                         <Button
                                           variant="ghost"
                                           size="sm"
@@ -678,7 +725,8 @@ export default function Home() {
                                         </Button>
                                       </div>
                                     </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
