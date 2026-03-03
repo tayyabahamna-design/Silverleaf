@@ -18,6 +18,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { QuizEditDialog } from "@/components/QuizEditDialog";
 import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp, Home, ChevronDown, ChevronRight, AlertCircle, FileText, X, MessageSquare, Ban, Search } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
@@ -30,6 +31,8 @@ export default function TrainerBatches() {
   const [assignFileQuizOpen, setAssignFileQuizOpen] = useState(false);
   const [viewQuizDetailsOpen, setViewQuizDetailsOpen] = useState(false);
   const [viewTeacherAttemptsOpen, setViewTeacherAttemptsOpen] = useState(false);
+  const [editQuizOpen, setEditQuizOpen] = useState(false);
+  const [editingQuiz, setEditingQuiz] = useState<any>(null);
   const [expandedTeacherId, setExpandedTeacherId] = useState<string | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
   const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
@@ -94,6 +97,12 @@ export default function TrainerBatches() {
   const { data: quizDetails } = useQuery<any>({
     queryKey: ["/api/trainer/quizzes", selectedQuizId],
     enabled: !!selectedQuizId && viewQuizDetailsOpen,
+  });
+
+  // Fetch pending open-ended reviews
+  const { data: pendingReviews = [] } = useQuery<any[]>({
+    queryKey: ["/api/trainer/pending-reviews"],
+    enabled: !!selectedBatch,
   });
 
   // Fetch teacher quiz attempts
@@ -924,21 +933,99 @@ export default function TrainerBatches() {
                                   {quiz.description || "No description"}
                                 </p>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteQuizMutation.mutate(quiz.id);
-                                }}
-                                data-testid={`button-delete-quiz-${quiz.id}`}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingQuiz(quiz);
+                                    setEditQuizOpen(true);
+                                  }}
+                                  data-testid={`button-edit-quiz-${quiz.id}`}
+                                >
+                                  <FileText className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteQuizMutation.mutate(quiz.id);
+                                  }}
+                                  data-testid={`button-delete-quiz-${quiz.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </CardContent>
                         </Card>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Pending open-ended reviews */}
+                  {pendingReviews.length > 0 && (
+                    <div className="mt-6">
+                      <div className="flex items-center gap-2 mb-3">
+                        <h4 className="font-semibold text-base">Pending Open-Ended Reviews</h4>
+                        <Badge variant="destructive" className="text-xs">{pendingReviews.length}</Badge>
+                      </div>
+                      <div className="space-y-3">
+                        {pendingReviews.map((review: any) => (
+                          <Card key={review.id} className="border-yellow-300">
+                            <CardContent className="py-4 space-y-2">
+                              <p className="text-sm font-medium">{review.questionText}</p>
+                              <p className="text-sm text-muted-foreground italic">{review.teacherAnswer || "(no answer)"}</p>
+                              <div className="flex gap-2 pt-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-green-600 border-green-300 hover:bg-green-50"
+                                  onClick={async () => {
+                                    await apiRequest("POST", `/api/quiz-attempts/${review.attemptId}/review-open-ended`, {
+                                      reviews: [{
+                                        questionId: review.questionId,
+                                        assignedQuizId: review.assignedQuizId,
+                                        teacherId: review.teacherId,
+                                        questionText: review.questionText,
+                                        teacherAnswer: review.teacherAnswer,
+                                        passed: true,
+                                      }],
+                                    });
+                                    queryClient.invalidateQueries({ queryKey: ["/api/trainer/pending-reviews"] });
+                                    toast({ title: "Marked as passed" });
+                                  }}
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" /> Pass
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 border-red-300 hover:bg-red-50"
+                                  onClick={async () => {
+                                    await apiRequest("POST", `/api/quiz-attempts/${review.attemptId}/review-open-ended`, {
+                                      reviews: [{
+                                        questionId: review.questionId,
+                                        assignedQuizId: review.assignedQuizId,
+                                        teacherId: review.teacherId,
+                                        questionText: review.questionText,
+                                        teacherAnswer: review.teacherAnswer,
+                                        passed: false,
+                                      }],
+                                    });
+                                    queryClient.invalidateQueries({ queryKey: ["/api/trainer/pending-reviews"] });
+                                    toast({ title: "Marked as failed" });
+                                  }}
+                                >
+                                  <X className="h-4 w-4 mr-1" /> Fail
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </TabsContent>
@@ -1145,6 +1232,17 @@ export default function TrainerBatches() {
           )}
         </div>
       </main>
+
+      {/* Quiz Edit Dialog */}
+      {editingQuiz && (
+        <QuizEditDialog
+          open={editQuizOpen}
+          onClose={() => { setEditQuizOpen(false); setEditingQuiz(null); }}
+          quizId={editingQuiz.id}
+          quizTitle={editingQuiz.title}
+          initialQuestions={editingQuiz.questions ?? []}
+        />
+      )}
 
       {/* View Quiz Details Dialog */}
       <Dialog open={viewQuizDetailsOpen} onOpenChange={setViewQuizDetailsOpen}>

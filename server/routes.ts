@@ -1042,7 +1042,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               fileName: file.fileName,
               competencyFocus: week.competencyFocus,
               objective: week.objective,
-              numQuestions: 5,
+              numQuestions: 10,
+              openEndedCount: 2,
             });
 
             await storage.saveCachedQuiz({
@@ -2055,8 +2056,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Access denied" });
       }
 
-      const { weekId, title, description, numQuestions = 5 } = req.body;
-      
+      const { weekId, title, description } = req.body;
+      // Checkpoint quiz: fixed at 25 questions (20 MCQ + 5 open-ended)
+      const numQuestions = 25;
+      const openEndedCount = 5;
+
       const week = await storage.getTrainingWeek(weekId);
       if (!week) {
         return res.status(404).json({ error: "Training week not found" });
@@ -2079,6 +2083,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         competencyFocus: week.competencyFocus,
         objective: week.objective,
         numQuestions,
+        openEndedCount,
       });
 
       // Create assigned quiz
@@ -2223,6 +2228,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Edit quiz questions (trainer/admin)
+  app.patch("/api/assigned-quizzes/:quizId", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { questions } = req.body;
+      if (!Array.isArray(questions)) {
+        return res.status(400).json({ error: "questions must be an array" });
+      }
+      const quiz = await storage.getAssignedQuiz(req.params.quizId);
+      if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+      const batch = await storage.getBatch(quiz.batchId);
+      if (batch && req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const updated = await storage.updateAssignedQuizQuestions(req.params.quizId, questions);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating quiz questions:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get pending open-ended reviews for trainer
+  app.get("/api/trainer/pending-reviews", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const reviews = await storage.getPendingReviewsForTrainer(req.user!.id);
+      res.json(reviews);
+    } catch (error) {
+      console.error("Error fetching pending reviews:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Submit open-ended reviews for a quiz attempt (trainer/admin)
+  app.post("/api/quiz-attempts/:attemptId/review-open-ended", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { reviews } = req.body; // [{ questionId, passed, teacherAnswer }]
+      if (!Array.isArray(reviews) || reviews.length === 0) {
+        return res.status(400).json({ error: "reviews must be a non-empty array" });
+      }
+
+      // Fetch the attempt to validate it exists and get quiz/teacher info
+      const allAttempts = await storage.getAllTeacherQuizAttempts("__placeholder__"); // we need by attemptId
+      // Directly query by attemptId — use getTeacherQuizAttemptById if available, else use approach below
+      // For now, patch each review and update status
+      for (const review of reviews) {
+        await storage.createOpenEndedReview({
+          attemptId: req.params.attemptId,
+          assignedQuizId: review.assignedQuizId || "",
+          teacherId: review.teacherId || "",
+          questionId: review.questionId,
+          questionText: review.questionText || "",
+          teacherAnswer: review.teacherAnswer || "",
+          reviewedBy: req.user!.id,
+          passed: review.passed,
+          reviewedAt: new Date(),
+        });
+      }
+
+      // Check if all open-ended are now reviewed
+      const allReviews = await storage.getOpenEndedReviews(req.params.attemptId);
+      const stillPending = allReviews.some(r => r.passed === null);
+      const allPassed = allReviews.every(r => r.passed === true);
+      await storage.updateAttemptReviewStatus(req.params.attemptId, stillPending, stillPending ? null : allPassed);
+
+      res.json({ success: true, pending: stillPending });
+    } catch (error) {
+      console.error("Error submitting open-ended reviews:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // ============================================================================
   // TEACHER QUIZ ROUTES (Teacher only)
   // ============================================================================
@@ -2282,17 +2358,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Maximum of 3 attempts reached for this quiz." });
       }
 
-      // Calculate score
+      // Calculate score — only MCQ/true_false questions count for auto-scoring
       let score = 0;
+      const openEndedQuestions: any[] = [];
       quiz.questions.forEach((q: any) => {
-        if (answers[q.id] === q.correctAnswer) {
+        if (q.type === 'open_ended') {
+          openEndedQuestions.push(q);
+        } else if (answers[q.id] === q.correctAnswer) {
           score++;
         }
       });
 
+      const mcqTotal = quiz.questions.filter((q: any) => q.type !== 'open_ended').length;
       const totalQuestions = quiz.questions.length;
-      const percentage = Math.round((score / totalQuestions) * 100);
-      const passed = percentage >= 80 ? "yes" : "no";
+      const percentage = mcqTotal > 0 ? Math.round((score / mcqTotal) * 100) : 100;
+      const hasOpenEnded = openEndedQuestions.length > 0;
+      // If no open-ended, pass/fail determined immediately; if open-ended, MCQ must pass first
+      const passed = (!hasOpenEnded && percentage >= 80) ? "yes" : (hasOpenEnded && percentage >= 80) ? "pending" : "no";
       const attemptNumber = existingAttempts.length + 1;
 
       // Save attempt
@@ -2303,8 +2385,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         answers,
         score,
         totalQuestions,
-        passed,
-      });
+        passed: passed === "pending" ? "no" : passed, // stored as no until open-ended reviewed
+      } as any);
+
+      // If there are open-ended answers, save them as pending reviews
+      if (hasOpenEnded && percentage >= 80) {
+        for (const q of openEndedQuestions) {
+          await storage.createOpenEndedReview({
+            attemptId: attempt.id,
+            assignedQuizId: req.params.quizId,
+            teacherId: req.teacherId!,
+            questionId: q.id,
+            questionText: q.question,
+            teacherAnswer: answers[q.id] || "",
+            reviewedBy: null,
+            passed: null,
+            reviewedAt: null,
+          } as any);
+        }
+        await storage.updateAttemptReviewStatus(attempt.id, true, null);
+      }
 
       // Update report card - count unique quizzes, not total attempts
       const allAttempts = await storage.getAllTeacherQuizAttempts(req.teacherId!);
@@ -2351,7 +2451,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         score,
         totalQuestions,
+        mcqTotal,
         passed: passed === "yes",
+        openEndedPending: hasOpenEnded && percentage >= 80,
         percentage,
         attemptNumber,
         remainingAttempts: 3 - attemptNumber,

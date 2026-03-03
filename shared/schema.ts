@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, jsonb, index, uniqueIndex, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -180,13 +180,14 @@ export const insertDeckFileProgressSchema = createInsertSchema(deckFileProgress)
 export type InsertDeckFileProgress = z.infer<typeof insertDeckFileProgressSchema>;
 export type DeckFileProgress = typeof deckFileProgress.$inferSelect;
 
-// Quiz question type
+// Quiz question type — includes open_ended for written answers
 export const quizQuestionSchema = z.object({
   id: z.string(),
   question: z.string(),
-  type: z.enum(["multiple_choice", "true_false"]),
-  options: z.array(z.string()),
-  correctAnswer: z.string(),
+  type: z.enum(["multiple_choice", "true_false", "open_ended"]),
+  options: z.array(z.string()).optional(),       // undefined/empty for open_ended
+  correctAnswer: z.string().optional(),          // undefined for open_ended
+  timeLimit: z.number().optional(),              // 30 for MCQ, 180 for open_ended
 });
 
 export type QuizQuestion = z.infer<typeof quizQuestionSchema>;
@@ -355,7 +356,9 @@ export const teacherQuizAttempts = pgTable("teacher_quiz_attempts", {
   answers: jsonb("answers").$type<Record<string, string>>().notNull(),
   score: integer("score").notNull(),
   totalQuestions: integer("total_questions").notNull(),
-  passed: varchar("passed").notNull(), // 'yes' or 'no'
+  passed: varchar("passed").notNull(), // 'yes' or 'no' (MCQ score only)
+  openEndedPending: boolean("open_ended_pending").default(false), // true when open-ended answers need trainer review
+  finalPassed: boolean("final_passed"),  // set after all open-ended reviews complete; null = pending
   completedAt: timestamp("completed_at").defaultNow(),
 }, (table) => [
   index("idx_teacher_quiz_attempts").on(table.teacherId, table.assignedQuizId),
@@ -455,6 +458,32 @@ export const insertTeacherQuizRegenerationSchema = createInsertSchema(teacherQui
 
 export type InsertTeacherQuizRegeneration = z.infer<typeof insertTeacherQuizRegenerationSchema>;
 export type TeacherQuizRegeneration = typeof teacherQuizRegenerations.$inferSelect;
+
+// Open-ended question reviews table (trainer manually reviews written answers)
+export const openEndedReviews = pgTable("open_ended_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  attemptId: varchar("attempt_id").notNull(),         // FK → teacher_quiz_attempts.id
+  assignedQuizId: varchar("assigned_quiz_id").notNull().references(() => assignedQuizzes.id, { onDelete: "cascade" }),
+  teacherId: varchar("teacher_id").notNull().references(() => teachers.id, { onDelete: "cascade" }),
+  questionId: varchar("question_id").notNull(),
+  questionText: text("question_text"),
+  teacherAnswer: text("teacher_answer"),
+  reviewedBy: varchar("reviewed_by"),                 // trainer/admin user.id
+  passed: boolean("passed"),                          // null = pending review
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_open_ended_reviews_attempt").on(table.attemptId),
+  index("idx_open_ended_reviews_teacher").on(table.teacherId),
+]);
+
+export const insertOpenEndedReviewSchema = createInsertSchema(openEndedReviews).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOpenEndedReview = z.infer<typeof insertOpenEndedReviewSchema>;
+export type OpenEndedReview = typeof openEndedReviews.$inferSelect;
 
 // Approval history table for tracking approvals and dismissals
 export const approvalHistory = pgTable("approval_history", {

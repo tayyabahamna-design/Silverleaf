@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import posthog from "posthog-js";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -13,6 +13,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -20,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Clock, ChevronRight, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface FileQuizDialogProps {
@@ -46,6 +49,13 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
     percentage: number;
   } | null>(null);
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
+  // One-at-a-time runner state
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentAnswer, setCurrentAnswer] = useState("");
+  const [timeLeft, setTimeLeft] = useState(30);
+  const [countdown, setCountdown] = useState(3);
+  const [runnerPhase, setRunnerPhase] = useState<'countdown' | 'question'>('countdown');
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // For teachers: fetch existing quiz if available
   const { data: existingQuiz, isLoading: isLoadingExistingQuiz, error: quizError } = useQuery<{ questions: QuizQuestion[] } | null>({
@@ -206,6 +216,10 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
     setAnswers({});
     setResults(null);
     setHasStartedGeneration(false);
+    setCurrentIndex(0);
+    setCurrentAnswer("");
+    setCountdown(3);
+    setRunnerPhase('countdown');
   };
 
   // Reset state when dialog closes
@@ -217,6 +231,11 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
       setAnswers({});
       setResults(null);
       setHasStartedGeneration(false);
+      setCurrentIndex(0);
+      setCurrentAnswer("");
+      setCountdown(3);
+      setRunnerPhase('countdown');
+      if (timerRef.current) clearInterval(timerRef.current);
     }
   }, [open]);
 
@@ -231,6 +250,10 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
         setQuestions(existingQuiz.questions);
         setAnswers({});
         setResults(null);
+        setCurrentIndex(0);
+        setCurrentAnswer("");
+        setCountdown(3);
+        setRunnerPhase('countdown');
         setQuizState('quiz');
         posthog.capture("quiz_started", { weekId, fileId, type: "file_quiz", questionCount: existingQuiz.questions.length, source: "existing_quiz" });
       } else {
@@ -273,67 +296,119 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
             </div>
           )}
 
-          {quizState === 'quiz' && (
-            <div className="space-y-6 py-4">
-              {questions.map((question, index) => (
-                <div key={question.id} className="space-y-3" data-testid={`question-${question.id}`}>
-                  <h3 className="font-semibold">
-                    {index + 1}. {question.question}
-                  </h3>
-                  <RadioGroup
-                    value={answers[question.id] || ""}
-                    onValueChange={(value) => setAnswers({ ...answers, [question.id]: value })}
-                  >
-                    {Array.isArray(question.options) && question.options.length > 0 ? (
-                      question.options.map((option, optionIndex) => (
-                        <div key={optionIndex} className="flex items-center space-x-2">
-                          <RadioGroupItem
-                            value={option}
-                            id={`${question.id}-${optionIndex}`}
-                            data-testid={`radio-${question.id}-${optionIndex}`}
-                          />
-                          <Label
-                            htmlFor={`${question.id}-${optionIndex}`}
-                            className="cursor-pointer flex-1"
-                          >
-                            {option}
-                          </Label>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground italic">
-                        Error: Question options not available
-                      </p>
-                    )}
-                  </RadioGroup>
-                </div>
-              ))}
+          {quizState === 'quiz' && (() => {
+            const currentQuestion = questions[currentIndex];
+            const totalQuestions = questions.length;
+            const totalTime = currentQuestion?.timeLimit ?? 30;
+            const timerPercent = totalTime > 0 ? (timeLeft / totalTime) * 100 : 0;
+            const timerWarning = timeLeft <= 10;
 
-              <div className="flex justify-end gap-2 pt-4">
+            const advanceQuestion = (savedAnswer: string) => {
+              if (timerRef.current) clearInterval(timerRef.current);
+              const newAnswers = { ...answers, [currentQuestion.id]: savedAnswer };
+              setAnswers(newAnswers);
+              setCurrentAnswer("");
+              if (currentIndex + 1 >= totalQuestions) {
+                // Submit
+                submitQuizMutation.mutate();
+              } else {
+                const next = questions[currentIndex + 1];
+                setCurrentIndex(i => i + 1);
+                setTimeLeft(next?.timeLimit ?? 30);
+              }
+            };
+
+            // Countdown phase
+            if (runnerPhase === 'countdown') {
+              // Use effect to decrement — render a countdown display
+              // We'll handle it via button auto-transition
+              return (
+                <RunnerCountdown
+                  countdown={countdown}
+                  setCountdown={setCountdown}
+                  onDone={() => {
+                    setRunnerPhase('question');
+                    setTimeLeft(questions[0]?.timeLimit ?? 30);
+                  }}
+                  onCancel={() => onOpenChange(false)}
+                />
+              );
+            }
+
+            return (
+              <div className="space-y-4 py-2">
+                {/* Header */}
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Question {currentIndex + 1} of {totalQuestions}</span>
+                  <div className={`flex items-center gap-1 font-mono ${timerWarning ? "text-red-500" : ""}`}>
+                    <Clock className="h-4 w-4" />
+                    <TimerDisplay
+                      key={currentIndex}
+                      timeLeft={timeLeft}
+                      setTimeLeft={setTimeLeft}
+                      timerRef={timerRef}
+                      onExpire={() => advanceQuestion(currentAnswer)}
+                    />
+                  </div>
+                </div>
+                {/* Timer bar */}
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${timerWarning ? "bg-red-500" : "bg-primary"}`}
+                    style={{ width: `${timerPercent}%` }}
+                  />
+                </div>
+                <Progress value={((currentIndex) / totalQuestions) * 100} className="h-1" />
+
+                {/* Question */}
+                <div className="space-y-1">
+                  <Badge variant="outline" className="text-xs capitalize">
+                    {(currentQuestion.type || "multiple_choice").replace("_", " ")}
+                  </Badge>
+                  <p className="text-base font-medium leading-relaxed">{currentQuestion.question}</p>
+                </div>
+
+                {/* Answer area */}
+                {currentQuestion.type === "open_ended" ? (
+                  <Textarea
+                    placeholder="Type your answer here…"
+                    value={currentAnswer}
+                    onChange={e => setCurrentAnswer(e.target.value)}
+                    rows={5}
+                    className="resize-none"
+                  />
+                ) : (
+                  <RadioGroup
+                    value={currentAnswer}
+                    onValueChange={setCurrentAnswer}
+                    className="space-y-2"
+                  >
+                    {(currentQuestion.options ?? []).map((option, optIdx) => (
+                      <div key={optIdx} className="flex items-center space-x-2 border rounded px-3 py-2 cursor-pointer hover:bg-muted transition-colors">
+                        <RadioGroupItem value={option} id={`opt-${currentIndex}-${optIdx}`} />
+                        <Label htmlFor={`opt-${currentIndex}-${optIdx}`} className="cursor-pointer flex-1">{option}</Label>
+                      </div>
+                    ))}
+                  </RadioGroup>
+                )}
+
                 <Button
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                  data-testid="button-cancel-quiz"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={submitQuizMutation.isPending}
+                  onClick={() => advanceQuestion(currentAnswer)}
+                  disabled={currentQuestion.type !== "open_ended" && !currentAnswer}
+                  className="w-full"
                   data-testid="button-submit-quiz"
                 >
                   {submitQuizMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
-                    </>
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</>
+                  ) : currentIndex + 1 < totalQuestions ? (
+                    <><ChevronRight className="h-4 w-4 mr-1" />Next</>
                   ) : (
                     "Submit Quiz"
                   )}
                 </Button>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {quizState === 'results' && results && (
             <div className="space-y-6 py-4">
@@ -626,4 +701,52 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
       </DialogContent>
     </Dialog>
   );
+}
+
+// ── Helper sub-components for one-at-a-time quiz runner ──
+
+function RunnerCountdown({ countdown, setCountdown, onDone, onCancel }: {
+  countdown: number;
+  setCountdown: React.Dispatch<React.SetStateAction<number>>;
+  onDone: () => void;
+  onCancel: () => void;
+}) {
+  useEffect(() => {
+    if (countdown <= 0) { onDone(); return; }
+    const t = setTimeout(() => setCountdown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown]);
+
+  return (
+    <div className="flex flex-col items-center justify-center h-48 gap-4">
+      <p className="text-muted-foreground">Quiz starting in</p>
+      <span className="text-7xl font-bold text-primary">{countdown}</span>
+      <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
+    </div>
+  );
+}
+
+function TimerDisplay({ timeLeft, setTimeLeft, timerRef, onExpire }: {
+  timeLeft: number;
+  setTimeLeft: React.Dispatch<React.SetStateAction<number>>;
+  timerRef: React.MutableRefObject<ReturnType<typeof setInterval> | null>;
+  onExpire: () => void;
+}) {
+  useEffect(() => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) {
+          clearInterval(timerRef.current!);
+          onExpire();
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return <span>{timeLeft}s</span>;
 }

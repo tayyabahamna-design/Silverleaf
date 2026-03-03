@@ -99,7 +99,11 @@ import {
   notifications,
   alertRules,
   teacherGoals,
-  scheduledEvents
+  scheduledEvents,
+  openEndedReviews,
+  type OpenEndedReview,
+  type InsertOpenEndedReview,
+  type QuizQuestion,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, sql as sqlOp, desc, max } from "drizzle-orm";
@@ -205,7 +209,14 @@ export interface IStorage {
   getAssignedQuizzesForTeacher(teacherId: string): Promise<AssignedQuiz[]>;
   getAssignedQuiz(id: string): Promise<AssignedQuiz | undefined>;
   deleteAssignedQuiz(id: string): Promise<boolean>;
-  
+  updateAssignedQuizQuestions(quizId: string, questions: QuizQuestion[]): Promise<AssignedQuiz>;
+
+  // Open-ended review operations
+  createOpenEndedReview(review: InsertOpenEndedReview): Promise<OpenEndedReview>;
+  getOpenEndedReviews(attemptId: string): Promise<OpenEndedReview[]>;
+  updateAttemptReviewStatus(attemptId: string, openEndedPending: boolean, finalPassed: boolean | null): Promise<void>;
+  getPendingReviewsForTrainer(trainerId: string): Promise<any[]>;
+
   // Teacher quiz attempt operations
   saveTeacherQuizAttempt(attempt: InsertTeacherQuizAttempt): Promise<TeacherQuizAttempt>;
   getTeacherQuizAttempt(teacherId: string, assignedQuizId: string): Promise<TeacherQuizAttempt | undefined>;
@@ -1209,6 +1220,65 @@ export class DatabaseStorage implements IStorage {
   async deleteAssignedQuiz(id: string): Promise<boolean> {
     const result = await db.delete(assignedQuizzes).where(eq(assignedQuizzes.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async updateAssignedQuizQuestions(quizId: string, questions: QuizQuestion[]): Promise<AssignedQuiz> {
+    const [result] = await db
+      .update(assignedQuizzes)
+      .set({ questions: questions as any })
+      .where(eq(assignedQuizzes.id, quizId))
+      .returning();
+    return result;
+  }
+
+  // Open-ended review operations
+  async createOpenEndedReview(review: InsertOpenEndedReview): Promise<OpenEndedReview> {
+    const [result] = await db.insert(openEndedReviews).values(review as any).returning();
+    return result;
+  }
+
+  async getOpenEndedReviews(attemptId: string): Promise<OpenEndedReview[]> {
+    return await db
+      .select()
+      .from(openEndedReviews)
+      .where(eq(openEndedReviews.attemptId, attemptId));
+  }
+
+  async updateAttemptReviewStatus(attemptId: string, openEndedPending: boolean, finalPassed: boolean | null): Promise<void> {
+    await db
+      .update(teacherQuizAttempts)
+      .set({ openEndedPending, finalPassed } as any)
+      .where(eq(teacherQuizAttempts.id, attemptId));
+  }
+
+  async getPendingReviewsForTrainer(trainerId: string): Promise<any[]> {
+    // Get batches managed by this trainer
+    const trainerBatches = await db
+      .select()
+      .from(batches)
+      .where(eq(batches.trainerId, trainerId));
+    const batchIds = trainerBatches.map(b => b.id);
+    if (batchIds.length === 0) return [];
+
+    // Get assigned quizzes for those batches
+    const quizzes = await db
+      .select()
+      .from(assignedQuizzes)
+      .where(sqlOp`${assignedQuizzes.batchId} = ANY(${batchIds})`);
+    const quizIds = quizzes.map(q => q.id);
+    if (quizIds.length === 0) return [];
+
+    // Get pending open-ended reviews
+    const pending = await db
+      .select()
+      .from(openEndedReviews)
+      .where(
+        and(
+          sqlOp`${openEndedReviews.assignedQuizId} = ANY(${quizIds})`,
+          sqlOp`${openEndedReviews.passed} IS NULL`
+        )
+      );
+    return pending;
   }
 
   // Teacher quiz attempt operations
