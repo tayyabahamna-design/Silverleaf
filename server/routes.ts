@@ -2795,6 +2795,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get quiz pass/fail status for all files in a week (used by content page to show quiz buttons)
+  app.get("/api/teacher/week/:weekId/file-quizzes", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const { weekId } = req.params;
+      const teacherId = req.teacherId!;
+
+      const week = await storage.getTrainingWeek(weekId);
+      if (!week || !week.deckFiles) return res.json({});
+
+      const result: Record<string, { passed: boolean; hasPassed: boolean; attempts: number; quizExists: boolean }> = {};
+
+      for (const file of week.deckFiles) {
+        // Check quiz_cache — does a quiz exist for this file?
+        const cached = await storage.getCachedQuiz(weekId, file.id);
+        const quizExists = !!(cached && cached.questions.length > 0);
+
+        // Get all teacher attempts for this file
+        const attempts = await storage.getAllTeacherContentQuizAttemptsForFile(teacherId, weekId, file.id);
+        const passed = attempts.some(a => a.passed === "yes");
+
+        result[file.id] = { passed, hasPassed: passed, attempts: attempts.length, quizExists };
+      }
+
+      res.json(result);
+    } catch (error) {
+      console.error("[FILE-QUIZ-STATUS] Error:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Generate quiz for content file
   app.post("/api/teachers/weeks/:weekId/content/:deckFileId/generate-quiz", isTeacherAuthenticated, async (req, res) => {
     try {

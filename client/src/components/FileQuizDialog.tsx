@@ -160,6 +160,7 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
       setQuizState('results');
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'deck-progress'] });
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'file-quiz-progress'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/teacher/week/${weekId}/file-quizzes`] });
       posthog.capture("quiz_submitted", { weekId, fileId, type: "file_quiz", score: data.score, totalQuestions: data.totalQuestions, passed: data.passed, percentage: data.percentage });
       queryClient.invalidateQueries({ queryKey: ['/api/training-weeks', weekId, 'files', fileId, 'quiz-passed'] });
       queryClient.invalidateQueries({ queryKey: ['/api/teacher/report-card'] });
