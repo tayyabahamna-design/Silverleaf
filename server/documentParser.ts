@@ -4,7 +4,8 @@ import mammoth from 'mammoth';
 import { objectStorageService } from './objectStorage';
 
 const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+const _pdfParseModule = require('pdf-parse');
+const pdfParse = typeof _pdfParseModule === 'function' ? _pdfParseModule : _pdfParseModule.default;
 
 /**
  * Extract text content from a PDF file

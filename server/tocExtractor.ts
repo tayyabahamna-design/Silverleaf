@@ -3,7 +3,8 @@ import { createRequire } from 'module';
 import PizZip from 'pizzip';
 
 const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+const _pdfParseModule = require('pdf-parse');
+const pdfParse = typeof _pdfParseModule === 'function' ? _pdfParseModule : _pdfParseModule.default;
 const officeParser = require('officeparser');
 
 /**
