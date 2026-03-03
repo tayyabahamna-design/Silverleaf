@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ interface QuizEditDialogProps {
   quizId: string;
   quizTitle: string;
   initialQuestions: QuizQuestion[];
+  batchId?: string;
   onRegenerate?: () => void;
   regenerating?: boolean;
 }
@@ -74,6 +75,7 @@ export function QuizEditDialog({
   quizId,
   quizTitle,
   initialQuestions,
+  batchId,
   onRegenerate,
   regenerating,
 }: QuizEditDialogProps) {
@@ -82,6 +84,13 @@ export function QuizEditDialog({
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
   const [addingType, setAddingType] = useState<QuizQuestion["type"]>("multiple_choice");
 
+  // Sync if parent loads quiz data after dialog opens
+  useEffect(() => {
+    if (open && initialQuestions.length > 0) {
+      setQuestions(initialQuestions);
+    }
+  }, [open, initialQuestions]);
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const res = await apiRequest("PATCH", `/api/assigned-quizzes/${quizId}`, { questions });
@@ -89,7 +98,11 @@ export function QuizEditDialog({
     },
     onSuccess: () => {
       toast({ title: "Quiz saved successfully" });
-      queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
+      if (batchId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/batches", batchId, "quizzes"] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/batches"] });
+      }
       onClose();
     },
     onError: () => {

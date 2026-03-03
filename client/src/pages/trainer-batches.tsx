@@ -33,6 +33,8 @@ export default function TrainerBatches() {
   const [viewTeacherAttemptsOpen, setViewTeacherAttemptsOpen] = useState(false);
   const [editQuizOpen, setEditQuizOpen] = useState(false);
   const [editingQuiz, setEditingQuiz] = useState<any>(null);
+  const [quizAttemptsOpen, setQuizAttemptsOpen] = useState(false);
+  const [selectedQuizForAttempts, setSelectedQuizForAttempts] = useState<any>(null);
   const [expandedTeacherId, setExpandedTeacherId] = useState<string | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<any>(null);
   const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null);
@@ -109,6 +111,16 @@ export default function TrainerBatches() {
   const { data: teacherAttempts = [] } = useQuery<any[]>({
     queryKey: ["/api/batches", selectedBatch?.id, "teachers", selectedTeacher?.id, "quiz-attempts"],
     enabled: !!selectedBatch?.id && !!selectedTeacher?.id && viewTeacherAttemptsOpen,
+  });
+
+  // Fetch all teacher attempts for a specific quiz (to show who needs reset)
+  const { data: quizTeacherAttempts = [], refetch: refetchQuizAttempts } = useQuery<any[]>({
+    queryKey: ["/api/assigned-quizzes", selectedQuizForAttempts?.id, "all-attempts"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/assigned-quizzes/${selectedQuizForAttempts?.id}/all-teacher-attempts`);
+      return res.json();
+    },
+    enabled: !!selectedQuizForAttempts?.id && quizAttemptsOpen,
   });
 
   // Fetch batch certificate template
@@ -318,6 +330,19 @@ export default function TrainerBatches() {
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+  const resetTeacherAttemptsMutation = useMutation({
+    mutationFn: async ({ quizId, teacherId }: { quizId: string; teacherId: string }) => {
+      await apiRequest("POST", `/api/assigned-quizzes/${quizId}/reset-teacher/${teacherId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Attempts reset", description: "Teacher can now retake the quiz." });
+      refetchQuizAttempts();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to reset attempts.", variant: "destructive" });
     },
   });
 
@@ -937,6 +962,19 @@ export default function TrainerBatches() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  title="View teacher attempts"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedQuizForAttempts(quiz);
+                                    setQuizAttemptsOpen(true);
+                                  }}
+                                >
+                                  <Users className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Edit questions"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setEditingQuiz(quiz);
@@ -1233,6 +1271,53 @@ export default function TrainerBatches() {
         </div>
       </main>
 
+      {/* Quiz Teacher Attempts Dialog */}
+      <Dialog open={quizAttemptsOpen} onOpenChange={setQuizAttemptsOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Teacher Attempts — {selectedQuizForAttempts?.title}</DialogTitle>
+            <DialogDescription>
+              Reset a teacher's attempts to let them retake the quiz.
+            </DialogDescription>
+          </DialogHeader>
+          {quizTeacherAttempts.length === 0 ? (
+            <p className="text-center py-6 text-muted-foreground text-sm">No teachers have attempted this quiz yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {quizTeacherAttempts.map((t: any) => (
+                <div key={t.teacherId} className="flex items-center justify-between border rounded px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium">{t.teacherName}</p>
+                    <p className="text-xs text-muted-foreground">{t.teacherEmail}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge
+                        variant={t.passed ? "default" : t.exhausted ? "destructive" : "secondary"}
+                        className="text-xs"
+                      >
+                        {t.passed ? "Passed" : t.exhausted ? "Exhausted (3/3)" : `${t.attempts}/3 attempts`}
+                      </Badge>
+                      {t.latestScore !== null && (
+                        <span className="text-xs text-muted-foreground">Latest: {t.latestScore}%</span>
+                      )}
+                    </div>
+                  </div>
+                  {(t.exhausted || (t.attempts > 0 && !t.passed)) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => resetTeacherAttemptsMutation.mutate({ quizId: selectedQuizForAttempts.id, teacherId: t.teacherId })}
+                      disabled={resetTeacherAttemptsMutation.isPending}
+                    >
+                      Reset Attempts
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Quiz Edit Dialog */}
       {editingQuiz && (
         <QuizEditDialog
@@ -1241,6 +1326,7 @@ export default function TrainerBatches() {
           quizId={editingQuiz.id}
           quizTitle={editingQuiz.title}
           initialQuestions={editingQuiz.questions ?? []}
+          batchId={selectedBatch?.id}
         />
       )}
 

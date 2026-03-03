@@ -210,6 +210,7 @@ export interface IStorage {
   getAssignedQuiz(id: string): Promise<AssignedQuiz | undefined>;
   deleteAssignedQuiz(id: string): Promise<boolean>;
   updateAssignedQuizQuestions(quizId: string, questions: QuizQuestion[]): Promise<AssignedQuiz>;
+  resetTeacherQuizAttempts(quizId: string, teacherId: string): Promise<void>;
 
   // Open-ended review operations
   createOpenEndedReview(review: InsertOpenEndedReview): Promise<OpenEndedReview>;
@@ -1229,6 +1230,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(assignedQuizzes.id, quizId))
       .returning();
     return result;
+  }
+
+  async resetTeacherQuizAttempts(quizId: string, teacherId: string): Promise<void> {
+    await db
+      .delete(teacherQuizAttempts)
+      .where(
+        and(
+          eq(teacherQuizAttempts.assignedQuizId, quizId),
+          eq(teacherQuizAttempts.teacherId, teacherId)
+        )
+      );
+    // Also delete any pending open-ended reviews for this teacher/quiz
+    await db
+      .delete(openEndedReviews)
+      .where(
+        and(
+          eq(openEndedReviews.assignedQuizId, quizId),
+          eq(openEndedReviews.teacherId, teacherId)
+        )
+      );
   }
 
   // Open-ended review operations

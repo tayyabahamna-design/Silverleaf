@@ -2228,6 +2228,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reset a teacher's quiz attempts (allow retake after exhausting 3 attempts)
+  app.post("/api/assigned-quizzes/:quizId/reset-teacher/:teacherId", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const quiz = await storage.getAssignedQuiz(req.params.quizId);
+      if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+      const batch = await storage.getBatch(quiz.batchId);
+      if (batch && req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      await storage.resetTeacherQuizAttempts(req.params.quizId, req.params.teacherId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error resetting teacher quiz attempts:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Edit quiz questions (trainer/admin)
   app.patch("/api/assigned-quizzes/:quizId", isAuthenticated, isTrainer, async (req, res) => {
     try {
@@ -2461,6 +2478,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error submitting quiz:", error);
       res.status(500).json({ error: "Failed to submit quiz" });
+    }
+  });
+
+  // Get all teachers' attempts for a quiz (trainer view — shows who passed/failed/exhausted)
+  app.get("/api/assigned-quizzes/:quizId/all-teacher-attempts", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const quiz = await storage.getAssignedQuiz(req.params.quizId);
+      if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+      const batch = await storage.getBatch(quiz.batchId);
+      if (batch && req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const batchTeachersData = await storage.getTeachersInBatch(quiz.batchId);
+      const allAttempts = await Promise.all(
+        batchTeachersData.map(async (t: any) => {
+          const attempts = await storage.getTeacherQuizAttemptsByQuiz(t.id, req.params.quizId);
+          const passed = attempts.some((a: any) => a.passed === "yes");
+          const exhausted = attempts.length >= 3 && !passed;
+          return {
+            teacherId: t.id,
+            teacherName: t.name,
+            teacherEmail: t.email,
+            attempts: attempts.length,
+            passed,
+            exhausted,
+            latestScore: attempts.length > 0 ? Math.round((attempts[attempts.length - 1].score / attempts[attempts.length - 1].totalQuestions) * 100) : null,
+          };
+        })
+      );
+      res.json(allAttempts);
+    } catch (error) {
+      console.error("Error fetching quiz teacher attempts:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
   });
 
