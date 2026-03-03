@@ -10,7 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { ProfileSettingsDialog } from "@/components/ProfileSettingsDialog";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { PresentationViewer } from "@/components/PresentationViewer";
-import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical, CheckCircle, BarChart3, FileText, Pencil, Settings, Users, RefreshCw, Award } from "lucide-react";
+import { Plus, Trash2, Upload, ExternalLink, LogOut, ChevronRight, ChevronDown, GripVertical, CheckCircle, BarChart3, FileText, Pencil, Settings, Users, RefreshCw, Award, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -46,6 +46,7 @@ import type { TrainingWeek } from "@shared/schema";
 import type { UploadResult } from "@uppy/core";
 import logoImage from "@assets/image_1760460046116.png";
 import { FilePreview } from "@/components/FilePreview";
+import { FileQuizDialog } from "@/components/FileQuizDialog";
 
 interface Course {
   id: string;
@@ -73,6 +74,7 @@ export default function Home() {
   const [deleteWeekId, setDeleteWeekId] = useState<string | null>(null);
   const [quizStatus, setQuizStatus] = useState<Record<string, Record<string, { generated: boolean; questionCount: number }>>>({});
   const [regeneratingFileId, setRegeneratingFileId] = useState<string | null>(null);
+  const [previewQuizFile, setPreviewQuizFile] = useState<{ weekId: string; fileId: string; fileName: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isSavingRef = useRef(false);
@@ -195,10 +197,13 @@ export default function Home() {
     }) => {
       return apiRequest("POST", `/api/training-weeks/${weekId}/deck`, { files });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/training-weeks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
       toast({ title: "File uploaded successfully" });
+      // Immediately show "No quiz" badge, then poll after 30s for background-generated quiz
+      fetchQuizStatus(variables.weekId);
+      setTimeout(() => fetchQuizStatus(variables.weekId), 30000);
     },
   });
 
@@ -698,6 +703,16 @@ export default function Home() {
                                         )}
                                       </div>
                                       <div className="flex gap-1 shrink-0">
+                                        {fileQuizInfo?.generated && (
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            title="Preview quiz"
+                                            onClick={() => setPreviewQuizFile({ weekId: week.id, fileId: file.id, fileName: file.fileName })}
+                                          >
+                                            <BookOpen className="h-4 w-4" />
+                                          </Button>
+                                        )}
                                         <Button
                                           variant="ghost"
                                           size="sm"
@@ -823,6 +838,17 @@ export default function Home() {
           fileUrl={viewingFile.url}
           fileName={viewingFile.name}
           onClose={() => setViewingFile(null)}
+        />
+      )}
+
+      {previewQuizFile && (
+        <FileQuizDialog
+          weekId={previewQuizFile.weekId}
+          fileId={previewQuizFile.fileId}
+          fileName={previewQuizFile.fileName}
+          open={!!previewQuizFile}
+          onOpenChange={(open) => { if (!open) setPreviewQuizFile(null); }}
+          canGenerateQuiz={true}
         />
       )}
     </div>

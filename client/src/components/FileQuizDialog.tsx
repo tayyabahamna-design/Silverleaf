@@ -77,7 +77,7 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
         return null;
       }
     },
-    enabled: open && !canGenerateQuiz, // Only fetch for teachers when dialog is open
+    enabled: open, // Fetch for everyone when dialog opens
     retry: 0,
     staleTime: 0, // Always refetch when enabled
   });
@@ -178,9 +178,9 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
     console.log('[FILE-QUIZ-DIALOG] 🔔 handleOpenChange called, newOpen:', newOpen);
     
     if (newOpen) {
-      console.log('[FILE-QUIZ-DIALOG] 📂 Opening dialog, setting setup state');
-      setQuizState('setup');
-      setNumQuestions(5);
+      console.log('[FILE-QUIZ-DIALOG] 📂 Opening dialog');
+      setQuizState('loading'); // Will be overridden by useEffect once existingQuiz loads
+      setNumQuestions(10);
       setAnswers({});
       setResults(null);
     }
@@ -239,6 +239,27 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
       if (timerRef.current) clearInterval(timerRef.current);
     }
   }, [open]);
+
+  // For admins/trainers: auto-load cached quiz if it exists, otherwise show setup
+  useEffect(() => {
+    if (canGenerateQuiz && open) {
+      if (isLoadingExistingQuiz) {
+        setQuizState('loading');
+      } else if (existingQuiz && existingQuiz.questions && existingQuiz.questions.length > 0) {
+        setQuestions(existingQuiz.questions);
+        setAnswers({});
+        setResults(null);
+        setCurrentIndex(0);
+        setCurrentAnswer("");
+        setCountdown(3);
+        setRunnerPhase('countdown');
+        setQuizState('quiz');
+      } else {
+        // No cached quiz yet — show setup screen so they can generate manually
+        setQuizState('setup');
+      }
+    }
+  }, [existingQuiz, isLoadingExistingQuiz, canGenerateQuiz, open]);
 
   // For teachers: when quiz exists, load it automatically
   useEffect(() => {
@@ -500,7 +521,7 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">Quiz: {fileName}</DialogTitle>
           <DialogDescription>
-            {quizState === 'setup' && "Choose how many questions you want for your quiz."}
+            {quizState === 'setup' && "No quiz generated yet. Generate one manually or wait for the auto-generated quiz."}
             {quizState === 'quiz' && `Answer all ${questions.length} questions to complete this file's checkpoint.`}
             {quizState === 'results' && "Review your quiz results below."}
             {quizState === 'loading' && "Generating quiz questions from this presentation..."}
