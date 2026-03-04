@@ -827,7 +827,7 @@ export default function TeacherContentView() {
                                     : selectedFileId === file.id
                                     ? 'bg-primary/10 border-2 border-primary hover:bg-primary/15'
                                     : 'hover:bg-muted/50 border-2 border-transparent'
-                                } ${hasToc ? 'pr-12' : ''}`}
+                                } ${hasToc ? 'pr-28' : ''}`}
                                 data-testid={`button-file-${file.id}`}
                               >
                                 <div className="flex items-start gap-3">
