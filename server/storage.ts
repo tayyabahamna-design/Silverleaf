@@ -302,6 +302,7 @@ export interface IStorage {
   getReflectionsByTeacher(teacherId: string): Promise<FellowReflection[]>;
   getReflectionsByWeek(weekId: string): Promise<FellowReflection[]>;
   getReflectionCompletionRate(batchId?: string): Promise<any>;
+  getAllReflectionsForAdmin(): Promise<any[]>;
 
   // Fellow disqualification operations
   disqualifyFellow(disqualification: InsertFellowDisqualification): Promise<FellowDisqualification>;
@@ -2278,6 +2279,29 @@ export class DatabaseStorage implements IStorage {
 
   async getReflectionsByWeek(weekId: string): Promise<FellowReflection[]> {
     return db.select().from(fellowReflections).where(eq(fellowReflections.weekId, weekId)).orderBy(desc(fellowReflections.submittedAt));
+  }
+
+  async getAllReflectionsForAdmin(): Promise<any[]> {
+    const result = await db.execute(sqlOp`
+      SELECT
+        fr.id,
+        fr.content,
+        fr.rating,
+        fr.submitted_at,
+        t.name as teacher_name,
+        t.teacher_id as teacher_code,
+        b.name as batch_name,
+        tw.week_number,
+        tw.competency_focus,
+        c.name as course_name
+      FROM fellow_reflections fr
+      JOIN teachers t ON t.id = fr.teacher_id
+      JOIN batches b ON b.id = fr.batch_id
+      JOIN training_weeks tw ON tw.id = fr.week_id
+      LEFT JOIN courses c ON c.id = tw.course_id
+      ORDER BY fr.submitted_at DESC
+    `);
+    return result.rows as any[];
   }
 
   async getReflectionCompletionRate(batchId?: string): Promise<any> {

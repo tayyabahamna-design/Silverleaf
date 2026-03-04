@@ -75,14 +75,15 @@ const CHART_COLORS = [
 ];
 
 // KPI Card Component
-function KPICard({ label, value, icon: Icon, subtitle, color = "primary" }: { label: string; value: string | number; icon: any; subtitle?: string; color?: string }) {
+function KPICard({ label, value, icon: Icon, subtitle, color = "primary", onClick }: { label: string; value: string | number; icon: any; subtitle?: string; color?: string; onClick?: () => void }) {
   return (
-    <Card className="hover-elevate transition-all">
+    <Card className={`hover-elevate transition-all${onClick ? " cursor-pointer" : ""}`} onClick={onClick}>
       <CardContent className="pt-6">
         <div className="flex items-start justify-between mb-4">
           <div className={`p-3 rounded-lg bg-${color}/10`}>
             <Icon className={`w-5 h-5 text-${color}`} />
           </div>
+          {onClick && <span className="text-xs text-muted-foreground">View all</span>}
         </div>
         <div className="space-y-1">
           <p className="text-sm text-muted-foreground font-medium">{label}</p>
@@ -156,6 +157,7 @@ export default function AdminAnalytics() {
   const [adminName1, setAdminName1] = useState("");
   const [adminName2, setAdminName2] = useState("");
   const [selectedCourseForBatch, setSelectedCourseForBatch] = useState("");
+  const [showReflectionsDialog, setShowReflectionsDialog] = useState(false);
 
   // Existing data queries
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
@@ -366,6 +368,16 @@ export default function AdminAnalytics() {
     enabled: isAdmin,
     queryFn: async () => {
       const response = await fetch("/api/analytics/reflection-completion");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  const { data: allReflections = [], isLoading: loadingAllReflections } = useQuery<any[]>({
+    queryKey: ["/api/admin/reflections"],
+    enabled: isAdmin && showReflectionsDialog,
+    queryFn: async () => {
+      const response = await fetch("/api/admin/reflections");
       if (!response.ok) return [];
       return await response.json();
     },
@@ -875,6 +887,7 @@ export default function AdminAnalytics() {
                   value={engagementData?.reflectionRate?.total_reflections || 0}
                   icon={FileText}
                   subtitle={`${engagementData?.reflectionRate?.fellows_with_reflections || 0} fellows`}
+                  onClick={() => setShowReflectionsDialog(true)}
                 />
                 <KPICard
                   label="Avg Satisfaction"
@@ -1650,6 +1663,7 @@ export default function AdminAnalytics() {
                     value={engagementData?.reflectionRate?.total_reflections || 0}
                     icon={FileText}
                     subtitle={`${engagementData?.reflectionRate?.fellows_with_reflections || 0} fellows participated`}
+                    onClick={() => setShowReflectionsDialog(true)}
                   />
                   <KPICard
                     label="Quiz Pass Rate"
@@ -3274,6 +3288,64 @@ export default function AdminAnalytics() {
               {createUserMutation.isPending ? "Creating..." : "Create User"}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* All Reflections Dialog */}
+      <Dialog open={showReflectionsDialog} onOpenChange={setShowReflectionsDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Submitted Reflections
+            </DialogTitle>
+            <DialogDescription>
+              {allReflections.length} reflection{allReflections.length !== 1 ? "s" : ""} submitted across all batches
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="flex-1 pr-2">
+            {loadingAllReflections ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                Loading reflections...
+              </div>
+            ) : allReflections.length === 0 ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                No reflections submitted yet.
+              </div>
+            ) : (
+              <div className="space-y-4 py-1">
+                {allReflections.map((r: any) => (
+                  <Card key={r.id} className="border">
+                    <CardContent className="pt-4 pb-4">
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <span className="font-semibold text-sm">{r.teacher_name}</span>
+                        {r.teacher_code && (
+                          <Badge variant="secondary" className="text-xs">{r.teacher_code}</Badge>
+                        )}
+                        <span className="text-muted-foreground text-xs">·</span>
+                        <span className="text-xs text-muted-foreground">{r.batch_name}</span>
+                        {r.course_name && (
+                          <>
+                            <span className="text-muted-foreground text-xs">·</span>
+                            <span className="text-xs text-muted-foreground">{r.course_name}</span>
+                          </>
+                        )}
+                        <span className="text-muted-foreground text-xs">·</span>
+                        <span className="text-xs text-muted-foreground">Week {r.week_number}{r.competency_focus ? ` — ${r.competency_focus}` : ""}</span>
+                        {r.rating && (
+                          <Badge variant="outline" className="text-xs ml-auto">{r.rating}/5</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{r.content}</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {r.submitted_at ? new Date(r.submitted_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>

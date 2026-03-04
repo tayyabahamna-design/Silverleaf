@@ -4267,6 +4267,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all reflections with submitter details (admin)
+  app.get("/api/admin/reflections", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const data = await storage.getAllReflectionsForAdmin();
+      res.json(data);
+    } catch (error) {
+      console.error("Error getting all reflections:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Fellow Disqualification Endpoints
 
   // Disqualify a fellow (trainer/admin)
