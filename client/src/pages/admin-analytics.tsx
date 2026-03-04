@@ -633,19 +633,32 @@ export default function AdminAnalytics() {
   });
 
   const addTeacherToBatchMutation = useMutation({
-    mutationFn: async ({ batchId, teacherId }: { batchId: string; teacherId: number }) => {
-      const response = await apiRequest("POST", `/api/batches/${batchId}/teachers`, { teacherId });
+    mutationFn: async ({ batchId, query }: { batchId: string; query: string }) => {
+      const trimmed = query.trim();
+      let body: Record<string, unknown>;
+      if (/^\d+$/.test(trimmed)) {
+        body = { teacherId: parseInt(trimmed) };
+      } else if (trimmed.includes("@")) {
+        body = { teacherEmail: trimmed };
+      } else {
+        body = { teacherName: trimmed };
+      }
+      const response = await apiRequest("POST", `/api/batches/${batchId}/teachers`, body);
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to add teacher");
+      }
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Success", description: "Teacher added to batch." });
+      toast({ title: "Teacher added to batch" });
       setTeacherIdInput("");
       setAddTeacherOpen(false);
       queryClient.invalidateQueries({ queryKey: ["/api/batches", expandedBatchId] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/analytics/batches"] });
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to add teacher.", variant: "destructive" });
+      toast({ title: "Could not add teacher", description: error.message || "Failed to add teacher.", variant: "destructive" });
     },
   });
 
@@ -1338,30 +1351,38 @@ export default function AdminAnalytics() {
                             <DialogContent>
                               <DialogHeader>
                                 <DialogTitle>Add Teacher to {currentBatch?.name}</DialogTitle>
-                                <DialogDescription>Enter the teacher ID to add them to this batch</DialogDescription>
+                                <DialogDescription>Search by Teacher ID, name, or email address</DialogDescription>
                               </DialogHeader>
                               <div className="space-y-4">
                                 <div className="space-y-2">
-                                  <Label htmlFor="admin-teacher-id">Teacher ID</Label>
+                                  <Label htmlFor="admin-teacher-search">Teacher ID, Name, or Email</Label>
                                   <Input
-                                    id="admin-teacher-id"
+                                    id="admin-teacher-search"
                                     data-testid="input-teacher-id"
-                                    type="number"
-                                    placeholder="e.g., 101"
+                                    type="text"
+                                    placeholder="e.g., 101 · Jane Smith · jane@school.com"
                                     value={teacherIdInput}
                                     onChange={(e) => setTeacherIdInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter" && expandedBatchId && teacherIdInput.trim()) {
+                                        addTeacherToBatchMutation.mutate({ batchId: expandedBatchId, query: teacherIdInput });
+                                      }
+                                    }}
                                   />
+                                  <p className="text-xs text-muted-foreground">
+                                    Enter a numeric ID, full name, or email — the system will find the right teacher automatically.
+                                  </p>
                                 </div>
                                 <Button
                                   onClick={() => {
-                                    if (expandedBatchId && teacherIdInput) {
+                                    if (expandedBatchId && teacherIdInput.trim()) {
                                       addTeacherToBatchMutation.mutate({
                                         batchId: expandedBatchId,
-                                        teacherId: parseInt(teacherIdInput),
+                                        query: teacherIdInput,
                                       });
                                     }
                                   }}
-                                  disabled={!teacherIdInput || addTeacherToBatchMutation.isPending}
+                                  disabled={!teacherIdInput.trim() || addTeacherToBatchMutation.isPending}
                                   data-testid="button-submit-teacher"
                                 >
                                   {addTeacherToBatchMutation.isPending ? "Adding..." : "Add Teacher"}
