@@ -14,7 +14,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Trash2, Plus, CheckCircle, CheckCircle2 } from "lucide-react";
+import { Trash2, Plus, CheckCircle, CheckCircle2, RefreshCw, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { QuizQuestion } from "@shared/schema";
 
@@ -48,9 +48,13 @@ export function FileQuizEditDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
+  const [regenCount, setRegenCount] = useState(initialQuestions.length || 10);
 
   useEffect(() => {
-    if (open) setQuestions(initialQuestions);
+    if (open) {
+      setQuestions(initialQuestions);
+      setRegenCount(initialQuestions.length || 10);
+    }
   }, [open, initialQuestions]);
 
   const invalidate = () => {
@@ -83,6 +87,22 @@ export function FileQuizEditDialog({
     onError: () => toast({ title: "Failed to approve quiz", variant: "destructive" }),
   });
 
+  const regenMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/training-weeks/${weekId}/files/${fileId}/generate-quiz`, {
+        numQuestions: regenCount,
+        force: true,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setQuestions(data.questions ?? []);
+      toast({ title: `Regenerated ${data.questions?.length ?? 0} questions` });
+      invalidate();
+    },
+    onError: () => toast({ title: "Regeneration failed", variant: "destructive" }),
+  });
+
   const updateQuestion = (idx: number, patch: Partial<QuizQuestion>) => {
     setQuestions(qs => qs.map((q, i) => i === idx ? { ...q, ...patch } : q));
   };
@@ -94,6 +114,28 @@ export function FileQuizEditDialog({
         const newOpts = [...(q.options ?? [])];
         newOpts[optIdx] = value;
         return { ...q, options: newOpts, correctAnswer: q.correctAnswer === (q.options ?? [])[optIdx] ? "" : q.correctAnswer };
+      })
+    );
+  };
+
+  const deleteOption = (qIdx: number, optIdx: number) => {
+    setQuestions(qs =>
+      qs.map((q, i) => {
+        if (i !== qIdx) return q;
+        const opts = q.options ?? [];
+        if (opts.length <= 2) return q;
+        const newOpts = opts.filter((_, oi) => oi !== optIdx);
+        return { ...q, options: newOpts, correctAnswer: q.correctAnswer === opts[optIdx] ? "" : q.correctAnswer };
+      })
+    );
+  };
+
+  const addOption = (qIdx: number) => {
+    setQuestions(qs =>
+      qs.map((q, i) => {
+        if (i !== qIdx) return q;
+        const opts = q.options ?? [];
+        return { ...q, options: [...opts, ""] };
       })
     );
   };
@@ -141,6 +183,34 @@ export function FileQuizEditDialog({
             }
           </DialogTitle>
         </DialogHeader>
+
+        {/* Regenerate controls */}
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border">
+          <RefreshCw className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <span className="text-sm text-muted-foreground flex-shrink-0">Regenerate with</span>
+          <Input
+            type="number"
+            min={1}
+            max={50}
+            value={regenCount}
+            onChange={e => setRegenCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
+            className="w-20 h-8 text-sm text-center"
+            data-testid="input-regen-count"
+          />
+          <span className="text-sm text-muted-foreground flex-shrink-0">questions</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => regenMutation.mutate()}
+            disabled={regenMutation.isPending}
+            className="ml-auto"
+            data-testid="button-regenerate-quiz"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${regenMutation.isPending ? "animate-spin" : ""}`} />
+            {regenMutation.isPending ? "Regenerating…" : "Regenerate"}
+          </Button>
+        </div>
 
         <div className="space-y-4 py-2">
           {questions.map((q, idx) => (
@@ -201,8 +271,29 @@ export function FileQuizEditDialog({
                         placeholder={`Option ${optIdx + 1}`}
                         className="text-sm h-8"
                       />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteOption(idx, optIdx)}
+                        disabled={(q.options ?? []).length <= 2}
+                        className="shrink-0 text-muted-foreground hover:text-destructive"
+                        data-testid={`button-delete-option-${idx}-${optIdx}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => addOption(idx)}
+                    className="text-xs text-muted-foreground mt-1"
+                    data-testid={`button-add-option-${idx}`}
+                  >
+                    <Plus className="h-3 w-3 mr-1" /> Add option
+                  </Button>
                 </div>
               )}
 
