@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -99,6 +100,24 @@ export function FileQuizEditDialog({
 
   const deleteQuestion = (idx: number) => setQuestions(qs => qs.filter((_, i) => i !== idx));
 
+  const changeQuestionType = (idx: number, newType: string) => {
+    setQuestions(qs => qs.map((q, i) => {
+      if (i !== idx) return q;
+      const defaults: Partial<QuizQuestion> = { type: newType as QuizQuestion["type"] };
+      if (newType === "multiple_choice") {
+        defaults.options = ["", "", "", ""];
+        defaults.correctAnswer = "";
+      } else if (newType === "true_false") {
+        defaults.options = [];
+        defaults.correctAnswer = "True";
+      } else {
+        defaults.options = [];
+        defaults.correctAnswer = "";
+      }
+      return { ...q, ...defaults };
+    }));
+  };
+
   const addQuestion = () => {
     setQuestions(qs => [...qs, {
       id: `q${Date.now()}`,
@@ -126,17 +145,26 @@ export function FileQuizEditDialog({
         <div className="space-y-4 py-2">
           {questions.map((q, idx) => (
             <div key={q.id} className="border rounded-lg p-4 space-y-3">
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-muted-foreground">#{idx + 1}</span>
-                  <Badge variant="outline" className="text-xs">{TYPE_LABELS[q.type] ?? q.type}</Badge>
+                  <Select value={q.type} onValueChange={(val) => changeQuestionType(idx, val)}>
+                    <SelectTrigger className="h-7 text-xs w-36" data-testid={`select-question-type-${idx}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="multiple_choice">MCQ</SelectItem>
+                      <SelectItem value="true_false">True / False</SelectItem>
+                      <SelectItem value="open_ended">Open-ended</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
+                  size="icon"
                   onClick={() => deleteQuestion(idx)}
-                  className="text-destructive hover:text-destructive h-7 w-7 p-0"
+                  className="text-destructive hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -179,7 +207,26 @@ export function FileQuizEditDialog({
               )}
 
               {q.type === "true_false" && (
-                <p className="text-xs text-muted-foreground">Correct: <strong>{q.correctAnswer || "True"}</strong></p>
+                <div>
+                  <Label className="text-xs">Correct Answer</Label>
+                  <div className="flex gap-2 mt-1">
+                    {["True", "False"].map(option => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => updateQuestion(idx, { correctAnswer: option })}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md border text-sm transition-colors ${
+                          (q.correctAnswer || "True") === option
+                            ? "border-primary bg-primary/10 text-primary font-medium"
+                            : "border-border text-muted-foreground hover:border-primary/50"
+                        }`}
+                      >
+                        <CheckCircle className={`h-3.5 w-3.5 ${(q.correctAnswer || "True") === option ? "text-primary" : "text-muted-foreground/30"}`} />
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {q.type === "open_ended" && (
