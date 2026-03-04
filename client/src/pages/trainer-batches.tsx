@@ -18,8 +18,9 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationBell } from "@/components/NotificationBell";
 import { QuizEditDialog } from "@/components/QuizEditDialog";
-import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp, Home, ChevronDown, ChevronRight, AlertCircle, FileText, X, MessageSquare, Ban, Search } from "lucide-react";
+import { Users, Plus, Trash2, LogOut, Award, BookOpen, CheckCircle, TrendingUp, Home, ChevronDown, ChevronRight, AlertCircle, FileText, X, MessageSquare, Ban, Search, ClipboardCheck, Calendar } from "lucide-react";
 import logoImage from "@assets/Screenshot 2025-10-14 214034_1761029433045.png";
 
 export default function TrainerBatches() {
@@ -60,6 +61,18 @@ export default function TrainerBatches() {
   const [commentCategory, setCommentCategory] = useState("general");
   const [disqualifyTeacher, setDisqualifyTeacher] = useState<any>(null);
   const [disqualifyReason, setDisqualifyReason] = useState("");
+
+  // Attendance state
+  const [attendanceDate, setAttendanceDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [attendanceRecordsState, setAttendanceRecordsState] = useState<Record<string, string>>({});
+  const [attendanceSubmitting, setAttendanceSubmitting] = useState(false);
+
+  // Schedule / event state
+  const [newEventTitle, setNewEventTitle] = useState("");
+  const [newEventType, setNewEventType] = useState("session");
+  const [newEventStart, setNewEventStart] = useState("");
+  const [newEventEnd, setNewEventEnd] = useState("");
+  const [newEventDesc, setNewEventDesc] = useState("");
 
   const { data: batches = [] } = useQuery<any[]>({
     queryKey: ["/api/batches"],
@@ -127,6 +140,39 @@ export default function TrainerBatches() {
   const { data: template } = useQuery<any>({
     queryKey: [`/api/batches/${selectedBatch?.id}/certificate-template`],
     enabled: !!selectedBatch?.id && activeTab === "certificates",
+  });
+
+  // Fetch batch attendance summary (per teacher)
+  const { data: batchAttendanceSummary = [], refetch: refetchAttendance } = useQuery<any[]>({
+    queryKey: ["/api/batches", selectedBatch?.id, "attendance", "summary"],
+    queryFn: async () => {
+      const res = await fetch(`/api/batches/${selectedBatch?.id}/attendance/summary`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedBatch?.id && activeTab === "attendance",
+  });
+
+  // Fetch batch attendance by date
+  const { data: dailyAttendance = [] } = useQuery<any[]>({
+    queryKey: ["/api/batches", selectedBatch?.id, "attendance", attendanceDate],
+    queryFn: async () => {
+      const res = await fetch(`/api/batches/${selectedBatch?.id}/attendance?date=${attendanceDate}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedBatch?.id && activeTab === "attendance",
+  });
+
+  // Fetch scheduled events for batch
+  const { data: batchEvents = [], refetch: refetchEvents } = useQuery<any[]>({
+    queryKey: ["/api/batches", selectedBatch?.id, "events"],
+    queryFn: async () => {
+      const res = await fetch(`/api/batches/${selectedBatch?.id}/events`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedBatch?.id && activeTab === "schedule",
   });
 
   // Search approved teachers for bulk enrollment
@@ -240,6 +286,49 @@ export default function TrainerBatches() {
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Submit attendance for the selected date
+  const submitAttendanceMutation = useMutation({
+    mutationFn: async ({ batchId, date, records }: { batchId: string; date: string; records: Array<{ teacherId: string; status: string }> }) => {
+      const res = await apiRequest("POST", `/api/batches/${batchId}/attendance`, { date, records });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Attendance marked successfully" });
+      refetchAttendance();
+      queryClient.invalidateQueries({ queryKey: ["/api/batches", selectedBatch?.id, "attendance"] });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Create scheduled event
+  const createEventMutation = useMutation({
+    mutationFn: async (data: { title: string; eventType: string; startDate: string; endDate?: string; description?: string }) => {
+      const res = await apiRequest("POST", `/api/batches/${selectedBatch?.id}/events`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Event scheduled" });
+      refetchEvents();
+      setNewEventTitle(""); setNewEventType("session"); setNewEventStart(""); setNewEventEnd(""); setNewEventDesc("");
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Delete event
+  const deleteEventMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/events/${id}`);
+    },
+    onSuccess: () => {
+      refetchEvents();
+      toast({ title: "Deleted", description: "Event removed" });
     },
   });
 
@@ -366,8 +455,9 @@ export default function TrainerBatches() {
 
   const saveCertificateTemplateMutation = useMutation({
     mutationFn: async () => {
-      const batchCourses = await apiRequest("GET", `/api/batches/${selectedBatch.id}/courses`);
-      const courseId = batchCourses[0]?.id;
+      const batchCoursesRes = await apiRequest("GET", `/api/batches/${selectedBatch.id}/courses`);
+      const batchCoursesData = await batchCoursesRes.json();
+      const courseId = batchCoursesData[0]?.id;
       
       return apiRequest("POST", `/api/batches/${selectedBatch.id}/certificate-template`, {
         courseId,
@@ -473,6 +563,7 @@ export default function TrainerBatches() {
                 <Home className="h-4 w-4" />
               </Link>
             </Button>
+            <NotificationBell />
             <div className="text-white">
               <ThemeToggle />
             </div>
@@ -579,22 +670,30 @@ export default function TrainerBatches() {
 
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 overflow-hidden">
-                <TabsList className="grid w-full grid-cols-4 flex-shrink-0 rounded-none border-b">
+                <TabsList className="grid w-full grid-cols-6 flex-shrink-0 rounded-none border-b">
                   <TabsTrigger value="teachers" data-testid="tab-teachers">
-                    <Users className="mr-2 h-4 w-4" />
-                    Teachers
+                    <Users className="mr-1 h-4 w-4" />
+                    <span className="hidden sm:inline">Teachers</span>
                   </TabsTrigger>
                   <TabsTrigger value="quizzes" data-testid="tab-quizzes">
-                    <Award className="mr-2 h-4 w-4" />
-                    Quizzes
+                    <Award className="mr-1 h-4 w-4" />
+                    <span className="hidden sm:inline">Quizzes</span>
                   </TabsTrigger>
                   <TabsTrigger value="progress" data-testid="tab-progress">
-                    <TrendingUp className="mr-2 h-4 w-4" />
-                    Progress
+                    <TrendingUp className="mr-1 h-4 w-4" />
+                    <span className="hidden sm:inline">Progress</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="attendance" data-testid="tab-attendance">
+                    <ClipboardCheck className="mr-1 h-4 w-4" />
+                    <span className="hidden sm:inline">Attendance</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="schedule" data-testid="tab-schedule">
+                    <Calendar className="mr-1 h-4 w-4" />
+                    <span className="hidden sm:inline">Schedule</span>
                   </TabsTrigger>
                   <TabsTrigger value="certificates" data-testid="tab-certificates">
-                    <FileText className="mr-2 h-4 w-4" />
-                    Certificates
+                    <FileText className="mr-1 h-4 w-4" />
+                    <span className="hidden sm:inline">Certs</span>
                   </TabsTrigger>
                 </TabsList>
 
@@ -1110,18 +1209,24 @@ export default function TrainerBatches() {
                               </div>
                               <Progress value={teacherProgress.overallPercentage} className="h-2" />
                             </div>
-                            <div className="grid grid-cols-3 gap-2 text-sm">
-                              <div className="text-center">
+                            <div className="grid grid-cols-4 gap-2 text-sm">
+                              <div className="text-center p-2 bg-muted rounded">
                                 <p className="text-muted-foreground text-xs">Completed</p>
                                 <p className="font-semibold">{teacherProgress.completedCount}</p>
                               </div>
-                              <div className="text-center">
+                              <div className="text-center p-2 bg-muted rounded">
                                 <p className="text-muted-foreground text-xs">In Progress</p>
                                 <p className="font-semibold">{teacherProgress.inProgressCount}</p>
                               </div>
-                              <div className="text-center">
+                              <div className="text-center p-2 bg-muted rounded">
                                 <p className="text-muted-foreground text-xs">Not Started</p>
                                 <p className="font-semibold">{teacherProgress.notStartedCount}</p>
+                              </div>
+                              <div className="text-center p-2 bg-muted rounded">
+                                <p className="text-muted-foreground text-xs">Attendance</p>
+                                <p className="font-semibold">
+                                  {batchAttendanceSummary.find((a: any) => a.teacher_id === teacherProgress.teacherId)?.attendance_rate || '—'}%
+                                </p>
                               </div>
                             </div>
                           </CardContent>
@@ -1129,6 +1234,231 @@ export default function TrainerBatches() {
                       ))}
                     </div>
                   )}
+                </TabsContent>
+
+                {/* Attendance Tab */}
+                <TabsContent value="attendance" className="space-y-4 flex-1 overflow-y-auto p-4">
+                  <h3 className="text-lg font-semibold">Attendance Tracking</h3>
+
+                  {/* Mark Attendance for a date */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Mark Attendance</CardTitle>
+                      <CardDescription>Select a date and record attendance for all enrolled teachers</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center gap-3">
+                        <Label className="flex-shrink-0">Date</Label>
+                        <input
+                          type="date"
+                          value={attendanceDate}
+                          onChange={(e) => setAttendanceDate(e.target.value)}
+                          className="border rounded px-3 py-1.5 text-sm bg-background"
+                          max={new Date().toISOString().split('T')[0]}
+                        />
+                      </div>
+
+                      {(batchDetails?.teachers || []).length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No teachers enrolled in this batch.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {/* Quick select all buttons */}
+                          <div className="flex gap-2 flex-wrap">
+                            <span className="text-xs text-muted-foreground self-center">Quick set all:</span>
+                            {['present', 'absent', 'late', 'excused'].map((s) => (
+                              <Button key={s} size="sm" variant="outline" className="h-7 text-xs capitalize"
+                                onClick={() => {
+                                  const all: Record<string, string> = {};
+                                  (batchDetails?.teachers || []).forEach((t: any) => { all[t.id] = s; });
+                                  setAttendanceRecordsState(all);
+                                }}>
+                                All {s}
+                              </Button>
+                            ))}
+                          </div>
+
+                          {(batchDetails?.teachers || []).map((teacher: any) => (
+                            <div key={teacher.id} className="flex items-center justify-between p-2 border rounded-lg">
+                              <span className="text-sm font-medium">{teacher.name}</span>
+                              <div className="flex gap-1">
+                                {[
+                                  { value: 'present', label: 'P', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-300' },
+                                  { value: 'absent', label: 'A', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-300' },
+                                  { value: 'late', label: 'L', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border-yellow-300' },
+                                  { value: 'excused', label: 'E', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-300' },
+                                ].map(({ value, label, color }) => (
+                                  <button key={value}
+                                    onClick={() => setAttendanceRecordsState(prev => ({ ...prev, [teacher.id]: value }))}
+                                    className={`w-8 h-8 rounded text-xs font-bold border-2 transition-all ${
+                                      attendanceRecordsState[teacher.id] === value
+                                        ? color + ' border-current scale-110 shadow'
+                                        : 'border-border bg-muted/50 text-muted-foreground hover:border-current'
+                                    }`}>
+                                    {label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+
+                          <Button
+                            className="w-full mt-2"
+                            disabled={submitAttendanceMutation.isPending || Object.keys(attendanceRecordsState).length === 0}
+                            onClick={() => {
+                              const records = Object.entries(attendanceRecordsState).map(([teacherId, status]) => ({ teacherId, status }));
+                              submitAttendanceMutation.mutate({ batchId: selectedBatch.id, date: attendanceDate, records });
+                            }}>
+                            {submitAttendanceMutation.isPending ? "Saving..." : "Save Attendance"}
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Attendance Summary per teacher */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Attendance Summary</CardTitle>
+                      <CardDescription>Cumulative attendance rates for all teachers in this batch</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {batchAttendanceSummary.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No attendance data yet. Start marking attendance above.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {batchAttendanceSummary.map((row: any) => (
+                            <div key={row.teacher_id} className="space-y-1">
+                              <div className="flex justify-between items-center text-sm">
+                                <span className="font-medium">{row.teacher_name}</span>
+                                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                  <span className="text-green-600">P:{row.present_days}</span>
+                                  <span className="text-red-600">A:{row.absent_days}</span>
+                                  <span className="text-yellow-600">L:{row.late_days}</span>
+                                  <span className="font-semibold text-foreground">{row.attendance_rate}%</span>
+                                </div>
+                              </div>
+                              <Progress value={parseFloat(row.attendance_rate || '0')} className="h-1.5" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Schedule Tab */}
+                <TabsContent value="schedule" className="space-y-4 flex-1 overflow-y-auto p-4">
+                  <h3 className="text-lg font-semibold">Batch Schedule</h3>
+
+                  {/* Add Event */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Schedule New Event</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1 col-span-2">
+                          <Label>Title</Label>
+                          <input
+                            type="text"
+                            value={newEventTitle}
+                            onChange={(e) => setNewEventTitle(e.target.value)}
+                            placeholder="e.g. Week 3 Session"
+                            className="w-full border rounded px-3 py-1.5 text-sm bg-background"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Type</Label>
+                          <select
+                            value={newEventType}
+                            onChange={(e) => setNewEventType(e.target.value)}
+                            className="w-full border rounded px-3 py-1.5 text-sm bg-background">
+                            <option value="session">Session</option>
+                            <option value="assessment">Assessment</option>
+                            <option value="deadline">Deadline</option>
+                            <option value="holiday">Holiday</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Start Date/Time</Label>
+                          <input
+                            type="datetime-local"
+                            value={newEventStart}
+                            onChange={(e) => setNewEventStart(e.target.value)}
+                            className="w-full border rounded px-3 py-1.5 text-sm bg-background"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>End Date/Time (optional)</Label>
+                          <input
+                            type="datetime-local"
+                            value={newEventEnd}
+                            onChange={(e) => setNewEventEnd(e.target.value)}
+                            className="w-full border rounded px-3 py-1.5 text-sm bg-background"
+                          />
+                        </div>
+                        <div className="space-y-1 col-span-2">
+                          <Label>Description (optional)</Label>
+                          <input
+                            type="text"
+                            value={newEventDesc}
+                            onChange={(e) => setNewEventDesc(e.target.value)}
+                            placeholder="Additional details..."
+                            className="w-full border rounded px-3 py-1.5 text-sm bg-background"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        className="w-full"
+                        disabled={createEventMutation.isPending || !newEventTitle.trim() || !newEventStart}
+                        onClick={() => createEventMutation.mutate({
+                          title: newEventTitle,
+                          eventType: newEventType,
+                          startDate: newEventStart,
+                          endDate: newEventEnd || undefined,
+                          description: newEventDesc || undefined,
+                        })}>
+                        {createEventMutation.isPending ? "Scheduling..." : "Schedule Event"}
+                      </Button>
+                    </CardContent>
+                  </Card>
+
+                  {/* Events list */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Upcoming Events</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {batchEvents.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">No events scheduled yet.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {batchEvents.map((event: any) => (
+                            <div key={event.id} className="flex items-start justify-between p-3 border rounded-lg">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className="text-xs capitalize flex-shrink-0">{event.eventType}</Badge>
+                                  <span className="font-medium text-sm truncate">{event.title}</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {new Date(event.startDate).toLocaleString()}
+                                  {event.endDate && ` → ${new Date(event.endDate).toLocaleString()}`}
+                                </p>
+                                {event.description && <p className="text-xs text-muted-foreground mt-0.5">{event.description}</p>}
+                              </div>
+                              <Button
+                                variant="ghost" size="icon"
+                                className="h-7 w-7 text-destructive flex-shrink-0 ml-2"
+                                onClick={() => deleteEventMutation.mutate(event.id)}>
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
                 </TabsContent>
 
                 {/* Certificates Tab */}
