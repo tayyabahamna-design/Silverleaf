@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock, Trash2, Ban, UserPlus, GraduationCap, MapPin, Briefcase, Activity, Plus, Award, FileText, Heart, Shield, Star, MessageSquare, Repeat, Target } from "lucide-react";
+import { ArrowLeft, Users, BookOpen, BarChart3, ChevronDown, ChevronUp, X, TrendingUp, AlertCircle, CheckCircle, Clock, Trash2, Ban, UserPlus, GraduationCap, MapPin, Briefcase, Activity, Plus, Award, FileText, Heart, Shield, Star, MessageSquare, Repeat, Target, Pencil } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { FileQuizEditDialog } from "@/components/FileQuizEditDialog";
 
 interface BatchAnalytics {
   batch: { id: string; name: string };
@@ -158,6 +159,7 @@ export default function AdminAnalytics() {
   const [adminName2, setAdminName2] = useState("");
   const [selectedCourseForBatch, setSelectedCourseForBatch] = useState("");
   const [showReflectionsDialog, setShowReflectionsDialog] = useState(false);
+  const [editFileQuiz, setEditFileQuiz] = useState<{ weekId: string; fileId: string; fileName: string; approved: boolean } | null>(null);
 
   // Existing data queries
   const { data: batchesAnalytics = [], isLoading: loadingBatches } = useQuery({
@@ -186,6 +188,16 @@ export default function AdminAnalytics() {
     queryFn: async () => {
       const res = await fetch(`/api/batches/${expandedBatchId}/file-quizzes`);
       if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const { data: editFileQuizStatus } = useQuery<Record<string, any>>({
+    queryKey: ["/api/training-weeks", editFileQuiz?.weekId, "quiz-status"],
+    enabled: !!editFileQuiz,
+    queryFn: async () => {
+      const res = await fetch(`/api/training-weeks/${editFileQuiz!.weekId}/quiz-status`);
+      if (!res.ok) return {};
       return res.json();
     },
   });
@@ -1410,9 +1422,14 @@ export default function AdminAnalytics() {
                           ) : (
                             <div className="space-y-2">
                               {fileQuizzes.map((fq: any) => (
-                                <Card key={fq.id} data-testid={`card-file-quiz-${fq.id}`}>
+                                <Card
+                                  key={fq.id}
+                                  className="cursor-pointer hover-elevate"
+                                  onClick={() => setEditFileQuiz({ weekId: fq.week_id, fileId: fq.deck_file_id, fileName: fq.file_name || "Unnamed file", approved: fq.approved })}
+                                  data-testid={`card-file-quiz-${fq.id}`}
+                                >
                                   <CardContent className="py-3">
-                                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                                    <div className="flex items-center justify-between gap-3">
                                       <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
                                           <p className="font-medium text-sm truncate">{fq.file_name || "Unnamed file"}</p>
@@ -1424,6 +1441,17 @@ export default function AdminAnalytics() {
                                           {fq.course_name} · Week {fq.week_number}{fq.competency_focus ? ` — ${fq.competency_focus}` : ""} · {fq.question_count} questions
                                         </p>
                                       </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditFileQuiz({ weekId: fq.week_id, fileId: fq.deck_file_id, fileName: fq.file_name || "Unnamed file", approved: fq.approved });
+                                        }}
+                                        data-testid={`button-edit-file-quiz-${fq.id}`}
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
                                     </div>
                                   </CardContent>
                                 </Card>
@@ -3341,6 +3369,23 @@ export default function AdminAnalytics() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* File Quiz Edit Dialog */}
+      {editFileQuiz && (
+        <FileQuizEditDialog
+          open={!!editFileQuiz}
+          onClose={() => setEditFileQuiz(null)}
+          weekId={editFileQuiz.weekId}
+          fileId={editFileQuiz.fileId}
+          fileName={editFileQuiz.fileName}
+          initialQuestions={editFileQuizStatus?.[editFileQuiz.fileId]?.questions ?? []}
+          approved={editFileQuiz.approved}
+          onQuizStatusChange={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/batches", expandedBatchId, "file-quizzes"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/training-weeks", editFileQuiz.weekId, "quiz-status"] });
+          }}
+        />
+      )}
 
       {/* All Reflections Dialog */}
       <Dialog open={showReflectionsDialog} onOpenChange={setShowReflectionsDialog}>
