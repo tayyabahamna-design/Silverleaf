@@ -2433,6 +2433,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get auto-generated file quizzes for a batch (from quiz_cache)
+  app.get("/api/batches/:batchId/file-quizzes", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const batch = await storage.getBatch(req.params.batchId);
+      if (!batch) {
+        return res.status(404).json({ error: "Batch not found" });
+      }
+      if (req.user!.role !== "admin" && batch.createdBy !== req.user!.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const quizzes = await storage.getFileQuizzesForBatch(req.params.batchId);
+      res.json(quizzes);
+    } catch (error) {
+      console.error("Error fetching file quizzes:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Get quiz details for trainer (to review before/after assignment)
   app.get("/api/trainer/quizzes/:quizId", isAuthenticated, isTrainer, async (req, res) => {
     try {

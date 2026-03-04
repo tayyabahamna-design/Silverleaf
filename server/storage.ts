@@ -214,6 +214,7 @@ export interface IStorage {
   // Assigned quiz operations
   createAssignedQuiz(quiz: InsertAssignedQuiz): Promise<AssignedQuiz>;
   getAssignedQuizzesForBatch(batchId: string): Promise<AssignedQuiz[]>;
+  getFileQuizzesForBatch(batchId: string): Promise<any[]>;
   getAssignedQuizzesForTeacher(teacherId: string): Promise<AssignedQuiz[]>;
   getAssignedQuiz(id: string): Promise<AssignedQuiz | undefined>;
   deleteAssignedQuiz(id: string): Promise<boolean>;
@@ -1231,6 +1232,36 @@ export class DatabaseStorage implements IStorage {
       .from(assignedQuizzes)
       .where(eq(assignedQuizzes.batchId, batchId))
       .orderBy(sqlOp`${assignedQuizzes.assignedAt} DESC`);
+  }
+
+  async getFileQuizzesForBatch(batchId: string): Promise<any[]> {
+    const result = await db.execute(sqlOp`
+      SELECT
+        qc.id,
+        qc.week_id,
+        qc.deck_file_id,
+        qc.approved,
+        qc.approved_at,
+        qc.created_at,
+        jsonb_array_length(qc.questions) as question_count,
+        tw.week_number,
+        tw.competency_focus,
+        c.name as course_name,
+        c.id as course_id,
+        (
+          SELECT elem->>'fileName'
+          FROM jsonb_array_elements(tw.deck_files) AS elem
+          WHERE elem->>'id' = qc.deck_file_id
+          LIMIT 1
+        ) as file_name
+      FROM quiz_cache qc
+      JOIN training_weeks tw ON tw.id = qc.week_id
+      JOIN courses c ON c.id = tw.course_id
+      JOIN batch_courses bc ON bc.course_id = c.id
+      WHERE bc.batch_id = ${batchId}
+      ORDER BY c.name, tw.week_number
+    `);
+    return result.rows as any[];
   }
 
   async getAssignedQuizzesForTeacher(teacherId: string): Promise<AssignedQuiz[]> {

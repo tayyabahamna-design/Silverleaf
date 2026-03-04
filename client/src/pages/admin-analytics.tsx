@@ -180,6 +180,16 @@ export default function AdminAnalytics() {
     enabled: isAdmin && !!expandedBatchId,
   });
 
+  const { data: fileQuizzes = [] } = useQuery<any[]>({
+    queryKey: ["/api/batches", expandedBatchId, "file-quizzes"],
+    enabled: isAdmin && !!expandedBatchId,
+    queryFn: async () => {
+      const res = await fetch(`/api/batches/${expandedBatchId}/file-quizzes`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   const { data: batchProgress = [], isLoading: isLoadingProgress } = useQuery<any[]>({
     queryKey: ["/api/batches", expandedBatchId, "progress"],
     enabled: isAdmin && !!expandedBatchId,
@@ -1386,66 +1396,107 @@ export default function AdminAnalytics() {
                       </TabsContent>
 
                       {/* Quizzes Tab */}
-                      <TabsContent value="quizzes" className="space-y-4 flex-1 overflow-y-auto p-4">
-                        <div className="flex justify-between items-center gap-2 flex-wrap">
-                          <h3 className="text-base font-semibold">Assigned Quizzes</h3>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => setAssignCheckpointQuizOpen(true)} data-testid="button-assign-checkpoint-quiz">
-                              <Plus className="mr-2 h-4 w-4" />
-                              Checkpoint
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => setAssignFileQuizOpen(true)} data-testid="button-assign-file-quiz">
-                              <Plus className="mr-2 h-4 w-4" />
-                              File Quiz
-                            </Button>
-                          </div>
-                        </div>
-                        {assignedQuizzes.length === 0 ? (
-                          <div className="text-center py-8 text-muted-foreground">
-                            No quizzes assigned yet
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            {assignedQuizzes.map((quiz: any) => (
-                              <Card
-                                key={quiz.id}
-                                className="cursor-pointer hover:shadow-md transition-shadow"
-                                onClick={() => {
-                                  setSelectedQuizId(quiz.id);
-                                  setViewQuizDetailsOpen(true);
-                                }}
-                                data-testid={`card-quiz-${quiz.id}`}
-                              >
-                                <CardContent className="py-4">
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <p className="font-semibold truncate">{quiz.title}</p>
-                                        <Badge variant="outline" className="text-xs flex-shrink-0">
-                                          {quiz.type === "checkpoint" ? "Checkpoint" : "File"}
-                                        </Badge>
+                      <TabsContent value="quizzes" className="space-y-6 flex-1 overflow-y-auto p-4">
+                        {/* Auto-Generated File Quizzes */}
+                        <div>
+                          <h3 className="text-base font-semibold mb-3 flex items-center gap-2">
+                            <Award className="h-4 w-4 text-primary" />
+                            Auto-Generated File Quizzes
+                          </h3>
+                          {fileQuizzes.length === 0 ? (
+                            <div className="text-center py-6 text-muted-foreground text-sm border rounded-lg bg-muted/20">
+                              No auto-generated quizzes yet — they appear here after files are uploaded to course weeks
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {fileQuizzes.map((fq: any) => (
+                                <Card key={fq.id} data-testid={`card-file-quiz-${fq.id}`}>
+                                  <CardContent className="py-3">
+                                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <p className="font-medium text-sm truncate">{fq.file_name || "Unnamed file"}</p>
+                                          <Badge variant={fq.approved ? "default" : "secondary"} className="text-xs flex-shrink-0">
+                                            {fq.approved ? "Approved" : "Pending approval"}
+                                          </Badge>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground mt-0.5">
+                                          {fq.course_name} · Week {fq.week_number}{fq.competency_focus ? ` — ${fq.competency_focus}` : ""} · {fq.question_count} questions
+                                        </p>
                                       </div>
-                                      <p className="text-sm text-muted-foreground mt-1">
-                                        {quiz.description || "No description"}
-                                      </p>
                                     </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteQuizMutation.mutate(quiz.id);
-                                      }}
-                                      data-testid={`button-delete-quiz-${quiz.id}`}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            ))}
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Manually Assigned Quizzes */}
+                        <div>
+                          <div className="flex justify-between items-center gap-2 flex-wrap mb-3">
+                            <h3 className="text-base font-semibold flex items-center gap-2">
+                              <BookOpen className="h-4 w-4 text-primary" />
+                              Assigned Quizzes
+                            </h3>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" onClick={() => setAssignCheckpointQuizOpen(true)} data-testid="button-assign-checkpoint-quiz">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Checkpoint
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => setAssignFileQuizOpen(true)} data-testid="button-assign-file-quiz">
+                                <Plus className="mr-2 h-4 w-4" />
+                                File Quiz
+                              </Button>
+                            </div>
                           </div>
-                        )}
+                          {assignedQuizzes.length === 0 ? (
+                            <div className="text-center py-6 text-muted-foreground text-sm border rounded-lg bg-muted/20">
+                              No quizzes assigned yet
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {assignedQuizzes.map((quiz: any) => (
+                                <Card
+                                  key={quiz.id}
+                                  className="cursor-pointer hover:shadow-md transition-shadow"
+                                  onClick={() => {
+                                    setSelectedQuizId(quiz.id);
+                                    setViewQuizDetailsOpen(true);
+                                  }}
+                                  data-testid={`card-quiz-${quiz.id}`}
+                                >
+                                  <CardContent className="py-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <p className="font-semibold truncate">{quiz.title}</p>
+                                          <Badge variant="outline" className="text-xs flex-shrink-0">
+                                            {quiz.type === "checkpoint" ? "Checkpoint" : "File"}
+                                          </Badge>
+                                        </div>
+                                        <p className="text-sm text-muted-foreground mt-1">
+                                          {quiz.description || "No description"}
+                                        </p>
+                                      </div>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          deleteQuizMutation.mutate(quiz.id);
+                                        }}
+                                        data-testid={`button-delete-quiz-${quiz.id}`}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </TabsContent>
 
                       {/* Progress Tab */}
