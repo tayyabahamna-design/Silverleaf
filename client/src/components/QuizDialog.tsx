@@ -211,31 +211,36 @@ export function QuizDialog({ weekId, open, onOpenChange }: QuizDialogProps) {
               </p>
             </div>
 
-            <div className="space-y-4">
-              <h4 className="font-semibold">Review Your Answers:</h4>
-              {questions.map((question, index) => {
-                const userAnswer = answers[question.id];
-                const isCorrect = userAnswer === question.correctAnswer;
-                
-                return (
-                  <div key={question.id} className={`border rounded-lg p-4 ${isCorrect ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10' : 'border-red-200 bg-red-50/50 dark:bg-red-900/10'}`}>
-                    <p className="font-semibold mb-2">
-                      {index + 1}. {question.question}
-                    </p>
-                    <div className="space-y-1 text-sm">
-                      <p className={userAnswer === question.correctAnswer ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}>
-                        Your answer: {userAnswer}
+            {results.passed ? (
+              <div className="space-y-4">
+                <h4 className="font-semibold">Review Your Answers:</h4>
+                {questions.map((question, index) => {
+                  const userAnswer = answers[question.id];
+                  const isCorrect = userAnswer === question.correctAnswer;
+                  return (
+                    <div key={question.id} className={`border rounded-lg p-4 ${isCorrect ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10' : 'border-red-200 bg-red-50/50 dark:bg-red-900/10'}`}>
+                      <p className="font-semibold mb-2">
+                        {index + 1}. {question.question}
                       </p>
-                      {!isCorrect && (
-                        <p className="text-green-700 dark:text-green-400">
-                          Correct answer: {question.correctAnswer}
+                      <div className="space-y-1 text-sm">
+                        <p className={isCorrect ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}>
+                          Your answer: {userAnswer}
                         </p>
-                      )}
+                        {!isCorrect && (
+                          <p className="text-green-700 dark:text-green-400">
+                            Correct answer: {question.correctAnswer}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-4 bg-muted rounded-lg text-sm text-muted-foreground text-center">
+                Correct answers are shown after passing the quiz. Review the material and try again.
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => onOpenChange(false)}>

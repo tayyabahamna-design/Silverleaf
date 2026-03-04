@@ -454,43 +454,49 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
                 )}
               </div>
 
-              {/* Show correct answers */}
-              <div className="space-y-4">
-                <h3 className="font-semibold text-lg">Review Answers</h3>
-                {questions.map((question, index) => {
-                  const userAnswer = answers[question.id];
-                  const isCorrect = userAnswer === question.correctAnswer;
-                  return (
-                    <div
-                      key={question.id}
-                      className={`p-4 rounded-lg border-2 ${
-                        isCorrect ? 'border-green-500/30 bg-green-50/50 dark:bg-green-950/20' : 'border-red-500/30 bg-red-50/50 dark:bg-red-950/20'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2 mb-2">
-                        {isCorrect ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                        ) : (
-                          <XCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-                        )}
-                        <div className="flex-1">
-                          <p className="font-medium mb-2">
-                            {index + 1}. {question.question}
-                          </p>
-                          <p className="text-sm text-muted-foreground mb-1">
-                            <span className="font-medium">Your answer:</span> {userAnswer || "Not answered"}
-                          </p>
-                          {!isCorrect && (
-                            <p className="text-sm text-green-700 dark:text-green-400">
-                              <span className="font-medium">Correct answer:</span> {question.correctAnswer}
-                            </p>
+              {/* Show review only when passed */}
+              {results.passed ? (
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg">Review Answers</h3>
+                  {questions.map((question, index) => {
+                    const userAnswer = answers[question.id];
+                    const isCorrect = userAnswer === question.correctAnswer;
+                    return (
+                      <div
+                        key={question.id}
+                        className={`p-4 rounded-lg border-2 ${
+                          isCorrect ? 'border-green-500/30 bg-green-50/50 dark:bg-green-950/20' : 'border-red-500/30 bg-red-50/50 dark:bg-red-950/20'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2 mb-2">
+                          {isCorrect ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                          ) : (
+                            <XCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
                           )}
+                          <div className="flex-1">
+                            <p className="font-medium mb-2">
+                              {index + 1}. {question.question}
+                            </p>
+                            <p className="text-sm text-muted-foreground mb-1">
+                              <span className="font-medium">Your answer:</span> {userAnswer || "Not answered"}
+                            </p>
+                            {!isCorrect && (
+                              <p className="text-sm text-green-700 dark:text-green-400">
+                                <span className="font-medium">Correct answer:</span> {question.correctAnswer}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-4 bg-muted rounded-lg text-sm text-muted-foreground text-center">
+                  Correct answers are shown after passing the quiz. Review the material and try again.
+                </div>
+              )}
 
               <div className="flex justify-end gap-2 pt-4">
                 {results.passed ? (
@@ -664,43 +670,49 @@ export function FileQuizDialog({ weekId, fileId, fileName, open, onOpenChange, c
               )}
             </div>
 
-            {/* Show correct answers */}
-            <div className="space-y-4">
-              <h3 className="font-semibold text-lg">Review Answers</h3>
-              {questions.map((question, index) => {
-                const userAnswer = answers[question.id];
-                const isCorrect = userAnswer === question.correctAnswer;
-                return (
-                  <div
-                    key={question.id}
-                    className={`p-4 rounded-lg border-2 ${
-                      isCorrect ? 'border-green-500/30 bg-green-50/50 dark:bg-green-950/20' : 'border-red-500/30 bg-red-50/50 dark:bg-red-950/20'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2 mb-2">
-                      {isCorrect ? (
-                        <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
-                      )}
-                      <div className="flex-1">
-                        <p className="font-medium mb-2">
-                          {index + 1}. {question.question}
-                        </p>
-                        <p className="text-sm text-muted-foreground mb-1">
-                          <span className="font-medium">Your answer:</span> {userAnswer || "Not answered"}
-                        </p>
-                        {!isCorrect && (
-                          <p className="text-sm text-green-700 dark:text-green-400">
-                            <span className="font-medium">Correct answer:</span> {question.correctAnswer}
-                          </p>
+            {/* Show review only when passed */}
+            {results.passed ? (
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Review Answers</h3>
+                {questions.map((question, index) => {
+                  const userAnswer = answers[question.id];
+                  const isCorrect = userAnswer === question.correctAnswer;
+                  return (
+                    <div
+                      key={question.id}
+                      className={`p-4 rounded-lg border-2 ${
+                        isCorrect ? 'border-green-500/30 bg-green-50/50 dark:bg-green-950/20' : 'border-red-500/30 bg-red-50/50 dark:bg-red-950/20'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2 mb-2">
+                        {isCorrect ? (
+                          <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
                         )}
+                        <div className="flex-1">
+                          <p className="font-medium mb-2">
+                            {index + 1}. {question.question}
+                          </p>
+                          <p className="text-sm text-muted-foreground mb-1">
+                            <span className="font-medium">Your answer:</span> {userAnswer || "Not answered"}
+                          </p>
+                          {!isCorrect && (
+                            <p className="text-sm text-green-700 dark:text-green-400">
+                              <span className="font-medium">Correct answer:</span> {question.correctAnswer}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-4 bg-muted rounded-lg text-sm text-muted-foreground text-center">
+                Correct answers are shown after passing the quiz. Review the material and try again.
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-4">
               {results.passed ? (
