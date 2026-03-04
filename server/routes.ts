@@ -1634,15 +1634,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const week = await storage.getTrainingWeek(req.params.weekId);
       if (!week || !week.deckFiles) return res.json({});
-      const result: Record<string, { generated: boolean; questionCount: number }> = {};
+      const result: Record<string, { generated: boolean; questionCount: number; approved: boolean; questions?: any[] }> = {};
       for (const file of week.deckFiles) {
         const cached = await storage.getCachedQuiz(req.params.weekId, file.id);
         result[file.id] = {
           generated: !!(cached && cached.questions.length > 0),
           questionCount: cached?.questions.length ?? 0,
+          approved: cached?.approved ?? false,
+          questions: cached?.questions ?? [],
         };
       }
       res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Edit quiz questions for a file (admin/trainer)
+  app.patch("/api/training-weeks/:weekId/files/:fileId/quiz", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { weekId, fileId } = req.params;
+      const { questions } = req.body;
+      if (!Array.isArray(questions)) return res.status(400).json({ error: "questions must be an array" });
+      const updated = await storage.updateCachedQuizQuestions(weekId, fileId, questions);
+      if (!updated) return res.status(404).json({ error: "No quiz found for this file" });
+      res.json({ success: true, questions: updated.questions });
+    } catch (error) {
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Approve quiz for a file — makes it visible to teachers
+  app.post("/api/training-weeks/:weekId/files/:fileId/quiz/approve", isAuthenticated, isTrainer, async (req, res) => {
+    try {
+      const { weekId, fileId } = req.params;
+      const updated = await storage.approveCachedQuiz(weekId, fileId);
+      if (!updated) return res.status(404).json({ error: "No quiz found for this file" });
+      res.json({ success: true, approved: true });
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
     }
@@ -1789,10 +1817,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[FILE-QUIZ] 🔍 Fetching quiz for weekId=${weekId}, fileId=${fileId}`);
       
       // First, check cache
+      const isAdminOrTrainer = !!(req.user && (req.user.role === 'admin' || req.user.role === 'trainer'));
       const cachedQuiz = await storage.getCachedQuiz(weekId, fileId);
       if (cachedQuiz && cachedQuiz.questions.length > 0) {
+        // Teachers can only access approved quizzes; admins/trainers can always preview
+        if (!isAdminOrTrainer && !cachedQuiz.approved) {
+          console.log(`[FILE-QUIZ] ⏳ Quiz not yet approved for teachers`);
+          res.status(404).json({ error: "No quiz available for this file" });
+          return;
+        }
         console.log(`[FILE-QUIZ] ✅ Found cached quiz with ${cachedQuiz.questions.length} questions`);
-        res.json({ questions: cachedQuiz.questions });
+        res.json({ questions: cachedQuiz.questions, approved: cachedQuiz.approved });
         return;
       }
       

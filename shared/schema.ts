@@ -221,6 +221,8 @@ export const quizCache = pgTable("quiz_cache", {
   weekId: varchar("week_id").notNull().references(() => trainingWeeks.id, { onDelete: "cascade" }),
   deckFileId: varchar("deck_file_id").notNull(), // ID from the deckFiles JSONB array
   questions: jsonb("questions").$type<QuizQuestion[]>().notNull(),
+  approved: boolean("approved").default(false).notNull(), // Admin must approve before teachers can take
+  approvedAt: timestamp("approved_at"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_quiz_cache_week_file").on(table.weekId, table.deckFileId),

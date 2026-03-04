@@ -47,6 +47,7 @@ import type { UploadResult } from "@uppy/core";
 import logoImage from "@assets/image_1760460046116.png";
 import { FilePreview } from "@/components/FilePreview";
 import { FileQuizDialog } from "@/components/FileQuizDialog";
+import { FileQuizEditDialog } from "@/components/FileQuizEditDialog";
 
 interface Course {
   id: string;
@@ -72,9 +73,10 @@ export default function Home() {
   const [createCourseOpen, setCreateCourseOpen] = useState(false);
   const [deleteCourseId, setDeleteCourseId] = useState<string | null>(null);
   const [deleteWeekId, setDeleteWeekId] = useState<string | null>(null);
-  const [quizStatus, setQuizStatus] = useState<Record<string, Record<string, { generated: boolean; questionCount: number }>>>({});
+  const [quizStatus, setQuizStatus] = useState<Record<string, Record<string, { generated: boolean; questionCount: number; approved: boolean; questions?: any[] }>>>({});
   const [regeneratingFileId, setRegeneratingFileId] = useState<string | null>(null);
   const [previewQuizFile, setPreviewQuizFile] = useState<{ weekId: string; fileId: string; fileName: string } | null>(null);
+  const [editQuizFile, setEditQuizFile] = useState<{ weekId: string; fileId: string; fileName: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isSavingRef = useRef(false);
@@ -696,9 +698,13 @@ export default function Home() {
                                         <span className="text-sm truncate">{file.fileName}</span>
                                         {fileQuizInfo !== undefined && (
                                           fileQuizInfo.generated
-                                            ? <Badge variant="outline" className="text-xs text-green-600 border-green-300 shrink-0 gap-1">
-                                                <Award className="h-3 w-3" />{fileQuizInfo.questionCount}q
-                                              </Badge>
+                                            ? fileQuizInfo.approved
+                                              ? <Badge className="text-xs bg-green-500 text-white shrink-0 gap-1">
+                                                  <Award className="h-3 w-3" />Approved ({fileQuizInfo.questionCount}q)
+                                                </Badge>
+                                              : <Badge variant="outline" className="text-xs text-yellow-600 border-yellow-400 shrink-0 gap-1">
+                                                  <Award className="h-3 w-3" />Pending Approval ({fileQuizInfo.questionCount}q)
+                                                </Badge>
                                             : <Badge variant="outline" className="text-xs text-muted-foreground shrink-0">No quiz</Badge>
                                         )}
                                       </div>
@@ -707,10 +713,10 @@ export default function Home() {
                                           <Button
                                             variant="ghost"
                                             size="sm"
-                                            title="Preview quiz"
-                                            onClick={() => setPreviewQuizFile({ weekId: week.id, fileId: file.id, fileName: file.fileName })}
+                                            title="Edit / Approve quiz"
+                                            onClick={() => setEditQuizFile({ weekId: week.id, fileId: file.id, fileName: file.fileName })}
                                           >
-                                            <BookOpen className="h-4 w-4" />
+                                            <Pencil className="h-4 w-4" />
                                           </Button>
                                         )}
                                         <Button
@@ -851,6 +857,22 @@ export default function Home() {
           canGenerateQuiz={true}
         />
       )}
+
+      {editQuizFile && (() => {
+        const info = quizStatus[editQuizFile.weekId]?.[editQuizFile.fileId];
+        return (
+          <FileQuizEditDialog
+            open={!!editQuizFile}
+            onClose={() => setEditQuizFile(null)}
+            weekId={editQuizFile.weekId}
+            fileId={editQuizFile.fileId}
+            fileName={editQuizFile.fileName}
+            initialQuestions={info?.questions ?? []}
+            approved={info?.approved ?? false}
+            onQuizStatusChange={() => fetchQuizStatus(editQuizFile.weekId)}
+          />
+        );
+      })()}
     </div>
   );
 }

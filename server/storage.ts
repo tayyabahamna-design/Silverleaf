@@ -163,6 +163,8 @@ export interface IStorage {
   // Quiz cache operations (pre-caching for instant delivery)
   getCachedQuiz(weekId: string, fileId: string): Promise<QuizCache | undefined>;
   saveCachedQuiz(cache: InsertQuizCache): Promise<QuizCache>;
+  updateCachedQuizQuestions(weekId: string, fileId: string, questions: QuizQuestion[]): Promise<QuizCache | undefined>;
+  approveCachedQuiz(weekId: string, fileId: string): Promise<QuizCache | undefined>;
   deleteCachedQuiz(weekId: string, fileId: string): Promise<boolean>;
   deleteCachedQuizzesForWeek(weekId: string): Promise<boolean>;
   
@@ -951,6 +953,24 @@ export class DatabaseStorage implements IStorage {
     
     console.log(`[STORAGE] 💾 Cached quiz saved for weekId=${cache.weekId}, fileId=${cache.deckFileId}, questions=${cached.questions.length}`);
     return cached;
+  }
+
+  async updateCachedQuizQuestions(weekId: string, fileId: string, questions: QuizQuestion[]): Promise<QuizCache | undefined> {
+    const [updated] = await db
+      .update(quizCache)
+      .set({ questions })
+      .where(and(eq(quizCache.weekId, weekId), eq(quizCache.deckFileId, fileId)))
+      .returning();
+    return updated;
+  }
+
+  async approveCachedQuiz(weekId: string, fileId: string): Promise<QuizCache | undefined> {
+    const [updated] = await db
+      .update(quizCache)
+      .set({ approved: true, approvedAt: new Date() })
+      .where(and(eq(quizCache.weekId, weekId), eq(quizCache.deckFileId, fileId)))
+      .returning();
+    return updated;
   }
 
   async deleteCachedQuiz(weekId: string, fileId: string): Promise<boolean> {
