@@ -455,6 +455,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ── Extended Profile Endpoints ──────────────────────────────────────────
+
+  // Get admin/trainer extended profile
+  app.get("/api/profile/details", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      const user = req.user as any;
+      const profile = await storage.getUserProfile(userId);
+      res.json({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        role: user.role || "",
+        fatherName: profile?.fatherName || "",
+        phoneNumber: profile?.phoneNumber || "",
+        qualification: profile?.qualification || "",
+        cnic: profile?.cnic || "",
+        gender: profile?.gender || "",
+        dateOfBirth: profile?.dateOfBirth || null,
+      });
+    } catch (error) {
+      console.error("Error getting user profile:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update admin/trainer extended profile
+  app.put("/api/profile/details", isAuthenticated, async (req, res) => {
+    try {
+      const userId = (req.user as any)?.id;
+      if (!userId) return res.status(401).json({ error: "Not authenticated" });
+      const { firstName, lastName, fatherName, phoneNumber, qualification, cnic, gender, dateOfBirth } = req.body;
+      // Update first/last name on the users table
+      if (firstName !== undefined || lastName !== undefined) {
+        await db.update(users)
+          .set({
+            ...(firstName !== undefined ? { firstName } : {}),
+            ...(lastName !== undefined ? { lastName } : {}),
+          })
+          .where(eq(users.id, userId));
+      }
+      // Upsert extended profile
+      const profile = await storage.upsertUserProfile(userId, {
+        fatherName: fatherName || null,
+        phoneNumber: phoneNumber || null,
+        qualification: qualification || null,
+        cnic: cnic || null,
+        gender: gender || null,
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+      });
+      res.json({ success: true, profile });
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get teacher extended profile
+  app.get("/api/teacher/profile/details", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) return res.status(401).json({ error: "Not authenticated as teacher" });
+      const teacherId = teacherSession.teacherId;
+      const teacher = await storage.getTeacher(teacherId);
+      if (!teacher) return res.status(404).json({ error: "Teacher not found" });
+      const profile = await storage.getTeacherProfile(teacherId);
+      res.json({
+        name: teacher.name || "",
+        email: teacher.email || "",
+        gender: teacher.gender || "",
+        qualification: teacher.qualification || "",
+        location: teacher.location || "",
+        fatherName: profile?.fatherName || "",
+        phoneNumber: profile?.phoneNumber || "",
+        cnic: profile?.cnic || "",
+      });
+    } catch (error) {
+      console.error("Error getting teacher profile:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Update teacher extended profile
+  app.put("/api/teacher/profile/details", isTeacherAuthenticated, async (req, res) => {
+    try {
+      const teacherSession = (req as any).teacherSession;
+      if (!teacherSession?.teacherId) return res.status(401).json({ error: "Not authenticated as teacher" });
+      const teacherId = teacherSession.teacherId;
+      const { name, gender, qualification, location, fatherName, phoneNumber, cnic } = req.body;
+      // Update core teacher fields on teachers table
+      const coreUpdates: Record<string, any> = {};
+      if (name !== undefined) coreUpdates.name = name;
+      if (gender !== undefined) coreUpdates.gender = gender;
+      if (qualification !== undefined) coreUpdates.qualification = qualification;
+      if (location !== undefined) coreUpdates.location = location;
+      if (Object.keys(coreUpdates).length > 0) {
+        await db.update(teachers).set(coreUpdates).where(eq(teachers.id, teacherId));
+      }
+      // Upsert extended profile
+      const profile = await storage.upsertTeacherProfile(teacherId, {
+        fatherName: fatherName || null,
+        phoneNumber: phoneNumber || null,
+        cnic: cnic || null,
+      });
+      res.json({ success: true, profile });
+    } catch (error) {
+      console.error("Error updating teacher profile:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Approval routes for admin
   app.get("/api/admin/pending-trainers", isAuthenticated, isStrictAdmin, async (req, res) => {
     try {

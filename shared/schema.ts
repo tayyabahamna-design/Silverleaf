@@ -827,3 +827,44 @@ export const insertScheduledEventSchema = createInsertSchema(scheduledEvents).om
 
 export type InsertScheduledEvent = z.infer<typeof insertScheduledEventSchema>;
 export type ScheduledEvent = typeof scheduledEvents.$inferSelect;
+
+// ── Extended profiles for admin/trainer users ──────────────────────────────
+// Stores additional personal details not in the core users table
+export const userProfiles = pgTable("user_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: "cascade" }),
+  fatherName: varchar("father_name"),
+  phoneNumber: varchar("phone_number"),
+  qualification: varchar("qualification"),   // e.g. 'bachelor', 'master', 'phd', 'other'
+  cnic: varchar("cnic"),                     // NIDA/CNIC national ID number
+  gender: varchar("gender"),                 // 'male', 'female', 'other', 'prefer_not_to_say'
+  dateOfBirth: timestamp("date_of_birth"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
+export type UserProfile = typeof userProfiles.$inferSelect;
+
+// ── Extended profile columns added to teachers via virtual migration ───────
+// Teacher profile extras — stored separately to avoid altering core teachers table
+export const teacherProfiles = pgTable("teacher_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  teacherId: varchar("teacher_id").notNull().unique().references(() => teachers.id, { onDelete: "cascade" }),
+  fatherName: varchar("father_name"),
+  phoneNumber: varchar("phone_number"),
+  cnic: varchar("cnic"),                     // NIDA/CNIC national ID number
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertTeacherProfileSchema = createInsertSchema(teacherProfiles).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertTeacherProfile = z.infer<typeof insertTeacherProfileSchema>;
+export type TeacherProfile = typeof teacherProfiles.$inferSelect;

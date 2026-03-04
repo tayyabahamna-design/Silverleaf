@@ -67,6 +67,10 @@ import {
   type InsertTeacherGoal,
   type ScheduledEvent,
   type InsertScheduledEvent,
+  type UserProfile,
+  type InsertUserProfile,
+  type TeacherProfile,
+  type InsertTeacherProfile,
   trainingWeeks,
   approvalHistory,
   users,
@@ -100,6 +104,8 @@ import {
   alertRules,
   teacherGoals,
   scheduledEvents,
+  userProfiles,
+  teacherProfiles,
   openEndedReviews,
   type OpenEndedReview,
   type InsertOpenEndedReview,
@@ -361,6 +367,14 @@ export interface IStorage {
   getScheduledEvents(batchId: string): Promise<ScheduledEvent[]>;
   getScheduledEventsForTeacher(teacherId: string): Promise<ScheduledEvent[]>;
   deleteScheduledEvent(id: string): Promise<void>;
+
+  // User profile operations (admin/trainer)
+  getUserProfile(userId: string): Promise<UserProfile | undefined>;
+  upsertUserProfile(userId: string, data: Partial<InsertUserProfile>): Promise<UserProfile>;
+
+  // Teacher profile operations
+  getTeacherProfile(teacherId: string): Promise<TeacherProfile | undefined>;
+  upsertTeacherProfile(teacherId: string, data: Partial<InsertTeacherProfile>): Promise<TeacherProfile>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2863,6 +2877,50 @@ export class DatabaseStorage implements IStorage {
 
   async deleteScheduledEvent(id: string): Promise<void> {
     await db.delete(scheduledEvents).where(eq(scheduledEvents.id, id));
+  }
+
+  // ── User Profile Operations (admin/trainer) ──
+
+  async getUserProfile(userId: string): Promise<UserProfile | undefined> {
+    const [profile] = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId));
+    return profile;
+  }
+
+  async upsertUserProfile(userId: string, data: Partial<InsertUserProfile>): Promise<UserProfile> {
+    const existing = await this.getUserProfile(userId);
+    if (existing) {
+      const [updated] = await db.update(userProfiles)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(userProfiles.userId, userId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(userProfiles)
+      .values({ userId, ...data })
+      .returning();
+    return created;
+  }
+
+  // ── Teacher Profile Operations ──
+
+  async getTeacherProfile(teacherId: string): Promise<TeacherProfile | undefined> {
+    const [profile] = await db.select().from(teacherProfiles).where(eq(teacherProfiles.teacherId, teacherId));
+    return profile;
+  }
+
+  async upsertTeacherProfile(teacherId: string, data: Partial<InsertTeacherProfile>): Promise<TeacherProfile> {
+    const existing = await this.getTeacherProfile(teacherId);
+    if (existing) {
+      const [updated] = await db.update(teacherProfiles)
+        .set({ ...data, updatedAt: new Date() })
+        .where(eq(teacherProfiles.teacherId, teacherId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(teacherProfiles)
+      .values({ teacherId, ...data })
+      .returning();
+    return created;
   }
 }
 
