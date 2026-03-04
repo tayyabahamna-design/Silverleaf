@@ -1049,7 +1049,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await storage.saveCachedQuiz({
               weekId: req.params.id,
               deckFileId: file.id,
-              questions
+              questions,
+              approved: true,
             });
 
             const cacheTime = Date.now() - cacheStartTime;
@@ -1616,7 +1617,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const savedQuiz = await storage.saveCachedQuiz({
         weekId,
         deckFileId: fileId,
-        questions
+        questions,
+        approved: true,
       });
       console.log(`[FILE-QUIZ] ✅ Successfully saved quiz, cached questions count:`, savedQuiz.questions.length);
 
@@ -1676,6 +1678,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk generate quizzes for all files missing a quiz (admin — background)
+  app.post("/api/admin/generate-missing-quizzes", isAuthenticated, isStrictAdmin, async (req, res) => {
+    try {
+      const weeks = await storage.getAllTrainingWeeks();
+      const missing: Array<{ weekId: string; fileId: string; fileName: string }> = [];
+
+      for (const week of weeks) {
+        if (!week.deckFiles || week.deckFiles.length === 0) continue;
+        for (const file of week.deckFiles) {
+          const cached = await storage.getCachedQuiz(week.id, file.id);
+          if (!cached || cached.questions.length === 0) {
+            missing.push({ weekId: week.id, fileId: file.id, fileName: file.fileName });
+          }
+        }
+      }
+
+      res.json({ queued: missing.length, files: missing.map(m => m.fileName) });
+
+      // Run generation in background after responding
+      setImmediate(async () => {
+        const { generateSingleFileQuiz } = await import('./quizService');
+        for (const item of missing) {
+          try {
+            const week = weeks.find(w => w.id === item.weekId)!;
+            const file = week.deckFiles!.find(f => f.id === item.fileId)!;
+            const questions = await generateSingleFileQuiz({
+              fileUrl: file.fileUrl,
+              fileName: file.fileName,
+              competencyFocus: week.competencyFocus,
+              objective: week.objective,
+              numQuestions: 10,
+              openEndedCount: 2,
+            });
+            await storage.saveCachedQuiz({ weekId: item.weekId, deckFileId: item.fileId, questions, approved: true });
+            console.log(`[BULK-GEN] ✅ Generated quiz for ${item.fileName}`);
+          } catch (err) {
+            console.error(`[BULK-GEN] ❌ Failed for ${item.fileName}:`, err);
+          }
+        }
+        console.log(`[BULK-GEN] Done. Processed ${missing.length} files.`);
+      });
+    } catch (error) {
+      console.error("[BULK-GEN] Error:", error);
+      res.status(500).json({ error: "Failed to start bulk generation" });
+    }
+  });
+
   // Force-regenerate quiz for a file (admin — bypasses cache)
   app.post("/api/training-weeks/:weekId/files/:fileId/regenerate-quiz-admin", isAuthenticated, async (req, res) => {
     try {
@@ -1697,7 +1746,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         numQuestions: 10,
         openEndedCount: 2,
       });
-      await storage.saveCachedQuiz({ weekId, deckFileId: fileId, questions });
+      await storage.saveCachedQuiz({ weekId, deckFileId: fileId, questions, approved: true });
       res.json({ success: true, questionCount: questions.length });
     } catch (error) {
       console.error("[ADMIN-REGEN] Error:", error);

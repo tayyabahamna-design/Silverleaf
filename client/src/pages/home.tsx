@@ -241,6 +241,27 @@ export default function Home() {
     }
   };
 
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const generateMissingQuizzes = async () => {
+    setBulkGenerating(true);
+    try {
+      const res = await apiRequest("POST", "/api/admin/generate-missing-quizzes");
+      const data = await res.json();
+      if (data.queued === 0) {
+        toast({ title: "All quizzes already generated", description: "No files are missing quizzes." });
+      } else {
+        toast({
+          title: `Generating quizzes for ${data.queued} file${data.queued !== 1 ? 's' : ''}`,
+          description: "This runs in the background. Refresh quiz status in a minute.",
+        });
+      }
+    } catch (_) {
+      toast({ title: "Failed to start generation", variant: "destructive" });
+    } finally {
+      setBulkGenerating(false);
+    }
+  };
+
   const resetPasswordMutation = useMutation({
     mutationFn: async ({ userIdentifier, newPassword }: { userIdentifier: string; newPassword: string }) => {
       return apiRequest("POST", "/api/admin/reset-user-password", { userIdentifier, newPassword });
@@ -448,6 +469,15 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-6 sm:mb-8">
             <h2 className="text-2xl sm:text-3xl font-bold">Training Courses</h2>
             <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                onClick={generateMissingQuizzes}
+                disabled={bulkGenerating}
+                title="Auto-generate quizzes for all files that don't have one yet"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${bulkGenerating ? 'animate-spin' : ''}`} />
+                {bulkGenerating ? "Queuing..." : "Generate Missing Quizzes"}
+              </Button>
               <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" data-testid="button-reset-password">
